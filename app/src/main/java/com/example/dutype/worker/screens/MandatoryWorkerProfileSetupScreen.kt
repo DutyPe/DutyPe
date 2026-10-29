@@ -370,8 +370,8 @@ fun MandatoryWorkerProfileSetupScreen(
         }
     }
 
-    // Validation: Strict coordinate verification & UIDAI Aadhaar compliance
-    val isNameValid = fullNameInput.trim().length >= 2
+    // Validation: Strict coordinate verification & UIDAI Aadhaar compliance (name >= 3 chars mandatory)
+    val isNameValid = fullNameInput.trim().length >= 3
     val isSkillsValid = selectedSkills.isNotEmpty()
     val isLocationValid = (GeoUtils.hasValidCoordinates(workerLatitude, workerLongitude) || QuickLocations.matchCoordinates(workerAddress) != null) && workerAddress.isNotBlank()
     val cleanAadhaarInput = AadhaarVerifier.clean(aadhaarNumberInput)
@@ -483,15 +483,19 @@ fun MandatoryWorkerProfileSetupScreen(
                 // 1. Save to Worker Profiles
                 profileCompletionViewModel.saveWorker(workerProfileData).getOrThrow()
 
-                // 2. Authoritative sync to central users collection (so all queries know user location)
+                // 2. Authoritative sync to central users collection (so all queries know user location & verified name)
                 val userLocationUpdate = mapOf<String, Any?>(
+                    "name" to fullNameInput.trim(),
+                    "fullName" to fullNameInput.trim(),
                     "lat" to finalLat,
                     "lng" to finalLng,
                     "geohash" to geohashStr,
                     "address" to workerAddress.trim(),
                     "area" to (detectedAreaText ?: workerAddress.take(40)),
+                    "city" to (detectedAreaText ?: workerAddress.take(40)),
                     "hasLocation" to true,
-                    "locationUpdatedAt" to com.google.firebase.Timestamp.now()
+                    "locationUpdatedAt" to com.google.firebase.Timestamp.now(),
+                    "updatedAt" to com.google.firebase.Timestamp.now()
                 )
                 runCatching {
                     com.google.firebase.firestore.FirebaseFirestore.getInstance()

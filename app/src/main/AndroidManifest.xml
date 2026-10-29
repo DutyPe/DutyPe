@@ -18,7 +18,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     
-    <!-- Explicit Hardware Feature Declarations: Prevent Google Play from filtering budget/Go devices -->
+    <!-- Explicit Hardware Feature Declarations: Prevent Google Play from filtering budget/Go/Oppo/Motorola devices -->
     <!-- Location features: DutyPe works with GPS, Network, or manual city/area selection -->
     <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
@@ -28,25 +28,35 @@
     <!-- Used for: Job alerts, application status updates, employer messages -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
-    <!-- Camera Permission & Features: Fixed-focus budget devices & devices without front camera -->
+    <!-- Camera Permission & Features: Fixed-focus budget devices & devices without front camera/flash -->
     <!-- Used for: Profile photo capture, QR code scanning for work verification -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     
     <!-- Biometric/Fingerprint features (injected by security libraries, optional on budget phones) -->
     <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
     <uses-feature android:name="android.hardware.biometrics" android:required="false" tools:ignore="UnusedAttribute" />
 
-    <!-- Connectivity and Telephony features -->
+    <!-- Connectivity and Telephony features - optional for wifi-only tablets and various carrier chipsets -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony.gsm" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony.cdma" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.audio.output" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen.multitouch" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen.multitouch.distinct" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen.multitouch.jazzhand" android:required="false" />
     <uses-feature android:name="android.hardware.faketouch" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
 
     <!-- WAKE_LOCK - Auto-granted by WorkManager, not shown to users -->
     <!-- Used for: Background job sync and notification delivery -->

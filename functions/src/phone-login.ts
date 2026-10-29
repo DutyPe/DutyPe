@@ -382,6 +382,9 @@ export const truecallerSignIn = onCallSecured(
             const updates: Record<string, unknown> = {};
             if (!pData[EmployerProfiles.EMAIL] && tc.email) updates[EmployerProfiles.EMAIL] = tc.email;
             if (!pData[EmployerProfiles.PHOTO_URL] && tc.picture) updates[EmployerProfiles.PHOTO_URL] = tc.picture;
+            if ((!pData[EmployerProfiles.OWNER_NAME] || pData[EmployerProfiles.OWNER_NAME] === "User") && tc.name) updates[EmployerProfiles.OWNER_NAME] = tc.name;
+            if ((!pData[EmployerProfiles.BUSINESS_NAME] || pData[EmployerProfiles.BUSINESS_NAME] === "Employer") && tc.name) updates[EmployerProfiles.BUSINESS_NAME] = tc.name;
+            if (!pData[EmployerProfiles.AREA] && tc.city) updates[EmployerProfiles.AREA] = tc.city;
             if (Object.keys(updates).length > 0) {
               await db.collection(collection).doc(uid).update(updates).catch(() => undefined);
             }
@@ -393,6 +396,8 @@ export const truecallerSignIn = onCallSecured(
             const updates: Record<string, unknown> = {};
             if (!pData[WorkerProfiles.EMAIL] && tc.email) updates[WorkerProfiles.EMAIL] = tc.email;
             if (!pData[WorkerProfiles.PHOTO_URL] && tc.picture) updates[WorkerProfiles.PHOTO_URL] = tc.picture;
+            if ((!pData[WorkerProfiles.NAME] || pData[WorkerProfiles.NAME] === "User") && tc.name) updates[WorkerProfiles.NAME] = tc.name;
+            if (!pData[WorkerProfiles.AREA] && tc.city) updates[WorkerProfiles.AREA] = tc.city;
             if (Object.keys(updates).length > 0) {
               await db.collection(collection).doc(uid).update(updates).catch(() => undefined);
             }
@@ -408,8 +413,12 @@ export const truecallerSignIn = onCallSecured(
           uid,
           phoneNumber: phone,
           name: tc.name || "User",
+          fullName: tc.name || "User",
           email: tc.email || null,
           profileImageUrl: tc.picture || null,
+          photoUrl: tc.picture || null,
+          city: tc.city || null,
+          area: tc.city || null,
           role: existingRole || role,
           authMethod: "TRUECALLER",
           createdAt: Timestamp.now(),
@@ -419,8 +428,13 @@ export const truecallerSignIn = onCallSecured(
         const uData = userSnap.data() || {};
         const userUpdates: Record<string, unknown> = { updatedAt: Timestamp.now() };
         if (!uData.profileImageUrl && tc.picture) userUpdates.profileImageUrl = tc.picture;
+        if (!uData.photoUrl && tc.picture) userUpdates.photoUrl = tc.picture;
+        if (!uData.city && tc.city) { userUpdates.city = tc.city; userUpdates.area = tc.city; }
         if (!uData.email && tc.email) userUpdates.email = tc.email;
-        if ((!uData.name || uData.name === "User") && tc.name) userUpdates.name = tc.name;
+        if ((!uData.name || uData.name === "User") && tc.name) {
+          userUpdates.name = tc.name;
+          userUpdates.fullName = tc.name;
+        }
         if (Object.keys(userUpdates).length > 1) {
           await userDocRef.update(userUpdates).catch(() => undefined);
         }

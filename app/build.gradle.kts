@@ -47,12 +47,12 @@ if (localPropertiesFile.exists()) {
 
 android {
 	namespace = "com.dutype.app"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
 		applicationId = "com.dutype.app"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 851
         versionName = "7.2"
 
@@ -66,13 +66,13 @@ android {
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         
-        // Native ABI Support:
-        // - armeabi-v7a: Essential for 32-bit budget Android devices & Android Go Edition (e.g. TECNO POP 9)
-        // - arm64-v8a: Standard 64-bit ARM architecture (with 16KB ELF page size support for Android 15+)
-        // - x86_64: 64-bit emulators & ChromeOS devices
+        // Native ABI Support across all global Android devices:
+        // - armeabi-v7a: 32-bit budget Android devices & Android Go Edition
+        // - arm64-v8a: Standard 64-bit ARM architecture (with 16KB ELF page size support)
+        // - x86, x86_64: 32/64-bit emulators & ChromeOS devices
         ndk {
             abiFilters.clear()
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
     }
 

@@ -149,8 +149,24 @@ exports.setInstantResponseStatus = (0, secure_callable_1.onCallSecured)({}, asyn
         const request = await ownedRequest(tx, id, uid);
         const responseRef = request.ref.collection(R.COLLECTION).doc(workerId);
         const response = await tx.get(responseRef);
-        if (!response.exists)
-            (0, input_1.fail)("not-found", "This worker has not responded");
+        let previous = "";
+        if (!response.exists) {
+            if (status === RS.ACCEPTED) {
+                const workerSnap = await tx.get(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(workerId));
+                const workerName = workerSnap.exists ? String(workerSnap.get(schema_1.WorkerProfiles.NAME) || "Assigned Worker") : "Assigned Worker";
+                tx.set(responseRef, {
+                    [R.WORKER_ID]: workerId,
+                    [R.STATUS]: RS.ACCEPTED,
+                    [R.WORKER_NAME]: workerName,
+                    [R.CREATED_AT]: Timestamp.now(),
+                });
+                tx.update(request.ref, { [schema_1.InstantRequests.RESPONSE_COUNT]: FieldValue.increment(1) });
+                previous = "none";
+            }
+            else {
+                (0, input_1.fail)("not-found", "This worker has not responded");
+            }
+        }
         const requestStatus = String(request.get(schema_1.InstantRequests.STATUS));
         if (requestStatus === ST.CANCELLED || requestStatus === ST.EXPIRED)
             (0, input_1.fail)("failed-precondition", "This urgent need is closed");
@@ -164,7 +180,9 @@ exports.setInstantResponseStatus = (0, secure_callable_1.onCallSecured)({}, asyn
             const done = await tx.get(request.ref.collection(R.COLLECTION).where(R.STATUS, "==", RS.COMPLETED));
             completedCount = done.docs.filter((d) => d.id !== workerId).length + 1;
         }
-        const previous = String(response.get(R.STATUS));
+        if (response.exists) {
+            previous = String(response.get(R.STATUS));
+        }
         // Removed, no-show or finished: the worker may take another urgent job.
         const release = status === RS.ACCEPTED ? [] : await (0, urgent_1.readActiveWorkers)(tx, id, [workerId]);
         if (status === RS.ACCEPTED || status === RS.COMPLETED)
@@ -177,7 +195,9 @@ exports.setInstantResponseStatus = (0, secure_callable_1.onCallSecured)({}, asyn
         // A place opened up again: offers restart from 5 km.
         const reopened = finalStatus === ST.OPEN && (status === RS.REJECTED || status === RS.NO_SHOW) &&
             (previous === RS.ACCEPTED || requestStatus === ST.FILLED);
-        tx.update(responseRef, Object.assign({ [R.STATUS]: status }, (reason ? { [R.REASON]: reason } : {})));
+        if (response.exists) {
+            tx.update(responseRef, Object.assign({ [R.STATUS]: status }, (reason ? { [R.REASON]: reason } : {})));
+        }
         tx.update(request.ref, Object.assign(Object.assign({ [schema_1.InstantRequests.SELECTED_WORKER_IDS]: Array.from(selected), [schema_1.InstantRequests.STATUS]: finalStatus }, (reopened ? {
             [schema_1.InstantRequests.DISPATCH_RADIUS_KM]: 0,
             [schema_1.InstantRequests.NEXT_WAVE_AT]: Timestamp.now(),

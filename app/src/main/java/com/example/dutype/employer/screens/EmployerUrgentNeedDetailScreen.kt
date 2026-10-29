@@ -262,6 +262,11 @@ fun EmployerUrgentNeedDetailScreen(
                 }
             }
         },
+        onHireMatchedWorker = { worker ->
+            request?.let {
+                instantHelpViewModel.hireWorkerForUrgentRequest(it.requestId, worker.workerId)
+            }
+        },
         onOpenMatchedWorkerProfile = { worker ->
             navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
         },

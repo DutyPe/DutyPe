@@ -53,7 +53,7 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAut
     if (!phone)
         (0, input_1.fail)("failed-precondition", "Sign in with your mobile number first");
     const role = (0, input_1.oneOf)(data, "role", ROLES);
-    const name = (0, input_1.str)(data, "name", { min: 2, max: 80 });
+    const name = (0, input_1.str)(data, "name", { min: 3, max: 80 });
     const referralCode = (0, input_1.str)(data, "referralCode", { max: 20, optional: true });
     // Employers choose at registration whether the name is a person or a business.
     const employerType = data.employerType === schema_1.Values.EmployerType.COMPANY ?

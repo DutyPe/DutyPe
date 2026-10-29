@@ -463,6 +463,7 @@ internal fun EmployerUrgentNeedDetailContent(
     onRefreshMatchedWorkers: () -> Unit = {},
     onCallMatchedWorker: (MatchedWorker) -> Unit = {},
     onChatMatchedWorker: (MatchedWorker) -> Unit = {},
+    onHireMatchedWorker: ((MatchedWorker) -> Unit)? = null,
     onOpenMatchedWorkerProfile: (MatchedWorker) -> Unit = {},
     onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (com.example.dutype.models.InstantResponse) -> Unit,
@@ -498,7 +499,7 @@ internal fun EmployerUrgentNeedDetailContent(
             )
         }
         else -> {
-            var selectedTab by remember { mutableIntStateOf(if (responses.isNotEmpty()) 1 else 0) }
+            var selectedTab by remember(responses.isNotEmpty()) { mutableIntStateOf(if (responses.isNotEmpty()) 1 else 0) }
             val responseSelectedCount = responses.count { it.status.equals("accepted", ignoreCase = true) || it.status.equals("completed", ignoreCase = true) }
             val selectedCount = maxOf(request.selectedWorkerIds.size, responseSelectedCount)
             val requiredWorkers = request.workersNeeded.coerceAtLeast(1)
@@ -685,6 +686,9 @@ internal fun EmployerUrgentNeedDetailContent(
                         } else {
                             itemsIndexed(matchedWorkersState.workers, key = { index, w -> "matched_${w.workerId}_$index" }) { _, worker ->
                                 UrgentMatchedWorkerCard(
+                                    isHired = worker.workerId in request.selectedWorkerIds,
+                                    isHiring = updatingResponseId == worker.workerId,
+                                    onHireWorker = { onHireMatchedWorker?.invoke(worker) },
                                     worker = worker,
                                     onCallWorker = { onCallMatchedWorker(worker) },
                                     onChatWorker = { onChatMatchedWorker(worker) },
@@ -737,6 +741,9 @@ internal fun EmployerUrgentNeedDetailContent(
 @Composable
 internal fun UrgentMatchedWorkerCard(
     worker: MatchedWorker,
+    isHired: Boolean = false,
+    isHiring: Boolean = false,
+    onHireWorker: (() -> Unit)? = null,
     onCallWorker: () -> Unit,
     onChatWorker: (() -> Unit)? = null,
     onOpenProfile: () -> Unit,
@@ -930,6 +937,41 @@ internal fun UrgentMatchedWorkerCard(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
+                    }
+                }
+            }
+
+            if (isHired) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFDCFCE7)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Worker Hired / Assigned", fontWeight = FontWeight.Bold, color = Color(0xFF16A34A), fontSize = 13.sp)
+                    }
+                }
+            } else if (onHireWorker != null) {
+                Button(
+                    onClick = onHireWorker,
+                    enabled = !isHiring,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFBBF24)),
+                    elevation = ButtonDefaults.buttonElevation(0.dp)
+                ) {
+                    if (isHiring) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFF1E293B))
+                    } else {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E293B))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.hire_worker_btn), fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), fontSize = 13.sp)
                     }
                 }
             }

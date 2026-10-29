@@ -364,8 +364,8 @@ fun MandatoryEmployerProfileSetupScreen(
         }
     }
 
-    // Validation
-    val isNameValid = fullNameInput.trim().length >= 2
+    // Validation (name >= 3 characters mandatory)
+    val isNameValid = fullNameInput.trim().length >= 3
     val isEmailValid = email.isBlank() || android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
     val isLocationValid = (GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude) || QuickLocations.matchCoordinates(businessAddress) != null) && businessAddress.isNotBlank()
     val isFormValid = isNameValid && isEmailValid && isLocationValid
@@ -445,6 +445,11 @@ fun MandatoryEmployerProfileSetupScreen(
 
                 // 2. Authoritative sync to central users collection
                 val userLocationUpdate = mapOf<String, Any?>(
+                    "name" to fullName.trim(),
+                    "fullName" to fullName.trim(),
+                    "businessName" to (if (hasShop) shopOrBusinessName.trim() else fullName.trim()),
+                    "city" to (detectedAreaText ?: businessAddress.take(40)),
+                    "updatedAt" to com.google.firebase.Timestamp.now(),
                     "lat" to finalLat,
                     "lng" to finalLng,
                     "geohash" to geohashStr,

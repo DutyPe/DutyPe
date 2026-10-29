@@ -54,7 +54,7 @@ export const completeRegistration = onCallSecured(
     }
   if (!phone) fail("failed-precondition", "Sign in with your mobile number first");
   const role = oneOf(data, "role", ROLES);
-  const name = str(data, "name", { min: 2, max: 80 });
+  const name = str(data, "name", { min: 3, max: 80 });
   const referralCode = str(data, "referralCode", { max: 20, optional: true });
   // Employers choose at registration whether the name is a person or a business.
   const employerType = data.employerType === Values.EmployerType.COMPANY ?

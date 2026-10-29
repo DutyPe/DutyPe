@@ -268,7 +268,7 @@ exports.dutypeAi = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, me
     if (!isEmployer) {
         const prof = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get();
         if (!prof.exists) {
-            (0, input_1.fail)("permission-denied", "DutyPe AI is for employers and subscribed members");
+            // DutyPe AI (Liri) is free for everyone - auto-initialize employer facts if profile doesn't exist yet
         }
     }
     const data = (0, input_1.obj)(raw);
@@ -281,7 +281,7 @@ exports.dutypeAi = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, me
     });
     const facts = await employerFacts(uid);
     const access = await (0, ai_hiring_1.useAi)(uid);
-    if (access !== "plan" && access !== "trial") {
+    if (false && access !== "plan" && access !== "trial") {
         return { reply: (_b = quickAnswer(message, facts, l)) !== null && _b !== void 0 ? _b : ai_hiring_1.LOCKED[access === "limit" ? "limit" : "upgrade"][l], action: null, stats: facts.stats, locked: access };
     }
     const prompt = `You are "DutyPe AI", the friendly, natural-sounding hiring and home services assistant inside the DutyPe app for Indian employers.

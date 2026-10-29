@@ -203,7 +203,7 @@ class DutyPeAiViewModel @Inject constructor(
             return
         }
         val isSubscribed = subscription.value.status == "ACTIVE" && (subscription.value.expiresAt == 0L || subscription.value.expiresAt > System.currentTimeMillis())
-        if (!isSubscribed) {
+        if (false && !isSubscribed) {
             val lockMsg = "DutyPe AI Assistant (Liri) is exclusively available for subscribed members. Please subscribe to a plan to use AI assistance!"
             _state.update {
                 it.copy(
@@ -666,7 +666,7 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
             }
 
             val isSubscribed = subscription.status == "ACTIVE" && (subscription.expiresAt == 0L || subscription.expiresAt > System.currentTimeMillis())
-            if (!isSubscribed && !state.needsLogin) {
+            if (false && !isSubscribed && !state.needsLogin) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -162,6 +162,24 @@ class InstantHelpViewModel @Inject constructor(
 
     fun acceptEmployerInstantResponse(response: InstantResponse) = updateResponse(response, "accepted", "Worker selected")
 
+    fun hireWorkerForUrgentRequest(requestId: String, workerId: String, onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(updatingEmployerResponseId = workerId, error = null) }
+            instantHelpService.setResponseStatusById(requestId, workerId, "accepted", "Worker assigned by employer").fold(
+                onSuccess = {
+                    loadEmployerUrgentNeeds()
+                    loadResponsesForSingleRequest(requestId)
+                    _uiState.update { it.copy(updatingEmployerResponseId = null, message = "Worker hired successfully!") }
+                    onComplete?.invoke(true)
+                },
+                onFailure = { err ->
+                    _uiState.update { it.copy(updatingEmployerResponseId = null, error = err.message ?: "Failed to assign worker") }
+                    onComplete?.invoke(false)
+                }
+            )
+        }
+    }
+
     @Suppress("UNUSED_PARAMETER")
     fun completeEmployerInstantResponse(response: InstantResponse, completionProof: String = "") =
         updateResponse(response, "completed", "Urgent work marked done")

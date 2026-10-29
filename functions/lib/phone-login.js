@@ -371,6 +371,12 @@ exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: f
                         updates[schema_1.EmployerProfiles.EMAIL] = tc.email;
                     if (!pData[schema_1.EmployerProfiles.PHOTO_URL] && tc.picture)
                         updates[schema_1.EmployerProfiles.PHOTO_URL] = tc.picture;
+                    if ((!pData[schema_1.EmployerProfiles.OWNER_NAME] || pData[schema_1.EmployerProfiles.OWNER_NAME] === "User") && tc.name)
+                        updates[schema_1.EmployerProfiles.OWNER_NAME] = tc.name;
+                    if ((!pData[schema_1.EmployerProfiles.BUSINESS_NAME] || pData[schema_1.EmployerProfiles.BUSINESS_NAME] === "Employer") && tc.name)
+                        updates[schema_1.EmployerProfiles.BUSINESS_NAME] = tc.name;
+                    if (!pData[schema_1.EmployerProfiles.AREA] && tc.city)
+                        updates[schema_1.EmployerProfiles.AREA] = tc.city;
                     if (Object.keys(updates).length > 0) {
                         await db.collection(collection).doc(uid).update(updates).catch(() => undefined);
                     }
@@ -385,6 +391,10 @@ exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: f
                         updates[schema_1.WorkerProfiles.EMAIL] = tc.email;
                     if (!pData[schema_1.WorkerProfiles.PHOTO_URL] && tc.picture)
                         updates[schema_1.WorkerProfiles.PHOTO_URL] = tc.picture;
+                    if ((!pData[schema_1.WorkerProfiles.NAME] || pData[schema_1.WorkerProfiles.NAME] === "User") && tc.name)
+                        updates[schema_1.WorkerProfiles.NAME] = tc.name;
+                    if (!pData[schema_1.WorkerProfiles.AREA] && tc.city)
+                        updates[schema_1.WorkerProfiles.AREA] = tc.city;
                     if (Object.keys(updates).length > 0) {
                         await db.collection(collection).doc(uid).update(updates).catch(() => undefined);
                     }
@@ -399,8 +409,12 @@ exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: f
                 uid,
                 phoneNumber: phone,
                 name: tc.name || "User",
+                fullName: tc.name || "User",
                 email: tc.email || null,
                 profileImageUrl: tc.picture || null,
+                photoUrl: tc.picture || null,
+                city: tc.city || null,
+                area: tc.city || null,
                 role: existingRole || role,
                 authMethod: "TRUECALLER",
                 createdAt: Timestamp.now(),
@@ -412,10 +426,18 @@ exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: f
             const userUpdates = { updatedAt: Timestamp.now() };
             if (!uData.profileImageUrl && tc.picture)
                 userUpdates.profileImageUrl = tc.picture;
+            if (!uData.photoUrl && tc.picture)
+                userUpdates.photoUrl = tc.picture;
+            if (!uData.city && tc.city) {
+                userUpdates.city = tc.city;
+                userUpdates.area = tc.city;
+            }
             if (!uData.email && tc.email)
                 userUpdates.email = tc.email;
-            if ((!uData.name || uData.name === "User") && tc.name)
+            if ((!uData.name || uData.name === "User") && tc.name) {
                 userUpdates.name = tc.name;
+                userUpdates.fullName = tc.name;
+            }
             if (Object.keys(userUpdates).length > 1) {
                 await userDocRef.update(userUpdates).catch(() => undefined);
             }

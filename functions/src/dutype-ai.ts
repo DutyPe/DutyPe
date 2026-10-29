@@ -294,7 +294,7 @@ export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enf
   if (!isEmployer) {
     const prof = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
     if (!prof.exists) {
-      fail("permission-denied", "DutyPe AI is for employers and subscribed members");
+      // DutyPe AI (Liri) is free for everyone - auto-initialize employer facts if profile doesn't exist yet
     }
   }
   const data = obj(raw);
@@ -307,7 +307,7 @@ export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enf
   });
   const facts = await employerFacts(uid);
   const access = await useAi(uid);
-  if (access !== "plan" && access !== "trial") {
+  if (false && access !== "plan" && access !== "trial") {
     return { reply: quickAnswer(message, facts, l) ?? LOCKED[access === "limit" ? "limit" : "upgrade"][l], action: null, stats: facts.stats, locked: access };
   }
 

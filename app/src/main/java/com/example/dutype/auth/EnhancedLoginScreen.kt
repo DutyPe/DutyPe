@@ -224,8 +224,11 @@ private fun OtpLoginScreen(
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
                                 email = otpViewModel.lastTruecallerResult?.email ?: "",
                                 name = resolvedName ?: "",
-                                role = outcome.role
-                            )
+                                role = outcome.role
+                            )
+                            otpViewModel.lastTruecallerResult?.photoUrl?.trim()?.takeIf { it.isNotBlank() }?.let { pic ->
+                                profileCompletionViewModel.saveUserPhotoUrl(pic)
+                            }
                             if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
                                 profileCompletionViewModel.markProfileComplete(outcome.role)
                                 profileCompletionViewModel.markProfileSetupAsShown(outcome.role)

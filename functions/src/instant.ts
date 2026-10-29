@@ -174,7 +174,23 @@ export const setInstantResponseStatus = onCallSecured({}, async (raw: unknown, c
     const request = await ownedRequest(tx, id, uid);
     const responseRef = request.ref.collection(R.COLLECTION).doc(workerId);
     const response = await tx.get(responseRef);
-    if (!response.exists) fail("not-found", "This worker has not responded");
+    let previous = "";
+    if (!response.exists) {
+      if (status === RS.ACCEPTED) {
+        const workerSnap = await tx.get(db.collection(WorkerProfiles.COLLECTION).doc(workerId));
+        const workerName = workerSnap.exists ? String(workerSnap.get(WorkerProfiles.NAME) || "Assigned Worker") : "Assigned Worker";
+        tx.set(responseRef, {
+          [R.WORKER_ID]: workerId,
+          [R.STATUS]: RS.ACCEPTED,
+          [R.WORKER_NAME]: workerName,
+          [R.CREATED_AT]: Timestamp.now(),
+        });
+        tx.update(request.ref, { [InstantRequests.RESPONSE_COUNT]: FieldValue.increment(1) });
+        previous = "none";
+      } else {
+        fail("not-found", "This worker has not responded");
+      }
+    }
     const requestStatus = String(request.get(InstantRequests.STATUS));
     if (requestStatus === ST.CANCELLED || requestStatus === ST.EXPIRED) fail("failed-precondition", "This urgent need is closed");
 
@@ -188,7 +204,9 @@ export const setInstantResponseStatus = onCallSecured({}, async (raw: unknown, c
       const done = await tx.get(request.ref.collection(R.COLLECTION).where(R.STATUS, "==", RS.COMPLETED));
       completedCount = done.docs.filter((d) => d.id !== workerId).length + 1;
     }
-    const previous = String(response.get(R.STATUS));
+    if (response.exists) {
+      previous = String(response.get(R.STATUS));
+    }
     // Removed, no-show or finished: the worker may take another urgent job.
     const release = status === RS.ACCEPTED ? [] : await readActiveWorkers(tx, id, [workerId]);
 
@@ -201,7 +219,9 @@ export const setInstantResponseStatus = onCallSecured({}, async (raw: unknown, c
     const reopened = finalStatus === ST.OPEN && (status === RS.REJECTED || status === RS.NO_SHOW) &&
       (previous === RS.ACCEPTED || requestStatus === ST.FILLED);
 
-    tx.update(responseRef, { [R.STATUS]: status, ...(reason ? { [R.REASON]: reason } : {}) });
+    if (response.exists) {
+      tx.update(responseRef, { [R.STATUS]: status, ...(reason ? { [R.REASON]: reason } : {}) });
+    }
     tx.update(request.ref, {
       [InstantRequests.SELECTED_WORKER_IDS]: Array.from(selected),
       [InstantRequests.STATUS]: finalStatus,
