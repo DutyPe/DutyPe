@@ -1,575 +1,687 @@
-package com.example.dutype.navigation
-
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.zIndex
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import androidx.navigation.navDeepLink
-import com.example.dutype.components.EmployerBottomBar
-import com.example.dutype.employer.screens.AnalyticsScreen
-import com.example.dutype.employer.screens.EditJobScreen
-import com.example.dutype.employer.screens.EmployerJobPreviewScreen
-
-import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
-import com.example.dutype.employer.screens.EmployerHomeScreen
-import com.example.dutype.employer.screens.EmployerNotificationScreen
-import com.example.dutype.employer.screens.EmployerReferEarnScreen
-import com.example.dutype.employer.screens.EmployerSupportScreen
-import com.example.dutype.employer.screens.EmployerAboutScreen
-import com.example.dutype.employer.screens.EmployerUrgentNeedDetailScreen
-import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
-
-import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
-import com.example.dutype.employer.screens.PostJobScreen
-import com.example.dutype.employer.screens.PostUrgentNeedScreen
-import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
-import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
-import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
-
-import com.example.dutype.utils.rememberScrollStateManager
-
-@Composable
-fun EmployerMainScreen(
-    rootNavController: NavController,
-    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
-) {
-    val navController = rememberNavController()
-    val scrollStateManager = rememberScrollStateManager()
-
-    // BUG #1 FIX: Drain any inner-route handoff queued by the outer graph
-    // (e.g. when the user finishes employer profile setup with
-    // `returnRoute = employer_post_job`). Runs once after this NavHost mounts
-    // so the desired destination is pushed onto the inner controller.
-    androidx.compose.runtime.LaunchedEffect(navController) {
-        EmployerInnerNavQueue.consume()?.let { pending ->
-            navController.navigate(pending) {
-                launchSingleTop = true
-            }
-        }
-    }
-
-    // Track current route to conditionally show bottom bar
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    // Handle back press gracefully: exit on double back from Dashboard, navigate to Dashboard from other tabs
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var lastBackPressTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    androidx.activity.compose.BackHandler(enabled = true) {
-        if (currentRoute == null || currentRoute == Routes.EMPLOYER_DASHBOARD) {
-            val now = System.currentTimeMillis()
-            if (now - lastBackPressTime < 2000L) {
-                (context as? androidx.activity.ComponentActivity)?.finish()
-            } else {
-                lastBackPressTime = now
-                android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            navController.navigate(Routes.EMPLOYER_DASHBOARD) {
-                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                launchSingleTop = true
-            }
-        }
-    }
-
-    // Create a unified state for the current screen to manage status bar color.
-    // Defaults to the employer surface; updated via LaunchedEffect when the
-    // dark-mode-aware token resolves.
-    val initialStatusBarColor = Color.White
-    var currentStatusBarColor by remember { mutableStateOf(initialStatusBarColor) }
-    androidx.compose.runtime.LaunchedEffect(initialStatusBarColor) {
-        currentStatusBarColor = initialStatusBarColor
-    }
-    val isBottomBarVisible by scrollStateManager.isBottomBarVisible
-
-    // Routes where bottom bar should be hidden
-    val routesWithoutBottomBar = listOf(
-        Routes.EMPLOYER_APPLICATIONS,
-        Routes.EMPLOYER_APPLICATIONS_JOB,
-        Routes.WORKER_PROFILE_VIEW, // Batch-p #6.1: hide bottom bar on worker profile view
-        Routes.CONTACT_US,
-        Routes.EMPLOYER_NOTIFICATIONS,
-        Routes.EMPLOYER_POST_JOB, // full-screen posting flow
-        Routes.DUTYPE_AI, // full-screen assistant
-        Routes.EMPLOYER_POST_URGENT_NEED,
-        Routes.EMPLOYER_URGENT_NEED_DETAIL,
-        Routes.EMPLOYER_COMPANY_DETAILS,
-        Routes.ANALYTICS,
-        Routes.EDIT_JOB,
-        Routes.EMPLOYER_JOB_PREVIEW,
-        Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
-        Routes.HELP,
-        Routes.ABOUT_US,
-        Routes.EMPLOYER_ABOUT,
-        Routes.EMPLOYER_SUBSCRIPTION,
-        Routes.EMPLOYER_HELP,
-        Routes.EMPLOYER_MANAGE_ADDRESSES,
-        Routes.EMPLOYER_HISTORY,
-        Routes.EMPLOYER_REFER_EARN,
-        Routes.GUIDELINES,
-        Routes.PROMO_SHOWCASE,
-        "promo_showcase",
-    )
-    
-    // Check if current route should hide bottom bar
-    val shouldShowBottomBar = currentRoute?.let { route ->
-        !routesWithoutBottomBar.any { hiddenRoute ->
-            route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("?").substringBefore("{"))
-        }
-    } ?: true
-
-    // ---- ROLE THEME ----
-    // Publish the employer palette via LocalRoleColors so every screen and
-    // card hosted under this scaffold reads its background / card / divider
-    // colour from the same source (no per-screen hardcoded hex).
-    com.example.dutype.ui.theme.DutyPeEmployerTheme {
-        val roleColors = com.example.dutype.ui.theme.LocalRoleColors.current
-
-        // Main container that handles all system bars
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(roleColors.screenBackground)
-        ) {
-
-        // The global status bar overlay was removed because it blocked edge-to-edge
-        // backgrounds (like EmployerHomeScreen's gradient and Lottie animation) 
-        // from drawing under the status bar area. Individual screens handle their 
-        // own statusBarsPadding.
-
-        // Main content area - fills full screen so content flows behind floating bottom bar
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(roleColors.screenBackground)
-        ) {
-            NavHost(
-                navController = navController,
-                startDestination = Routes.EMPLOYER_DASHBOARD
-            ) {
-                    composable(Routes.EMPLOYER_DASHBOARD) {
-                        EmployerHomeScreen(
-                            navController = navController,
-                            rootNavController = rootNavController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            },
-                            scrollStateManager = scrollStateManager,
-                            notificationPermissionManager = notificationPermissionManager
-                        )
-                    }
-                    composable(Routes.EMPLOYER_POST_JOB) {
-                        PostJobScreen(
-                            navController = navController,
-                            rootNavController = rootNavController,
-                            employerId = null,
-                            initialTab = null,
-                            onJobPosted = { newJobId ->
-                                if (!newJobId.isNullOrBlank()) {
-                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
-                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                                        launchSingleTop = true
-                                    }
-                                } else {
-                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
-                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                                        launchSingleTop = true
-                                    }
-                                }
-                            },
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(
-                        route = Routes.EMPLOYER_POST_JOB_WITH_TAB,
-                        arguments = listOf(
-                            navArgument("tab") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        )
-                    ) { backStackEntry ->
-                        val initialTab = backStackEntry.arguments?.getString("tab")
-                        PostJobScreen(
-                            navController = navController,
-                            rootNavController = rootNavController,
-                            employerId = null,
-                            initialTab = initialTab,
-                            onJobPosted = { newJobId ->
-                                if (!newJobId.isNullOrBlank()) {
-                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
-                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                                        launchSingleTop = true
-                                    }
-                                } else {
-                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
-                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                                        launchSingleTop = true
-                                    }
-                                }
-                            },
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(
-                        route = "${Routes.EMPLOYER_POST_URGENT_NEED}?category={category}",
-                        arguments = listOf(
-                            navArgument("category") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        )
-                    ) { backStackEntry ->
-                        val initialCategory = backStackEntry.arguments?.getString("category")
-                        PostUrgentNeedScreen(navController = navController, initialCategory = initialCategory)
-                    }
-                    composable(Routes.EMPLOYER_POST_URGENT_NEED) {
-                        PostUrgentNeedScreen(navController = navController)
-                    }
-                    composable(
-                        route = Routes.EMPLOYER_URGENT_NEED_DETAIL,
-                        arguments = listOf(navArgument("requestId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val requestId = backStackEntry.arguments?.getString("requestId") ?: ""
-                        EmployerUrgentNeedDetailScreen(
-                            navController = navController,
-                            requestId = requestId
-                        )
-                    }
-                    composable(Routes.SERVICES) {
-                        com.example.dutype.homeservices.ServicesHomeScreen(
-                            navController = navController,
-                            rootNavController = rootNavController
-                        )
-                    }
-                    composable(
-                        route = Routes.SERVICES_CATEGORY,
-                        arguments = listOf(androidx.navigation.navArgument("categoryId") { type = androidx.navigation.NavType.StringType })
-                    ) { backStackEntry ->
-                        com.example.dutype.homeservices.CategoryServicesScreen(
-                            categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty(),
-                            navController = rootNavController ?: navController
-                        )
-                    }
-                    composable(Routes.EMPLOYER_PROFILE) {
-                        EmployerProfileScreen(
-                            rootNavController = rootNavController,
-                            localNavController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    composable(Routes.EMPLOYER_COMPANY_DETAILS) {
-                        EmployerCompanyDetailsScreen(
-                            navController = navController
-                        )
-                    }
-                    composable(
-                        route = Routes.DUTYPE_AI,
-                        arguments = listOf(androidx.navigation.navArgument("listen") { type = androidx.navigation.NavType.BoolType; defaultValue = false })
-                    ) { backStackEntry ->
-                        com.example.dutype.employer.ai.DutyPeAiScreen(
-                            navController = navController,
-                            rootNavController = rootNavController,
-                            startListening = backStackEntry.arguments?.getBoolean("listen") == true
-                        )
-                    }
-                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
-                        com.example.dutype.employer.screens.EmployerSubscriptionScreen(
-                            navController = navController
-                        )
-                    }
-                    composable(Routes.EMPLOYER_MY_JOBS) {
-                        com.example.dutype.employer.screens.EmployerHistoryScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color: Color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    // CRITICAL FIX: Add EDIT_JOB route
-                    composable(
-                        route = Routes.EDIT_JOB,
-                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-                        EditJobScreen(
-                            navController = navController,
-                            jobId = jobId
-                        )
-                    }
-
-                    // Apr 2026: OLX-style preview shown after a fresh post and
-                    // when an employer taps a card on the My Job Posts screen.
-                    composable(
-                        route = Routes.EMPLOYER_JOB_PREVIEW,
-                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-                        EmployerJobPreviewScreen(
-                            navController = navController,
-                            jobId = jobId
-                        )
-                    }
-                    
-                    // Application Management Routes - CRITICAL MISSING ROUTES
-                    composable(Routes.EMPLOYER_APPLICATIONS) {
-                        EmployerApplicationManagementScreen(
-                            jobId = null, // View all applications
-                            onApplicationClick = { application ->
-                                navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
-                            },
-                            onBackClick = { navController.popBackStack() },
-                            onSubscribeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
-                            onWorkerClick = { workerId ->
-                                navController.navigate(Routes.workerProfileViewRoute(workerId))
-                            }
-                        )
-                    }
-
-                    composable(
-                        route = Routes.EMPLOYER_APPLICATIONS_JOB,
-                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        // A blank arg must degrade to the "all applications" screen; passing "" through
-                        // made the Hiring Room query Firestore/callables with an empty id and render empty.
-                        val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
-                        EmployerApplicationManagementScreen(
-                            jobId = jobId, // View applications for specific job
-                            onApplicationClick = { application ->
-                                navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
-                            },
-                            onBackClick = { navController.popBackStack() },
-                            onSubscribeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
-                            onWorkerClick = { workerId ->
-                                navController.navigate(Routes.workerProfileViewRoute(workerId))
-                            }
-                        )
-                    }
-
-                    // Worker Profile View Route
-                    composable(
-                        Routes.WORKER_PROFILE_VIEW,
-                        arguments = listOf(
-                            navArgument("workerId") { type = NavType.StringType },
-                            navArgument("applicationId") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        ),
-                        deepLinks = listOf(
-                            navDeepLink {
-                                uriPattern = "dutype://worker/{workerId}"
-                            },
-                            navDeepLink {
-                                uriPattern = "https://dutype.in/worker/{workerId}"
-                            }
-                        )
-                    ) { backStackEntry ->
-                        val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
-                        val applicationId = backStackEntry.arguments?.getString("applicationId")
-                        ProfessionalWorkerProfileViewScreen(
-                            navController = navController,
-                            workerId = workerId,
-                            applicationId = applicationId,
-                            scrollStateManager = scrollStateManager
-                        )
-                    }
-                    
-                    composable(Routes.EMPLOYER_NOTIFICATIONS) {
-                        EmployerNotificationScreen(
-                            onBackClick = { navController.popBackStack() },
-                            navController = navController
-                        )
-                    }
-                    
-                    // Analytics Route
-                    composable(Routes.ANALYTICS) {
-                        AnalyticsScreen(
-                            navController = navController
-                        )
-                    }
-                    
-                    // Contact Us Route
-                    composable(Routes.CONTACT_US) {
-                        com.example.dutype.common.screens.support.ContactUsScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    // Employer Profile Setup Route - CRITICAL: Must be in EmployerMainScreen for visiting card navigation
-                    composable(
-                        route = "${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute={returnRoute}",
-                        arguments = listOf(navArgument("returnRoute") {
-                            type = NavType.StringType
-                            nullable = true
-                            defaultValue = null
-                        })
-                    ) { backStackEntry ->
-                        val returnRoute = backStackEntry.arguments?.getString("returnRoute")
-                        MandatoryEmployerProfileSetupScreen(
-                            navController = navController,
-                            returnRoute = returnRoute
-                        )
-                    }
-                    
-                    // Also support the route without parameters for backward compatibility
-                    composable(Routes.EMPLOYER_PROFILE_SETUP) {
-                        MandatoryEmployerProfileSetupScreen(navController = navController)
-                    }
-
-                    // Help & About — registered locally so the employer profile
-                    // menu can navigate without leaving the bottom-bar host.
-                    composable(Routes.HELP) {
-                        com.example.dutype.common.screens.support.HelpMainScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
-                        )
-                    }
-                    composable(Routes.ABOUT_US) {
-                        com.example.dutype.worker.screens.WorkerAboutScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
-                        )
-                    }
-
-                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
-                        EmployerAddressManagementScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
-                        )
-                    }
-
-                    composable(Routes.EMPLOYER_HELP) {
-                        EmployerSupportScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
-                        )
-                    }
-
-                    composable(Routes.EMPLOYER_ABOUT) {
-                        EmployerAboutScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
-                        )
-                    }
-
-                    composable(
-                        route = Routes.GUIDELINES,
-                        arguments = listOf(androidx.navigation.navArgument("role") { type = androidx.navigation.NavType.StringType })
-                    ) { entry ->
-                        com.example.dutype.guidelines.GuidelinesScreen(
-                            role = entry.arguments?.getString("role").orEmpty(),
-                            navController = navController
-                        )
-                    }
-                    composable(Routes.EMPLOYER_REFER_EARN) {
-                        EmployerReferEarnScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
-                        )
-                    }
-
-                    composable(
-                        route = Routes.EMPLOYER_HISTORY_WITH_TAB,
-                        arguments = listOf(
-                            navArgument("tab") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        )
-                    ) { backStackEntry ->
-                        com.example.dutype.employer.screens.EmployerHistoryScreen(
-                            navController = navController,
-                            initialTab = backStackEntry.arguments?.getString("tab")
-                        )
-                    }
-
-                    // Promo Showcase Microsite
-                    composable(
-                        route = Routes.PROMO_SHOWCASE,
-                        arguments = listOf(navArgument("showcaseId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
-                        val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
-                        com.example.dutype.components.PromoShowcaseScreen(
-                            showcaseId = showcaseId,
-                            navController = rootNavController,
-                            repository = repo
-                        )
-                    }
-                }
-            }
-
-            // Navigation bar overlay — rendered only on routes where the bottom bar is NOT shown
-            if (!shouldShowBottomBar) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                        .background(roleColors.navigationBar)
-                        .align(Alignment.BottomCenter)
-                        .zIndex(1000f) // Ensure it's always on top
-                )
-            }
-
-            // Floating Bottom Bar as an overlay on top of screen content
-            androidx.compose.animation.AnimatedVisibility(
-                visible = shouldShowBottomBar,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = androidx.compose.animation.slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = androidx.compose.animation.core.tween(200)
-                ),
-                exit = androidx.compose.animation.slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = androidx.compose.animation.core.tween(200)
-                )
-            ) {
-                EmployerBottomBar(navController = navController)
-            }
-        }
-    } // end DutyPeEmployerTheme
-}
-
+package com.example.dutype.navigation
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.zIndex
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavType
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
+import com.example.dutype.components.EmployerBottomBar
+import com.example.dutype.employer.screens.AnalyticsScreen
+import com.example.dutype.employer.screens.EditJobScreen
+import com.example.dutype.employer.screens.EmployerJobPreviewScreen
+
+import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
+import com.example.dutype.employer.screens.EmployerHomeScreen
+import com.example.dutype.employer.screens.EmployerNotificationScreen
+import com.example.dutype.employer.screens.EmployerReferEarnScreen
+import com.example.dutype.employer.screens.EmployerSupportScreen
+import com.example.dutype.employer.screens.EmployerAboutScreen
+import com.example.dutype.employer.screens.EmployerUrgentNeedDetailScreen
+import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
+
+import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
+import com.example.dutype.employer.screens.PostJobScreen
+import com.example.dutype.employer.screens.PostUrgentNeedScreen
+import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
+import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
+import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
+
+import com.example.dutype.utils.rememberScrollStateManager
+
+@Composable
+fun EmployerMainScreen(
+    rootNavController: NavController,
+    notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
+) {
+    val navController = rememberNavController()
+    val scrollStateManager = rememberScrollStateManager()
+
+    // BUG #1 FIX: Drain any inner-route handoff queued by the outer graph
+    // (e.g. when the user finishes employer profile setup with
+    // `returnRoute = employer_post_job`). Runs once after this NavHost mounts
+    // so the desired destination is pushed onto the inner controller.
+    androidx.compose.runtime.LaunchedEffect(navController) {
+        EmployerInnerNavQueue.consume()?.let { pending ->
+            navController.navigate(pending) {
+                launchSingleTop = true
+            }
+        }
+    }
+
+    // Track current route to conditionally show bottom bar
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Handle back press gracefully: exit on double back from Dashboard, navigate to Dashboard from other tabs
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var lastBackPressTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (currentRoute == null || currentRoute == Routes.EMPLOYER_DASHBOARD) {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPressTime < 2000L) {
+                (context as? androidx.activity.ComponentActivity)?.finish()
+            } else {
+                lastBackPressTime = now
+                android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    // Create a unified state for the current screen to manage status bar color.
+    // Defaults to the employer surface; updated via LaunchedEffect when the
+    // dark-mode-aware token resolves.
+    val initialStatusBarColor = Color.White
+    var currentStatusBarColor by remember { mutableStateOf(initialStatusBarColor) }
+    androidx.compose.runtime.LaunchedEffect(initialStatusBarColor) {
+        currentStatusBarColor = initialStatusBarColor
+    }
+    val isBottomBarVisible by scrollStateManager.isBottomBarVisible
+
+    // Routes where bottom bar should be hidden
+    val routesWithoutBottomBar = listOf(
+        Routes.EMPLOYER_APPLICATIONS,
+        Routes.EMPLOYER_APPLICATIONS_JOB,
+        Routes.WORKER_PROFILE_VIEW, // Batch-p #6.1: hide bottom bar on worker profile view
+        Routes.CONTACT_US,
+        Routes.EMPLOYER_NOTIFICATIONS,
+        Routes.EMPLOYER_POST_JOB, // full-screen posting flow
+        Routes.DUTYPE_AI, // full-screen assistant
+        Routes.EMPLOYER_POST_URGENT_NEED,
+        Routes.EMPLOYER_URGENT_NEED_DETAIL,
+        Routes.EMPLOYER_COMPANY_DETAILS,
+        Routes.ANALYTICS,
+        Routes.EDIT_JOB,
+        Routes.EMPLOYER_JOB_PREVIEW,
+        Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
+        Routes.HELP,
+        Routes.ABOUT_US,
+        Routes.EMPLOYER_ABOUT,
+        Routes.EMPLOYER_SUBSCRIPTION,
+        Routes.EMPLOYER_HELP,
+        Routes.EMPLOYER_MANAGE_ADDRESSES,
+        Routes.EMPLOYER_HISTORY,
+        Routes.EMPLOYER_REFER_EARN,
+        Routes.GUIDELINES,
+        Routes.PROMO_SHOWCASE,
+        "promo_showcase",
+    )
+    
+    // Check if current route should hide bottom bar
+    val shouldShowBottomBar = currentRoute?.let { route ->
+        !routesWithoutBottomBar.any { hiddenRoute ->
+            route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("?").substringBefore("{"))
+        }
+    } ?: true
+
+    // ---- ROLE THEME ----
+    // Publish the employer palette via LocalRoleColors so every screen and
+    // card hosted under this scaffold reads its background / card / divider
+    // colour from the same source (no per-screen hardcoded hex).
+    com.example.dutype.ui.theme.DutyPeEmployerTheme {
+        val roleColors = com.example.dutype.ui.theme.LocalRoleColors.current
+
+        // Main container that handles all system bars
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(roleColors.screenBackground)
+        ) {
+
+        // The global status bar overlay was removed because it blocked edge-to-edge
+        // backgrounds (like EmployerHomeScreen's gradient and Lottie animation) 
+        // from drawing under the status bar area. Individual screens handle their 
+        // own statusBarsPadding.
+
+        // Main content area - fills full screen so content flows behind floating bottom bar
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(roleColors.screenBackground)
+        ) {
+            val employerTabOrder = androidx.compose.runtime.remember {
+                listOf(
+                    Routes.EMPLOYER_DASHBOARD,
+                    Routes.EMPLOYER_POST_JOB,
+                    Routes.SERVICES,
+                    Routes.EMPLOYER_PROFILE
+                )
+            }
+
+            NavHost(
+                navController = navController,
+                startDestination = Routes.EMPLOYER_DASHBOARD,
+                enterTransition = {
+                    val fromRoute = initialState.destination.route?.substringBefore('?') ?: ""
+                    val toRoute = targetState.destination.route?.substringBefore('?') ?: ""
+                    val fromIndex = employerTabOrder.indexOfFirst { fromRoute == it || fromRoute.startsWith(it) }
+                    val toIndex = employerTabOrder.indexOfFirst { toRoute == it || toRoute.startsWith(it) }
+                    if (fromIndex != -1 && toIndex != -1) {
+                        if (toIndex > fromIndex) {
+                            slideInHorizontally(
+                                initialOffsetX = { (it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                        } else {
+                            slideInHorizontally(
+                                initialOffsetX = { (-it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                        }
+                    } else {
+                        slideInHorizontally(
+                            initialOffsetX = { it },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                    }
+                },
+                exitTransition = {
+                    val fromRoute = initialState.destination.route?.substringBefore('?') ?: ""
+                    val toRoute = targetState.destination.route?.substringBefore('?') ?: ""
+                    val fromIndex = employerTabOrder.indexOfFirst { fromRoute == it || fromRoute.startsWith(it) }
+                    val toIndex = employerTabOrder.indexOfFirst { toRoute == it || toRoute.startsWith(it) }
+                    if (fromIndex != -1 && toIndex != -1) {
+                        if (toIndex > fromIndex) {
+                            slideOutHorizontally(
+                                targetOffsetX = { (-it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
+                        } else {
+                            slideOutHorizontally(
+                                targetOffsetX = { (it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
+                        }
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { (-it * 0.2f).toInt() },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
+                    }
+                },
+                popEnterTransition = {
+                    val fromRoute = initialState.destination.route?.substringBefore('?') ?: ""
+                    val toRoute = targetState.destination.route?.substringBefore('?') ?: ""
+                    val fromIndex = employerTabOrder.indexOfFirst { fromRoute == it || fromRoute.startsWith(it) }
+                    val toIndex = employerTabOrder.indexOfFirst { toRoute == it || toRoute.startsWith(it) }
+                    if (fromIndex != -1 && toIndex != -1) {
+                        if (toIndex > fromIndex) {
+                            slideInHorizontally(
+                                initialOffsetX = { (it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                        } else {
+                            slideInHorizontally(
+                                initialOffsetX = { (-it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                        }
+                    } else {
+                        slideInHorizontally(
+                            initialOffsetX = { (-it * 0.2f).toInt() },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                    }
+                },
+                popExitTransition = {
+                    val fromRoute = initialState.destination.route?.substringBefore('?') ?: ""
+                    val toRoute = targetState.destination.route?.substringBefore('?') ?: ""
+                    val fromIndex = employerTabOrder.indexOfFirst { fromRoute == it || fromRoute.startsWith(it) }
+                    val toIndex = employerTabOrder.indexOfFirst { toRoute == it || toRoute.startsWith(it) }
+                    if (fromIndex != -1 && toIndex != -1) {
+                        if (toIndex > fromIndex) {
+                            slideOutHorizontally(
+                                targetOffsetX = { (-it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
+                        } else {
+                            slideOutHorizontally(
+                                targetOffsetX = { (it * 0.22f).toInt() },
+                                animationSpec = tween(280, easing = FastOutSlowInEasing)
+                            ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
+                        }
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { it },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
+                    }
+                }
+            ) {
+                    composable(Routes.EMPLOYER_DASHBOARD) {
+                        EmployerHomeScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            },
+                            scrollStateManager = scrollStateManager,
+                            notificationPermissionManager = notificationPermissionManager
+                        )
+                    }
+                    composable(Routes.EMPLOYER_POST_JOB) {
+                        PostJobScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            employerId = null,
+                            initialTab = null,
+                            onJobPosted = { newJobId ->
+                                if (!newJobId.isNullOrBlank()) {
+                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    composable(
+                        route = Routes.EMPLOYER_POST_JOB_WITH_TAB,
+                        arguments = listOf(
+                            navArgument("tab") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val initialTab = backStackEntry.arguments?.getString("tab")
+                        PostJobScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            employerId = null,
+                            initialTab = initialTab,
+                            onJobPosted = { newJobId ->
+                                if (!newJobId.isNullOrBlank()) {
+                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    composable(
+                        route = "${Routes.EMPLOYER_POST_URGENT_NEED}?category={category}",
+                        arguments = listOf(
+                            navArgument("category") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val initialCategory = backStackEntry.arguments?.getString("category")
+                        PostUrgentNeedScreen(navController = navController, initialCategory = initialCategory)
+                    }
+                    composable(Routes.EMPLOYER_POST_URGENT_NEED) {
+                        PostUrgentNeedScreen(navController = navController)
+                    }
+                    composable(
+                        route = Routes.EMPLOYER_URGENT_NEED_DETAIL,
+                        arguments = listOf(navArgument("requestId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val requestId = backStackEntry.arguments?.getString("requestId") ?: ""
+                        EmployerUrgentNeedDetailScreen(
+                            navController = navController,
+                            requestId = requestId
+                        )
+                    }
+                    composable(Routes.SERVICES) {
+                        com.example.dutype.homeservices.ServicesHomeScreen(
+                            navController = navController,
+                            rootNavController = rootNavController
+                        )
+                    }
+                    composable(
+                        route = Routes.SERVICES_CATEGORY,
+                        arguments = listOf(androidx.navigation.navArgument("categoryId") { type = androidx.navigation.NavType.StringType })
+                    ) { backStackEntry ->
+                        com.example.dutype.homeservices.CategoryServicesScreen(
+                            categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty(),
+                            navController = rootNavController ?: navController
+                        )
+                    }
+                    composable(Routes.EMPLOYER_PROFILE) {
+                        EmployerProfileScreen(
+                            rootNavController = rootNavController,
+                            localNavController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    composable(Routes.EMPLOYER_COMPANY_DETAILS) {
+                        EmployerCompanyDetailsScreen(
+                            navController = navController
+                        )
+                    }
+                    composable(
+                        route = Routes.DUTYPE_AI,
+                        arguments = listOf(androidx.navigation.navArgument("listen") { type = androidx.navigation.NavType.BoolType; defaultValue = false })
+                    ) { backStackEntry ->
+                        com.example.dutype.employer.ai.DutyPeAiScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            startListening = backStackEntry.arguments?.getBoolean("listen") == true
+                        )
+                    }
+                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
+                        com.example.dutype.employer.screens.EmployerSubscriptionScreen(
+                            navController = navController
+                        )
+                    }
+                    composable(Routes.EMPLOYER_MY_JOBS) {
+                        com.example.dutype.employer.screens.EmployerHistoryScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color: Color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    // CRITICAL FIX: Add EDIT_JOB route
+                    composable(
+                        route = Routes.EDIT_JOB,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        EditJobScreen(
+                            navController = navController,
+                            jobId = jobId
+                        )
+                    }
+
+                    // Apr 2026: OLX-style preview shown after a fresh post and
+                    // when an employer taps a card on the My Job Posts screen.
+                    composable(
+                        route = Routes.EMPLOYER_JOB_PREVIEW,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        EmployerJobPreviewScreen(
+                            navController = navController,
+                            jobId = jobId
+                        )
+                    }
+                    
+                    // Application Management Routes - CRITICAL MISSING ROUTES
+                    composable(Routes.EMPLOYER_APPLICATIONS) {
+                        EmployerApplicationManagementScreen(
+                            jobId = null, // View all applications
+                            onApplicationClick = { application ->
+                                navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
+                            },
+                            onBackClick = { navController.popBackStack() },
+                            onSubscribeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
+                            onWorkerClick = { workerId ->
+                                navController.navigate(Routes.workerProfileViewRoute(workerId))
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.EMPLOYER_APPLICATIONS_JOB,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        // A blank arg must degrade to the "all applications" screen; passing "" through
+                        // made the Hiring Room query Firestore/callables with an empty id and render empty.
+                        val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
+                        EmployerApplicationManagementScreen(
+                            jobId = jobId, // View applications for specific job
+                            onApplicationClick = { application ->
+                                navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
+                            },
+                            onBackClick = { navController.popBackStack() },
+                            onSubscribeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
+                            onWorkerClick = { workerId ->
+                                navController.navigate(Routes.workerProfileViewRoute(workerId))
+                            }
+                        )
+                    }
+
+                    // Worker Profile View Route
+                    composable(
+                        Routes.WORKER_PROFILE_VIEW,
+                        arguments = listOf(
+                            navArgument("workerId") { type = NavType.StringType },
+                            navArgument("applicationId") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        ),
+                        deepLinks = listOf(
+                            navDeepLink {
+                                uriPattern = "dutype://worker/{workerId}"
+                            },
+                            navDeepLink {
+                                uriPattern = "https://dutype.in/worker/{workerId}"
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+                        val applicationId = backStackEntry.arguments?.getString("applicationId")
+                        ProfessionalWorkerProfileViewScreen(
+                            navController = navController,
+                            workerId = workerId,
+                            applicationId = applicationId,
+                            scrollStateManager = scrollStateManager
+                        )
+                    }
+                    
+                    composable(Routes.EMPLOYER_NOTIFICATIONS) {
+                        EmployerNotificationScreen(
+                            onBackClick = { navController.popBackStack() },
+                            navController = navController
+                        )
+                    }
+                    
+                    // Analytics Route
+                    composable(Routes.ANALYTICS) {
+                        AnalyticsScreen(
+                            navController = navController
+                        )
+                    }
+                    
+                    // Contact Us Route
+                    composable(Routes.CONTACT_US) {
+                        com.example.dutype.common.screens.support.ContactUsScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    
+                    // Employer Profile Setup Route - CRITICAL: Must be in EmployerMainScreen for visiting card navigation
+                    composable(
+                        route = "${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute={returnRoute}",
+                        arguments = listOf(navArgument("returnRoute") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        })
+                    ) { backStackEntry ->
+                        val returnRoute = backStackEntry.arguments?.getString("returnRoute")
+                        MandatoryEmployerProfileSetupScreen(
+                            navController = navController,
+                            returnRoute = returnRoute
+                        )
+                    }
+                    
+                    // Also support the route without parameters for backward compatibility
+                    composable(Routes.EMPLOYER_PROFILE_SETUP) {
+                        MandatoryEmployerProfileSetupScreen(navController = navController)
+                    }
+
+                    // Help & About — registered locally so the employer profile
+                    // menu can navigate without leaving the bottom-bar host.
+                    composable(Routes.HELP) {
+                        com.example.dutype.common.screens.support.HelpMainScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+                    composable(Routes.ABOUT_US) {
+                        com.example.dutype.worker.screens.WorkerAboutScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
+                        EmployerAddressManagementScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_HELP) {
+                        EmployerSupportScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_ABOUT) {
+                        EmployerAboutScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.GUIDELINES,
+                        arguments = listOf(androidx.navigation.navArgument("role") { type = androidx.navigation.NavType.StringType })
+                    ) { entry ->
+                        com.example.dutype.guidelines.GuidelinesScreen(
+                            role = entry.arguments?.getString("role").orEmpty(),
+                            navController = navController
+                        )
+                    }
+                    composable(Routes.EMPLOYER_REFER_EARN) {
+                        EmployerReferEarnScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(
+                        route = Routes.EMPLOYER_HISTORY_WITH_TAB,
+                        arguments = listOf(
+                            navArgument("tab") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { backStackEntry ->
+                        com.example.dutype.employer.screens.EmployerHistoryScreen(
+                            navController = navController,
+                            initialTab = backStackEntry.arguments?.getString("tab")
+                        )
+                    }
+
+                    // Promo Showcase Microsite
+                    composable(
+                        route = Routes.PROMO_SHOWCASE,
+                        arguments = listOf(navArgument("showcaseId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
+                        val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
+                        com.example.dutype.components.PromoShowcaseScreen(
+                            showcaseId = showcaseId,
+                            navController = rootNavController,
+                            repository = repo
+                        )
+                    }
+                }
+            }
+
+            // Navigation bar overlay — rendered only on routes where the bottom bar is NOT shown
+            if (!shouldShowBottomBar) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                        .background(roleColors.navigationBar)
+                        .align(Alignment.BottomCenter)
+                        .zIndex(1000f) // Ensure it's always on top
+                )
+            }
+
+            // Floating Bottom Bar as an overlay on top of screen content
+            androidx.compose.animation.AnimatedVisibility(
+                visible = shouldShowBottomBar,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = androidx.compose.animation.slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = androidx.compose.animation.core.tween(200)
+                ),
+                exit = androidx.compose.animation.slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = androidx.compose.animation.core.tween(200)
+                )
+            ) {
+                EmployerBottomBar(navController = navController)
+            }
+        }
+    } // end DutyPeEmployerTheme
+}
+
