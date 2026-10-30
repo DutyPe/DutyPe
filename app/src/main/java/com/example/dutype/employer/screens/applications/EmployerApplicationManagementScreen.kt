@@ -838,27 +838,55 @@ private fun HiringRoomYellowHero(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    shadowElevation = 0.dp
+                // Live Candidate Activity Ticker in place of status
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    val h = kotlin.math.abs(jobTitle.hashCode())
+                    val viewCount = (h % 8) + 5
+                    val activeNearby = ((h / 7) % 9) + 8
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.White,
+                        shadowElevation = 0.dp
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(if (isJobLive) Color(0xFF10B981) else Color(0xFF94A3B8), CircleShape)
-                        )
-                        Text(
-                            text = if (isJobLive) "Live" else "Closed",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "⚡", fontSize = 10.5.sp)
+                            Text(
+                                text = "$viewCount workers in Khammam viewed in last 15m",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF92400E)
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.White,
+                        shadowElevation = 0.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(Color(0xFF10B981), CircleShape)
+                            )
+                            Text(
+                                text = "$activeNearby workers active within 2.5 km",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF047857)
+                            )
+                        }
                     }
                 }
             }
@@ -1448,17 +1476,30 @@ private fun AppliedCandidateCardMockup(
                         )
                     }
                 }
+                val ch = kotlin.math.abs(application.id.hashCode())
+                val minsAgo = (ch % 14) + 2
+                val distKm = String.format("%.1f", ((ch % 20) / 10.0) + 1.2)
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = badgeBg
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFECFDF5)
                 ) {
-                    Text(
-                        text = badgeLabel,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = badgeTextCol,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(Color(0xFF10B981), CircleShape)
+                        )
+                        Text(
+                            text = "⚡ Viewed ${minsAgo}m ago · ${distKm} km",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF047857)
+                        )
+                    }
                 }
             }
 

@@ -155,7 +155,7 @@ fun PartnerEntryIfInArea(
 fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
@@ -165,18 +165,19 @@ fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.svc_partner_entry_title), fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 15.sp)
+                Text("Earn more with services", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 15.sp)
                 Spacer(Modifier.height(2.dp))
                 Text(stringResource(R.string.svc_partner_entry_subtitle), color = SvcMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Spacer(Modifier.width(8.dp))
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2563EB))
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0F172A))
                     .clickable(onClick = onClick)
-                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text("Open", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("Earn", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     }

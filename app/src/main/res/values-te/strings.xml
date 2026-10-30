@@ -2705,7 +2705,7 @@
     <string name="svc_status_started">పని జరుగుతోంది</string>
     <string name="svc_status_completed">పూర్తయింది</string>
     <string name="svc_status_cancelled">రద్దయింది</string>
-    <string name="svc_status_no_partner">పార్ట్‌నర్ అందుబాటులో లేరు</string>
+    <string name="svc_status_no_partner">పార్ట్‌నర్లు ప్రస్తుతం బిజీగా ఉన్నారు</string>
     <string name="svc_scheduled_for">షెడ్యూల్: %1$s</string>
     <string name="svc_start_code">స్టార్ట్ కోడ్</string>
     <string name="svc_start_code_help">పార్ట్‌నర్ మీ ఇంటికి వచ్చినప్పుడే ఈ కోడ్ చెప్పండి.</string>

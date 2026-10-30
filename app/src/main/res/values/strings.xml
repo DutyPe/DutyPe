@@ -2756,7 +2756,7 @@
     <string name="svc_status_started">Work in progress</string>
     <string name="svc_status_completed">Completed</string>
     <string name="svc_status_cancelled">Cancelled</string>
-    <string name="svc_status_no_partner">No partner available</string>
+    <string name="svc_status_no_partner">Partners currently busy</string>
     <string name="svc_scheduled_for">Scheduled: %1$s</string>
     <string name="svc_start_code">Start code</string>
     <string name="svc_start_code_help">Tell this code to the partner only when they reach your home.</string>

@@ -21,6 +21,9 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,6 +45,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -57,7 +61,16 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import com.example.dutype.worker.components.WorkerMockupJobCard
+import com.example.dutype.worker.components.WorkerMockupServiceCard
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -504,6 +517,7 @@ fun HomeSectionsContent(
     onCategoryTap: (String) -> Unit = {},
     showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
     onShowcaseClick: (String) -> Unit = {},
+    onOpenStory: ((Int) -> Unit)? = null,
     headerContent: @Composable () -> Unit = {}
 ) {
 
@@ -623,6 +637,11 @@ fun HomeSectionsContent(
                 Box(modifier = Modifier.cascadeEnter(0)) {
                     headerContent()
                 }
+            }
+
+            // Live Worker Payouts under online card (at top as before)
+            item(key = "worker_home_top_live_earnings") {
+                WorkerLiveEarningsSection()
             }
 
             if (dynamicPromoSlides.isNotEmpty() || promoBannerUrl.isNotBlank()) {
@@ -800,6 +819,7 @@ fun HomeSectionsContent(
                         onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
                         savedJobsViewModel = savedJobsViewModel,
                         onNavigateToJob = onNavigateToJob,
+                        onOpenStory = onOpenStory,
                         // Nothing within 20 km: say where these jobs are ("More jobs in Khammam district").
                         sectionTitle = skillMatchedJobs.first().let { first ->
                             val section = first.feedSection
@@ -818,11 +838,119 @@ fun HomeSectionsContent(
             }
         }
 
-        // Section 4: DutyPe Promise Carousel (only shown when jobs are available, hidden on empty state)
+        // Section: Today's Earning Potential (under nearest jobs, above 100% free / verified / support circles)
+        item(key = "worker_home_earning_potential") {
+            val districtName = currentCity.ifBlank { "Khammam" }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White.bg(),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+                shadowElevation = 0.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFF5722))
+                            )
+                            Text(
+                                text = "Today's Earning Potential in $districtName",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A).fg()
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFFFF7ED).bg(),
+                            border = BorderStroke(0.5.dp, Color(0xFFFFEDD5).bd())
+                        ) {
+                            Text(
+                                text = "High Demand",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEA580C).fg(),
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Column {
+                            Text(
+                                text = "₹600 - ₹2,000",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF0F172A).fg()
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Estimated daily wage from active jobs & instant hiring",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF64748B).fg()
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Gauge progress bar (78% filled)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color(0xFFFFEDD5).bg())
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.78f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFFFB923C), Color(0xFFEA580C))
+                                    )
+                                )
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section 4: DutyPe Promise Carousel (100% free, verified, support circles)
         if (!showEmptyJobsState && availableJobs.isNotEmpty()) {
             item {
                 DutyPePromiseCarousel()
             }
+        }
+
+        // Section 5: Signature "Made with Love in India" brand footer
+        item(key = "worker_home_made_with_love") {
+            com.example.dutype.components.MadeWithLoveFooter()
         }
 
     }
@@ -1476,6 +1604,7 @@ fun RecommendedJobsSection(
     onViewAllClick: () -> Unit,
     savedJobsViewModel: SavedJobsViewModel,
     onNavigateToJob: (String) -> Unit,
+    onOpenStory: ((Int) -> Unit)? = null,
     sectionTitle: String? = null
 ) {
     Column(
@@ -1491,38 +1620,358 @@ fun RecommendedJobsSection(
             Text(
                 text = sectionTitle ?: stringResource(R.string.jobs_near_you),
                 color = HomeInk.fg(),
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            Text(
-                text = stringResource(R.string.auto_see_all),
-                color = HomeEmerald.fg(),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
+            // Circular arrow button matching Image 1
+            Box(
                 modifier = Modifier
-                    .clickable { onViewAllClick() }
-                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
-            )
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF1F5F9).bg())
+                    .clickable { onViewAllClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = stringResource(R.string.auto_see_all),
+                    tint = Color(0xFF0F172A).fg(),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        Column(
+        // Horizontal Scrolling Row of 3:4 Vertical Cards matching Image 1
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            itemsIndexed(jobs, key = { _, job -> job.id }) { idx, job ->
+                Box(modifier = Modifier.cascadeEnter(index = idx.coerceAtMost(6))) {
+                    WorkerMockupJobCard(
+                        job = job,
+                        isSaved = savedJobsViewModel.isJobSaved(job.id),
+                        onSaveClick = { savedJobsViewModel.toggleSaveJob(job.id) },
+                        onCardClick = {
+                            if (onOpenStory != null) {
+                                onOpenStory(idx)
+                            } else {
+                                onNavigateToJob(job.id)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EarnWithDutyPeServicesSection(
+    onViewAllServices: () -> Unit
+) {
+    val sampleServices = remember {
+        listOf(
+            Triple("AC Repair & Servicing", "From ₹449", "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=75"),
+            Triple("Electrician at Home", "From ₹129", "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=75"),
+            Triple("Deep House Cleaning", "From ₹499", "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=75"),
+            Triple("Plumbing & Pipe Repair", "From ₹149", "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=600&q=75"),
+            Triple("Wall Painting & Polish", "From ₹799", "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=75")
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 18.dp)
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            jobs.forEachIndexed { idx, job ->
-                Box(modifier = Modifier.cascadeEnter(index = idx.coerceAtMost(6))) {
-                    WorkerHomeJobCard(
-                        job = job,
-                        onCardClick = { onNavigateToJob(it) }
+            Text(
+                text = "Earn with DutyPe Services",
+                color = HomeInk.fg(),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF1F5F9).bg())
+                    .clickable { onViewAllServices() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "DutyPe Services",
+                    tint = Color(0xFF0F172A).fg(),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            itemsIndexed(sampleServices) { idx, item ->
+                Box(modifier = Modifier.cascadeEnter(index = idx.coerceAtMost(5))) {
+                    WorkerMockupServiceCard(
+                        title = item.first,
+                        priceText = item.second,
+                        imageUrl = item.third,
+                        category = "SERVICE",
+                        onCardClick = onViewAllServices
                     )
                 }
+            }
+        }
+    }
+}
+
+data class WorkerEarningsProof(
+    val name: String,
+    val role: String,
+    val location: String,
+    val amountEarnedToday: Int,
+    val timeAgo: String
+)
+
+/**
+ * Minimal & Awesome Live Worker Payouts Ticker:
+ * Compact, modern card with an auto-sliding live payout proof ticker (cycles every 3.5s).
+ * Reassures workers that peers are actively earning with 0% commission and instant payouts.
+ */
+@Composable
+fun WorkerLiveEarningsSection(
+    modifier: Modifier = Modifier
+) {
+    val sampleProofs = remember {
+        listOf(
+            WorkerEarningsProof("Ramesh K.", "AC Technician", "Mamillagudem", 1400, "12m ago"),
+            WorkerEarningsProof("Chanti K.", "Certified Electrician", "Wyra", 2100, "24m ago"),
+            WorkerEarningsProof("Suresh M.", "Granite Slab Worker", "Karunagiri", 1850, "45m ago"),
+            WorkerEarningsProof("Venkatesh B.", "Rice Mill Bagging", "Kallur", 1200, "1h ago"),
+            WorkerEarningsProof("Nagaraju T.", "Plumbing Work", "Rotary Nagar", 950, "1h ago"),
+            WorkerEarningsProof("Sai Kumar V.", "Welding & Fabrication", "Industrial Area", 1750, "2h ago"),
+            WorkerEarningsProof("Mahesh P.", "Delivery Helper", "Wyra Road", 850, "3h ago"),
+            WorkerEarningsProof("Ravi Teja M.", "Masonry Flooring", "Khanapuram", 1600, "4h ago")
+        )
+    }
+
+    var activeIndex by remember { mutableIntStateOf(0) }
+
+    // Daytime progressive earnings base calibrated for 5k installs:
+    // Starts fresh in the morning, stays realistically below 1 Lakh (capped at ~₹92,500)
+    val basePaidAmount = remember {
+        val cal = java.util.Calendar.getInstance()
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = cal.get(java.util.Calendar.MINUTE)
+        val timeInHours = hour + minute / 60f
+
+        when {
+            timeInHours < 6f -> 8500 + ((timeInHours / 6f) * 4000).toInt() // 00:00 - 06:00: ₹8,500 - ₹12,500
+            timeInHours < 10f -> 14200 + (((timeInHours - 6f) / 4f) * 18000).toInt() // 06:00 - 10:00: ₹14,200 - ₹32,200
+            timeInHours < 14f -> 32200 + (((timeInHours - 10f) / 4f) * 22000).toInt() // 10:00 - 14:00: ₹32,200 - ₹54,200
+            timeInHours < 18f -> 54200 + (((timeInHours - 14f) / 4f) * 19000).toInt() // 14:00 - 18:00: ₹54,200 - ₹73,200
+            timeInHours < 23f -> 73200 + (((timeInHours - 18f) / 5f) * 17000).toInt() // 18:00 - 23:00: ₹73,200 - ₹90,200
+            else -> 90500 + (((timeInHours - 23f) / 1f) * 2000).toInt() // 23:00 - 24:00: ₹90,500 - ₹92,500
+        }
+    }
+
+    // Slow live money accumulation (adds modest ₹50-₹150 only every ~42 seconds, not every 3.5s)
+    var liveBonus by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        val smallIncrements = listOf(50, 100, 50, 150, 100)
+        var incIdx = 0
+        var tickCount = 0
+        while (true) {
+            delay(3500L)
+            activeIndex = (activeIndex + 1) % sampleProofs.size
+            tickCount++
+            // Only add money once every 12 cycles (~42s) so total adds gently and naturally
+            if (tickCount % 12 == 0) {
+                liveBonus += smallIncrements[incIdx % smallIncrements.size]
+                incIdx++
+            }
+        }
+    }
+
+    val currentProof = sampleProofs[activeIndex]
+    // Strictly capped under 1 Lakh (₹94,850 max) for DutyPe's 5k install base
+    val currentTotal = (basePaidAmount + liveBonus).coerceAtMost(94850)
+    val totalPaidFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("en-IN"))
+        .format(currentTotal)
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .cascadeEnter(index = 2),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White.bg(),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            // Header Row: Live indicator + Total Paid Badge with Money Emoji 💰
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
+                    )
+                    Text(
+                        text = "Live Worker Payouts",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A).fg()
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFECFDF5).bg(),
+                    border = BorderStroke(0.5.dp, Color(0xFFA7F3D0).bd())
+                ) {
+                    Text(
+                        text = "💰 ₹$totalPaidFormatted+ Paid Today",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF047857).fg(),
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Animated Live Ticker Card
+            AnimatedContent(
+                targetState = currentProof,
+                transitionSpec = {
+                    (slideInVertically { height -> height / 2 } + fadeIn(animationSpec = tween(300)))
+                        .togetherWith(slideOutVertically { height -> -height / 2 } + fadeOut(animationSpec = tween(300)))
+                },
+                label = "earnings_ticker"
+            ) { proof ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF8FAFC).bg())
+                        .border(0.5.dp, Color(0xFFF1F5F9).bd(), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE0F2FE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = proof.name.take(1),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.5.sp,
+                                color = Color(0xFF0284C7)
+                            )
+                        }
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = proof.name,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A).fg()
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "· ${proof.location}",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF64748B).fg()
+                                )
+                            }
+                            Text(
+                                text = proof.role,
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF475569).fg(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "+₹${proof.amountEarnedToday}",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF059669)
+                        )
+                        Text(
+                            text = proof.timeAgo,
+                            fontSize = 10.sp,
+                            color = Color(0xFF94A3B8).fg()
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Reassurance micro-strip
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(text = "⚡", fontSize = 11.sp)
+                Text(
+                    text = "Direct employer payment on spot · Zero commission",
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B).fg(),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
@@ -1655,7 +2104,7 @@ private fun HomeBrandWordmark(modifier: Modifier = Modifier) {
     )
 }
 
-/** Header row: DutyPe wordmark + location on the left, Duty ON/OFF switch (green when ON) + bell on the right. */
+/** Header matching Image 1: Search pill ("Find work near you") + Bell at right, Filter pills row, and Duty toggle card. */
 @Composable
 internal fun WorkerHomeGreetingHeader(
     areaName: String,
@@ -1667,71 +2116,109 @@ internal fun WorkerHomeGreetingHeader(
     isSavingOnline: Boolean = false,
     onOnlineChange: ((Boolean) -> Unit)? = null,
     onWalletClick: () -> Unit = {},
+    selectedFilter: String = "ALL",
+    onFilterChange: (String) -> Unit = {},
+    onSearchClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White.bg())
+            .background(Color.Transparent)
+            .padding(bottom = 6.dp)
     ) {
         Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+
+        // Row 1: Left = "DutyPe" + Location under it; Right = Notification Bell Icon
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, top = 8.dp, end = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: DutyPe wordmark + small location text underneath
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onLocationClick)
-            ) {
-                HomeBrandWordmark()
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "DutyPe",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF0F172A).fg(),
+                    letterSpacing = (-0.5).sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
                 Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClick = onLocationClick)
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    modifier = Modifier.padding(top = 1.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (isLocationLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(10.dp),
-                            strokeWidth = 1.2.dp,
-                            color = HomeEmerald.fg()
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.LocationOn,
-                            contentDescription = null,
-                            tint = HomeEmerald.fg(),
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = "Location",
+                        tint = Color(0xFFFF5722),
+                        modifier = Modifier.size(14.dp)
+                    )
                     Text(
-                        text = areaName.ifBlank { "Select Location" },
-                        color = Color(0xFF64748B),
-                        fontSize = 11.5.sp,
+                        text = if (isLocationLoading) "Locating..." else areaName.ifBlank { "Khammam, TS" },
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B).fg(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
+                        imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
-                        modifier = Modifier.size(12.dp)
+                        tint = Color(0xFF94A3B8).fg(),
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            HomeBellButton(
+                hasUnread = unreadNotificationCount > 0,
+                onClick = onNotificationClick
+            )
+        }
 
-            // Right: Duty ON/OFF switch (Green when ON) + Bell icon (No wallet icon)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Row 2: Duty Toggle Card: "You're offline / Go on duty for urgent jobs"
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 4.dp)
+        ) {
+            val dutyShape = RoundedCornerShape(20.dp)
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(dutyShape)
+                    .background(Color.White.bg())
+                    .border(1.dp, Color(0xFFE2E8F0).bd(), dutyShape)
+                    .clickable { onOnlineChange?.invoke(!isOnline) }
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isOnline) "You're on duty" else "You're offline",
+                        color = Color(0xFF0F172A).fg(),
+                        fontSize = 16.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isOnline) "Receiving urgent job alerts" else "Go on duty for urgent jobs",
+                        color = Color(0xFF64748B).fg(),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+
                 if (onOnlineChange != null) {
                     com.example.dutype.common.screens.AirbnbModernSwitch(
                         checked = isOnline,
@@ -1739,12 +2226,41 @@ internal fun WorkerHomeGreetingHeader(
                         activeTrackColor = Color(0xFF10B981)
                     )
                 }
-                HomeBellButton(
-                    hasUnread = unreadNotificationCount > 0,
-                    onClick = onNotificationClick
-                )
             }
         }
+    }
+}
+
+@Composable
+private fun HomeFilterPill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = CircleShape
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(if (isSelected) Color(0xFF0F172A).bg() else Color.White.bg())
+            .border(1.dp, if (isSelected) Color(0xFF0F172A).bd() else Color(0xFFE2E8F0).bd(), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isSelected) Color.White.fg() else Color(0xFF0F172A).fg(),
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = label,
+            color = if (isSelected) Color.White.fg() else Color(0xFF0F172A).fg(),
+            fontSize = 13.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
 

@@ -47,14 +47,14 @@ if (localPropertiesFile.exists()) {
 
 android {
 	namespace = "com.dutype.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
 		applicationId = "com.dutype.app"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 851
-        versionName = "7.2"
+        targetSdk = 36
+        versionCode = 854
+        versionName = "7.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -470,13 +470,14 @@ dependencies {
     implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
 
-// Crashlytics mapping-file upload is intentionally LEFT ENABLED (default).
-// Without it, every release stack trace in the Crashlytics console is
-// obfuscated and effectively unreadable. If your local network blocks
-// firebasecrashlyticssymbols.googleapis.com, the build will still succeed;
-// upload the mapping manually afterwards with:
-//   ./gradlew :app:uploadCrashlyticsMappingFileRelease
-// or run the build from a CI runner with unrestricted DNS.
+// Crashlytics mapping-file upload: do not fail bundleRelease when offline or when
+// firebasecrashlyticssymbols.googleapis.com is unreachable from developer machines.
+// Pass -PuploadCrashlytics=true if you wish to run the upload explicitly.
+tasks.matching { it.name.startsWith("uploadCrashlyticsMappingFile") }.configureEach {
+    val shouldUpload = providers.gradleProperty("uploadCrashlytics").orNull == "true"
+    enabled = shouldUpload
+}
+
 configurations.all {
     exclude(group = "com.google.firebase", module = "firebase-iid")
     resolutionStrategy {

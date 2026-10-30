@@ -102,6 +102,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Plumbing
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Work
@@ -474,7 +475,8 @@ internal fun statusLabel(status: String): String = stringResource(
 internal fun statusColor(status: String): Color = when (status) {
     BookingStatus.PAYMENT_PENDING -> SvcOrange
     BookingStatus.COMPLETED -> SvcGreen
-    BookingStatus.CANCELLED, BookingStatus.NO_PARTNER -> SvcRed
+    BookingStatus.CANCELLED -> SvcRed
+    BookingStatus.NO_PARTNER -> SvcOrange
     BookingStatus.SEARCHING -> SvcOrange
     else -> SvcBlue
 }
@@ -7054,7 +7056,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     BookingStatus.STARTED -> "Service In Progress"
                     BookingStatus.COMPLETED -> "Service Completed"
                     BookingStatus.CANCELLED -> "Booking Cancelled"
-                    BookingStatus.NO_PARTNER -> "No Partner Available"
+                    BookingStatus.NO_PARTNER -> "Service Partners Busy Right Now"
                     else -> "Booking Placed"
                 }
                 val trackerSubtext = when (b.status) {
@@ -7068,7 +7070,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     BookingStatus.STARTED -> "Work is underway. OTP successfully verified."
                     BookingStatus.COMPLETED -> "Service successfully completed. Transparent pricing guaranteed."
                     BookingStatus.CANCELLED -> "This request was cancelled."
-                    BookingStatus.NO_PARTNER -> "All partners are currently busy. We apologize for the inconvenience."
+                    BookingStatus.NO_PARTNER -> "Our verified service partners are currently engaged on active customer duties. We never compromise on safety or send unverified workers. Please try again in a few moments!"
                     else -> "Your booking details have been confirmed."
                 }
 
@@ -7282,7 +7284,82 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 }
             }
 
-            if (b.status == BookingStatus.NO_PARTNER || b.status == BookingStatus.CANCELLED || b.status == BookingStatus.COMPLETED) {
+            if (b.status == BookingStatus.NO_PARTNER) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFFFFBEB),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Partners are on High Demand",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF92400E)
+                                )
+                                Text(
+                                    text = "100% Background-Verified Professionals",
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFFB45309)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = "Our verified service technicians in your area are currently completing live customer orders. DutyPe only assigns experienced, background-cleared professionals.\n\nPlease try again shortly — partners free up continuously!",
+                            fontSize = 12.5.sp,
+                            color = Color(0xFF78350F),
+                            lineHeight = 17.sp
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { navController.navigate(Routes.SERVICES) },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Try Again Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    val waMsg = "Hi DutyPe Support, my booking for ${b.serviceName} (#${b.id.take(8).uppercase()}) showed partners busy. Can you assist me?"
+                                    val waUri = Uri.parse("https://wa.me/918019151847?text=${Uri.encode(waMsg)}")
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, waUri)) }
+                                },
+                                modifier = Modifier.height(44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFFD97706))
+                            ) {
+                                Text("WhatsApp", color = Color(0xFFD97706), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+            } else if (b.status == BookingStatus.CANCELLED || b.status == BookingStatus.COMPLETED) {
                 Button(
                     onClick = { navController.navigate(Routes.SERVICES) },
                     modifier = Modifier.fillMaxWidth().height(50.dp),

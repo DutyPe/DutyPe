@@ -442,8 +442,8 @@ private fun AirbnbSectionHeader(title: String) {
     Text(
         text = title,
         style = TextStyle(
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Normal,
+            fontSize = 15.5.sp,
+            fontWeight = FontWeight.SemiBold,
             color = AirbnbTitleColor.fg(),
             letterSpacing = (-0.1).sp
         ),
@@ -487,7 +487,7 @@ private fun AirbnbActionRow(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
                 tint = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg(),
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(26.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
         } else if (icon != null) {
@@ -495,7 +495,7 @@ private fun AirbnbActionRow(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg(),
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(26.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
         }
@@ -504,7 +504,7 @@ private fun AirbnbActionRow(
             Text(
                 text = title,
                 style = TextStyle(
-                    fontSize = 14.5.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Normal,
                     color = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg()
                 )
@@ -553,13 +553,13 @@ private fun AirbnbInfoRow(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = AirbnbTitleColor.fg(),
-            modifier = Modifier.size(25.dp)
+            modifier = Modifier.size(26.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
             style = TextStyle(
-                fontSize = 14.5.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
                 color = AirbnbTitleColor.fg()
             ),
@@ -605,14 +605,14 @@ private fun AirbnbSwitchRow(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = AirbnbTitleColor.fg(),
-            modifier = Modifier.size(25.dp)
+            modifier = Modifier.size(26.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = TextStyle(
-                    fontSize = 14.5.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Normal,
                     color = AirbnbTitleColor.fg()
                 )
@@ -708,13 +708,13 @@ private fun AirbnbLanguageRow() {
             painter = painterResource(id = R.drawable.translate_indic_24),
             contentDescription = null,
             tint = AirbnbTitleColor.fg(),
-            modifier = Modifier.size(25.dp)
+            modifier = Modifier.size(26.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = stringResource(R.string.language),
             style = TextStyle(
-                fontSize = 14.5.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
                 color = AirbnbTitleColor.fg()
             ),

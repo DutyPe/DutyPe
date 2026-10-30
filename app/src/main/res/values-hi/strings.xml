@@ -2703,7 +2703,7 @@
     <string name="svc_status_started">काम चल रहा है</string>
     <string name="svc_status_completed">पूरा हुआ</string>
     <string name="svc_status_cancelled">रद्द</string>
-    <string name="svc_status_no_partner">कोई पार्टनर उपलब्ध नहीं</string>
+    <string name="svc_status_no_partner">पार्टनर अभी व्यस्त हैं</string>
     <string name="svc_scheduled_for">समय: %1$s</string>
     <string name="svc_start_code">स्टार्ट कोड</string>
     <string name="svc_start_code_help">पार्टनर के घर पहुंचने पर ही यह कोड बताएं।</string>

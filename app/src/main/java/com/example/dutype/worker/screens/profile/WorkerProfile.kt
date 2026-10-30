@@ -93,6 +93,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -479,7 +480,7 @@ fun WorkerProfileScreen(
                 }
             }
 
-            // Top bar: Profile title with Language switcher and WhatsApp support
+            // Top bar: Account title matching Employer profile header (Language & WhatsApp icons removed)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -488,38 +489,11 @@ fun WorkerProfileScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 androidx.compose.material3.Text(
-                    text = androidx.compose.ui.res.stringResource(R.string.profile),
+                    text = androidx.compose.ui.res.stringResource(R.string.emp_profile_account),
                     color = androidx.compose.ui.graphics.Color(0xFF0F172A).fg(),
                     fontSize = 20.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
-
-                IconButton(
-                    onClick = { showLanguageSheet = true },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.translate_indic_24),
-                        contentDescription = "Language",
-                        tint = Color(0xFFE91E63),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                IconButton(
-                    onClick = whatsappSupport,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_whatsapp),
-                        contentDescription = "WhatsApp Support",
-                        tint = Color(0xFF25D366),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
             }
 
             LazyColumn(
@@ -1122,20 +1096,20 @@ private fun ProfileListRow(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
                 tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(23.dp)
             )
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(23.dp)
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(13.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -1225,7 +1199,7 @@ private fun ProfileSettingsCard(
         // Section 1: Work & Earnings
         Text(
             text = "Work & Earnings",
-            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
+            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
         ProfileListRow(
@@ -1253,7 +1227,7 @@ private fun ProfileSettingsCard(
         // Section 2: Referral
         Text(
             text = "Referral",
-            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
+            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Row(
@@ -1268,12 +1242,12 @@ private fun ProfileSettingsCard(
                 painter = painterResource(id = R.drawable.ic_profile_gift),
                 contentDescription = null,
                 tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(23.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = stringResource(R.string.refer_earn),
-                style = profileTextStyle(13.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+                style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
                 modifier = Modifier.weight(1f)
             )
             Box(
@@ -1303,7 +1277,7 @@ private fun ProfileSettingsCard(
         // Section 3: Settings & About
         Text(
             text = "Settings & About",
-            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
+            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         ProfileListRow(

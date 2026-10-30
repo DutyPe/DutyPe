@@ -341,12 +341,12 @@ private fun EmpMenuRow(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(23.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(13.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -392,7 +392,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         // Section 1: Hiring & Management
         Text(
             text = "Hiring & Management",
-            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
+            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
         EmpMenuRow(
@@ -430,7 +430,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         // Section 2: Support & Referral
         Text(
             text = "Support & Referral",
-            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
+            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         EmpMenuRow(
@@ -454,7 +454,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         // Section 3: Settings & About
         Text(
             text = "Settings & About",
-            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
+            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         EmpMenuRow(

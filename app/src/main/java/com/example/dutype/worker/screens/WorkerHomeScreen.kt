@@ -17,6 +17,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Surface
+import com.example.dutype.navigation.WorkerBottomRoutes
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -39,7 +45,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.ui.zIndex
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -217,6 +225,24 @@ fun WorkerHomeScreen(
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
     val urgentJobs by jobViewModel.filteredUrgentJobs.collectAsStateWithLifecycle()
+
+    var selectedFilterType by remember { mutableStateOf("ALL") }
+    var activeStoryIndex by remember { mutableStateOf<Int?>(null) }
+
+    val homeDisplayedJobs = remember(filteredJobs, selectedFilterType) {
+        when (selectedFilterType) {
+            "DAILY_WAGE" -> filteredJobs.filter {
+                it.payType.contains("DAILY", ignoreCase = true) ||
+                it.payType.contains("DAY", ignoreCase = true) ||
+                it.employmentType.contains("DAILY", ignoreCase = true)
+            }
+            "FULL_TIME" -> filteredJobs.filter {
+                it.employmentType.contains("FULL", ignoreCase = true) ||
+                it.payType.contains("MONTH", ignoreCase = true)
+            }
+            else -> filteredJobs
+        }
+    }
 
 
     // Permission handling - Check permissions only once.
@@ -1060,7 +1086,7 @@ fun WorkerHomeScreen(
                                 val showCategoryRail = hasLocationPermission && !showEmptyJobsState
 
                                 HomeSectionsContent(
-                                    jobListings = filteredJobs,
+                                    jobListings = homeDisplayedJobs,
                                     urgentJobs = urgentJobs,
                                     isLoadingJobs = jobUiState.isLoading,
                                     navController = navController,
@@ -1073,6 +1099,7 @@ fun WorkerHomeScreen(
                                     onNavigateToJob = { jobId ->
                                         navController.navigate(Routes.jobDetailRoute(jobId))
                                     },
+                                    onOpenStory = { idx -> activeStoryIndex = idx },
                                     showcases = showcases,
                                     onShowcaseClick = { showcaseId ->
                                         runCatching {
@@ -1267,6 +1294,11 @@ fun WorkerHomeScreen(
                                                 locationPickerError = null
                                                 showLocationPickerSheet = true
                                             },
+                                            selectedFilter = selectedFilterType,
+                                            onFilterChange = { selectedFilterType = it },
+                                            onSearchClick = {
+                                                com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
+                                            },
                                             isOnline = workerOnline,
                                             isSavingOnline = savingOnline,
                                             onOnlineChange = { online ->
@@ -1308,6 +1340,98 @@ fun WorkerHomeScreen(
                     // Voice search lives behind WORKER_ALL_JOBS?voiceQuery= now; reintroduce here only
                     // alongside the matching `voiceSearchLauncher` if voice-from-home is brought back.
                 }
+            }
+        }
+
+        // Floating Bottom Pill: "Apply free · 0 fee"
+        // Starts hidden (false), smoothly slides up from bottom at 500ms, stays 3.5s, then slides back down into bottom bar
+        var showApplyFreeChip by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(500L)
+            showApplyFreeChip = true
+            delay(3500L)
+            showApplyFreeChip = false
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showApplyFreeChip,
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(500)) +
+                    androidx.compose.animation.slideInVertically(
+                        initialOffsetY = { fullHeight -> fullHeight * 2 },
+                        animationSpec = androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                    ),
+            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(500)) +
+                   androidx.compose.animation.slideOutVertically(
+                       targetOffsetY = { fullHeight -> fullHeight * 2 },
+                       animationSpec = androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                   ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 88.dp)
+                .zIndex(99f)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color.White.bg(),
+                shadowElevation = 4.dp,
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            android.widget.Toast.makeText(
+                                context,
+                                "DutyPe Guarantee: 100% Free · Direct Spot Hiring · Zero Agent Fees",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalOffer,
+                        contentDescription = null,
+                        tint = Color(0xFFFF5722),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Apply free · 0 fee",
+                        color = Color(0xFF0F172A).fg(),
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        // Fullscreen Story Viewer (Image 2)
+        if (activeStoryIndex != null) {
+            val storyJobs = if (homeDisplayedJobs.isNotEmpty()) homeDisplayedJobs else jobUiState.jobs
+            if (storyJobs.isNotEmpty()) {
+                com.example.dutype.worker.components.JobStoryViewerModal(
+                    jobs = storyJobs,
+                    initialIndex = activeStoryIndex ?: 0,
+                    isOnline = workerOnline,
+                    onOnlineChange = { online ->
+                        jobViewModel.setOnline(online) { message ->
+                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onNotificationClick = {
+                        navController.navigate(Routes.WORKER_NOTIFICATIONS)
+                    },
+                    onApplyJob = { job ->
+                        navController.navigate(Routes.jobDetailRoute(job.id))
+                    },
+                    onToggleSave = { jobId ->
+                        savedJobsViewModel.toggleSaveJob(jobId)
+                    },
+                    isJobSaved = { jobId ->
+                        savedJobsViewModel.isJobSaved(jobId)
+                    },
+                    onDismiss = { activeStoryIndex = null }
+                )
             }
         }
 

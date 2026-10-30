@@ -293,6 +293,24 @@ private fun JobCardInternal(
                 }
             }
 
+            // Micro-badge: [🏷️ Direct Employer · ₹0 Commission]
+            Spacer(modifier = Modifier.height(6.dp))
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFFECFDF5),
+                border = BorderStroke(0.5.dp, Color(0xFFA7F3D0))
+            ) {
+                Text(
+                    text = "🏷️ Direct Employer · ₹0 Commission",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color(0xFF047857),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.5.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+
             JobCardFacts(
                 workTypeLabel = workTypeLabel,
                 shift = shift,

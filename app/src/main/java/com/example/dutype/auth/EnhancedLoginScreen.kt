@@ -319,7 +319,7 @@ private fun OtpLoginScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            if (!otpState.otpSent && !isNavigatingAway && !otpState.otpVerified) {
+            if (!otpState.otpSent) {
                 // =========================================================================
                 // SCREEN 1: Enter Your Mobile Number (PhonePe Business replicated)
                 // =========================================================================

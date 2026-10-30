@@ -219,6 +219,16 @@ class SavedJobsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(hasError = false, error = null)
     }
 
+    fun isJobSaved(jobId: String): Boolean = appStateManager.isJobSaved(jobId)
+
+    fun toggleSaveJob(jobId: String) {
+        if (isJobSaved(jobId)) {
+            unsaveJob(jobId)
+        } else {
+            saveJob(jobId)
+        }
+    }
+
     fun isJobSaved(jobId: String, onResult: (Boolean) -> Unit) {
         val cachedSaved = appStateManager.isJobSaved(jobId)
         if (cachedSaved) {
