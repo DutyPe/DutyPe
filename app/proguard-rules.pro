@@ -176,9 +176,21 @@
 -dontwarn com.truecaller.android.sdk.**
 
 # -----------------------------------------------------------------------------
-# WorkManager Background Workers
+# WorkManager Background Workers & Internal Room DAOs
 # -----------------------------------------------------------------------------
 -keep class com.example.dutype.workers.** { <init>(...); }
+-keep class androidx.work.** { *; }
+-keep interface androidx.work.** { *; }
+-keepclassmembers class androidx.work.** { *; }
+-keepclassmembers interface androidx.work.** { *; }
+-keep class androidx.work.impl.model.** { *; }
+-keep interface androidx.work.impl.model.** { *; }
+-keepclassmembers class androidx.work.impl.model.** { *; }
+-keepclassmembers interface androidx.work.impl.model.** { *; }
+-keep class * extends androidx.work.impl.model.** { *; }
+-keep class * implements androidx.work.impl.model.** { *; }
+-keepclassmembers class * extends androidx.work.impl.model.** { *; }
+-keepclassmembers class * implements androidx.work.impl.model.** { *; }
 -keep class androidx.work.impl.background.systemjob.SystemJobService { *; }
 -keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
 -keep class androidx.work.impl.foreground.SystemForegroundService { *; }
