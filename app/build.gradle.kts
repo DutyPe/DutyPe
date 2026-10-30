@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 855
-        versionName = "7.5"
+        versionCode = 856
+        versionName = "7.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -66,13 +66,13 @@ android {
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         
-        // Native ABI Support across Android physical devices (100% of Indian smartphones):
-        // - armeabi-v7a: 32-bit budget Android devices & Android Go Edition (Motorola, Oppo, Vivo, Samsung, Realme)
-        // - arm64-v8a: Standard 64-bit ARM architecture (with 16KB ELF page size support for Android 15+)
-        // Stripping obsolete x86/x86_64 native binaries from release builds saves ~11.2 MB uncompressed (~5 MB in AAB).
+        // Native ABI Support across all physical devices, emulators & Google Play 16 KB lab devices:
+        // - armeabi-v7a: 32-bit budget Android devices & Android Go Edition
+        // - arm64-v8a: Standard 64-bit ARM architecture (with 16 KB page-size support)
+        // - x86, x86_64: 32/64-bit emulators, ChromeOS & Google Play 16 KB lab test devices
         ndk {
             abiFilters.clear()
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
     }
 
@@ -436,21 +436,7 @@ dependencies {
     
     ksp(libs.hilt.compiler)
 
-    // Room Database
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
-
-    // SQLCipher for encrypted Room database.
-    // Use the modern `sqlcipher-android` artifact (4.6.0+) — it ships native
-    // libraries with 16 KB ELF segment alignment, which is required by Google
-    // Play for Android 15+ targets starting Nov 1, 2025. The legacy
-    // `net.zetetic:android-database-sqlcipher:4.5.4` artifact is NOT 16 KB
-    // compatible.
-    implementation("net.zetetic:sqlcipher-android:4.6.1")
-    implementation("androidx.sqlite:sqlite:2.4.0") // pinned: 2.6.x API changes cause AbstractMethodError with sqlcipher 4.6.1
-    // EncryptedSharedPreferences for securely storing the DB passphrase
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // Local persistence is fully managed via Firebase Firestore (with offline caching) and DataStore/SafeSharedPreferences.
 
     // WorkManager for background sync — 2.10.1 is stable and fixes AbstractMethodError with Hilt 2.51+
     implementation("androidx.work:work-runtime-ktx:2.10.1")
@@ -490,10 +476,7 @@ configurations.all {
                 useVersion("2.10.1")
                 because("Force consistent WorkManager version to prevent AbstractMethodError")
             }
-            if (requested.group == "androidx.sqlite") {
-                useVersion("2.4.0")
-                because("Pin androidx.sqlite to 2.4.0 — sqlcipher-android:4.6.1 was compiled against this version; 2.6.x API changes cause AbstractMethodError")
-            }
+
         }
     }
 }

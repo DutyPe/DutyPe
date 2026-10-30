@@ -118,12 +118,6 @@
 # -----------------------------------------------------------------------------
 # Room & SQLCipher Encrypted Database
 # -----------------------------------------------------------------------------
--keep class * extends androidx.room.RoomDatabase { *; }
--keep @androidx.room.Entity class * { *; }
--keep @androidx.room.Dao class * { *; }
--keepclassmembers @androidx.room.Dao class * { *; }
--keep class net.zetetic.database.** { *; }
--keep class net.zetetic.database.sqlcipher.** { *; }
 
 # -----------------------------------------------------------------------------
 # Parcelable + Serializable + Enum Boilerplate
