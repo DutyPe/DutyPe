@@ -133,7 +133,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         initializeAppCheck()
 
         // Diagnostic log: deferred off the startup critical path.
-        applicationScope.launch { logFirebaseBinding() }
+        applicationScope.launch(Dispatchers.IO) { logFirebaseBinding() }
 
         // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
         applicationScope.launch(Dispatchers.IO) {
@@ -151,26 +151,23 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
 
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling.
         // PERF: off the main thread; ANRHandler is only needed when a violation is reported.
-        applicationScope.launch {
+        applicationScope.launch(Dispatchers.IO) {
             runCatching {
                 com.example.dutype.performance.MainThreadChecker.init(this@DutyPeApplication, anrHandler.get())
             }
         }
 
-        // Schedule background job sync immediately
-        applicationScope.launch {
+        // Clean up retired background workers off the main thread
+        applicationScope.launch(Dispatchers.IO) {
             try {
                 cancelRetiredWork()
-                // REMOVED: SmartNotificationWorker (replaced with Cloud Functions)
-                // Smart notifications now run server-side via Firebase Cloud Functions
-                // This eliminates permission errors and battery drain
             } catch (e: Exception) {
-                Timber.w(e, "🔄 Background sync scheduling failed (non-fatal)")
+                Timber.w(e, "🔄 Background sync cancellation failed (non-fatal)")
             }
         }
 
         // Other non-critical components
-        applicationScope.launch {
+        applicationScope.launch(Dispatchers.IO) {
             initializeNonCriticalComponents()
         }
     }
@@ -185,21 +182,24 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             .build()
 
     /**
-     * Reminders and engagement nudges now come from Cloud Functions (topic messages and windowed
-     * reminders); cancel the device workers that older app versions scheduled.
+     * Reminders and engagement nudges come from Cloud Functions; cancel all device-side workers
+     * that older app versions scheduled to prevent background SystemJobService wakeups and ANRs.
      */
     private fun cancelRetiredWork() {
         if (!com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(this)) return
         val prefs = com.example.dutype.utils.SafeStorageUtils.getSafeSharedPreferences(this, "dutype_startup_cleanup")
-        if (prefs.getBoolean("retired_work_cancelled_v2", false)) return
+        if (prefs.getBoolean("retired_work_cancelled_v3", false)) return
         runCatching {
             val workManager = androidx.work.WorkManager.getInstance(this)
             listOf(
                 "pending_application_notification_worker",
                 "guest_engagement_background",
-                "role_engagement_recurring"
+                "role_engagement_recurring",
+                "launch_config_periodic",
+                "launch_config_refresh_once"
             ).forEach(workManager::cancelUniqueWork)
-            prefs.edit().putBoolean("retired_work_cancelled_v2", true).apply()
+            prefs.edit().putBoolean("retired_work_cancelled_v3", true).apply()
+            Timber.i("🧹 Cancelled all retired WorkManager jobs (v3)")
         }.onFailure { Timber.w(it, "Failed to cancel retired work") }
     }
 

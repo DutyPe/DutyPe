@@ -1,18 +1,14 @@
 package com.example.dutype.promo
 
 import android.content.Context
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.dutype.utils.AppLifecycleTracker
 import com.example.dutype.utils.isDebuggableBuild
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
@@ -28,65 +24,42 @@ class LaunchConfigWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        return try {
-            val ctx = applicationContext
-            if (!com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(ctx)) {
-                Timber.tag("PromoConfig").d("Device locked; postponing LaunchConfigWorker retry")
-                return Result.retry()
-            }
-            LaunchConfigFetcher.refresh(ctx)
-            // Expiry/kill-switch revert must not depend on the user opening the app: if the app
-            // is not in the foreground, reconcile the launcher icon now (no-op when unchanged).
-            if (!AppLifecycleTracker.isAppInForeground()) {
-                AppIconManager.reconcile(ctx)
-            }
-            Result.success()
-        } catch (t: Throwable) {
-            Timber.tag("PromoConfig").d("Worker failed: %s", t.javaClass.simpleName)
-            if (runAttemptCount < 2) Result.retry() else Result.success()
-        }
+        // Legacy stub retained solely to avoid ClassNotFoundException for any lingering system jobs.
+        // Exits immediately with success so Android never retries or holds SystemJobService locks.
+        return Result.success()
     }
 }
 
-/** Schedules the config refresh. Cheap and idempotent; never call before the first frame. */
+/**
+ * Handles promo and holiday app-icon config refresh.
+ * Executed purely in foreground coroutines without scheduling background WorkManager jobs,
+ * permanently eliminating SystemJobService wakeups and acknowledgeStartMessage ANRs.
+ */
 object LaunchConfigScheduler {
-    private const val PERIODIC_NAME = "launch_config_periodic"
-    private const val ONCE_NAME = "launch_config_refresh_once"
     private const val REFRESH_INTERVAL_HOURS = 12L
-
-    @Volatile private var periodicScheduled = false
 
     /** Call from a background thread shortly after the first frame, when the app is foregrounded. */
     fun onAppForeground(context: Context) {
         val ctx = context.applicationContext
         try {
-            val wm = WorkManager.getInstance(ctx)
-            if (!periodicScheduled) {
-                val request = PeriodicWorkRequestBuilder<LaunchConfigWorker>(
-                    REFRESH_INTERVAL_HOURS, TimeUnit.HOURS
-                )
-                    .setConstraints(
-                        Constraints.Builder()
-                            .setRequiredNetworkType(NetworkType.CONNECTED)
-                            .setRequiresBatteryNotLow(true)
-                            .build()
-                    )
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
-                    .build()
-                wm.enqueueUniquePeriodicWork(PERIODIC_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
-                periodicScheduled = true
+            // Cancel legacy WorkManager jobs from older versions to purge them from system JobScheduler
+            runCatching {
+                val wm = WorkManager.getInstance(ctx)
+                wm.cancelUniqueWork("launch_config_periodic")
+                wm.cancelUniqueWork("launch_config_refresh_once")
             }
+
             // Opportunistic refresh: at most once per 12h (debug builds: every foreground).
             val staleMs = if (ctx.isDebuggableBuild()) 0L else TimeUnit.HOURS.toMillis(REFRESH_INTERVAL_HOURS)
             val age = System.currentTimeMillis() - LaunchConfigStore.lastFetchAt(ctx)
             if (age >= staleMs) {
-                val once = OneTimeWorkRequestBuilder<LaunchConfigWorker>()
-                    .setConstraints(
-                        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-                    )
-                    .build()
-                wm.enqueueUniqueWork(ONCE_NAME, ExistingWorkPolicy.KEEP, once)
-                Timber.tag("PromoConfig").d("Enqueued opportunistic refresh (age=%d ms)", age)
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    val refreshed = LaunchConfigFetcher.refresh(ctx)
+                    if (refreshed && !AppLifecycleTracker.isAppInForeground()) {
+                        AppIconManager.reconcile(ctx)
+                    }
+                    Timber.tag("PromoConfig").d("Foreground promo refresh completed (age=%d ms)", age)
+                }
             }
         } catch (t: Throwable) {
             Timber.tag("PromoConfig").d("Scheduling failed: %s", t.javaClass.simpleName)

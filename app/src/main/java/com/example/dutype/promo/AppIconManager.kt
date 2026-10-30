@@ -91,12 +91,20 @@ object AppIconManager {
         }
         return try {
             synchronized(lock) {
+                val prefs = com.example.dutype.utils.SafeStorageUtils.getSafeSharedPreferences(ctx, PREFS)
+                val currentSavedAlias = prefs.getString("active_alias", null)
+                if (currentSavedAlias == targetAlias) {
+                    return@synchronized true
+                }
+
                 val pm = ctx.packageManager
                 val enabled = ALIASES.filter { (id, cls) -> isEnabled(pm, ctx, id, cls) }.values.toList()
-                if (enabled.size == 1 && enabled[0] == targetAlias) return@synchronized true
+                if (enabled.size == 1 && enabled[0] == targetAlias) {
+                    prefs.edit().putString("active_alias", targetAlias).apply()
+                    return@synchronized true
+                }
 
                 val toDefault = targetAlias == ALIASES[DEFAULT_ID]
-                val prefs = com.example.dutype.utils.SafeStorageUtils.getSafeSharedPreferences(ctx, PREFS)
                 val now = System.currentTimeMillis()
                 if (!toDefault && now - prefs.getLong(KEY_LAST_APPLY_AT, 0L) < THROTTLE_MS) {
                     Timber.tag(TAG).d("Icon switch to '%s' throttled (24h)", iconId)
@@ -117,7 +125,10 @@ object AppIconManager {
                         PackageManager.DONT_KILL_APP
                     )
                 }
-                prefs.edit().putLong(KEY_LAST_APPLY_AT, now).apply()
+                prefs.edit()
+                    .putLong(KEY_LAST_APPLY_AT, now)
+                    .putString("active_alias", targetAlias)
+                    .apply()
                 true
             }
         } catch (t: Throwable) {

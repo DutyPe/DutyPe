@@ -238,9 +238,19 @@ class MainActivity : ComponentActivity() {
                 }
             }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
 
-            // Initialize AdMob asynchronously in foreground Activity
-            runCatching {
-                com.google.android.gms.ads.MobileAds.initialize(this@MainActivity)
+        }
+
+        // Initialize AdMob asynchronously using applicationContext off the startup critical path
+        // to prevent binder transaction lock contention and main thread stalls on Android 16/OnePlus.
+        lifecycleScope.launch(Dispatchers.IO) {
+            delay(3000L)
+            if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(applicationContext)) {
+                runCatching {
+                    com.google.android.gms.ads.MobileAds.initialize(applicationContext) {}
+                    Timber.d("✅ MobileAds initialized on background thread")
+                }.onFailure { error ->
+                    Timber.w(error, "MobileAds background init skipped or failed")
+                }
             }
         }
 
