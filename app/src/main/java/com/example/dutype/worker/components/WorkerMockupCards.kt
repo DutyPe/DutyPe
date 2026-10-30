@@ -71,7 +71,7 @@ fun WorkerMockupJobCard(
     cardWidth: androidx.compose.ui.unit.Dp = 168.dp,
     imageHeight: androidx.compose.ui.unit.Dp = 185.dp
 ) {
-    val cardRadius = 20.dp
+    val cardRadius = 12.dp
     val payAmount = job.payAmount
     val payTypeLabel = when (job.payType.uppercase()) {
         "MONTHLY" -> "/month"
@@ -94,7 +94,7 @@ fun WorkerMockupJobCard(
                 .width(cardWidth)
                 .height(imageHeight),
             shape = RoundedCornerShape(cardRadius),
-            shadowElevation = 2.dp,
+            shadowElevation = 1.dp,
             color = Color(0xFFF1F5F9),
             border = BorderStroke(0.6.dp, Color(0xFFE2E8F0).copy(alpha = 0.6f))
         ) {
@@ -279,7 +279,7 @@ fun WorkerMockupServiceCard(
     cardWidth: androidx.compose.ui.unit.Dp = 168.dp,
     imageHeight: androidx.compose.ui.unit.Dp = 185.dp
 ) {
-    val cardRadius = 20.dp
+    val cardRadius = 12.dp
     var isSaved by remember { mutableStateOf(false) }
 
     Column(
@@ -292,7 +292,7 @@ fun WorkerMockupServiceCard(
                 .width(cardWidth)
                 .height(imageHeight),
             shape = RoundedCornerShape(cardRadius),
-            shadowElevation = 2.dp,
+            shadowElevation = 1.dp,
             color = Color(0xFFF1F5F9),
             border = BorderStroke(0.6.dp, Color(0xFFE2E8F0).copy(alpha = 0.6f))
         ) {
