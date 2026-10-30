@@ -845,10 +845,10 @@ fun HomeSectionsContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = Color.White.bg(),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-                shadowElevation = 0.dp
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f)),
+                shadowElevation = 3.dp
             ) {
                 Column(
                     modifier = Modifier
@@ -1097,10 +1097,10 @@ private fun ServiceBookingCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onApply),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1312,9 +1312,10 @@ private fun InstantRequestCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onApply),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1826,10 +1827,10 @@ fun WorkerLiveEarningsSection(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .cascadeEnter(index = 2),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White.bg(),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-        shadowElevation = 0.dp
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f)),
+        shadowElevation = 3.dp
     ) {
         Column(
             modifier = Modifier
@@ -2186,20 +2187,21 @@ internal fun WorkerHomeGreetingHeader(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Row 2: Duty Toggle Card: "You're offline / Go on duty for urgent jobs"
-        Box(
+        val dutyShape = RoundedCornerShape(20.dp)
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp)
+                .padding(horizontal = 20.dp, vertical = 4.dp),
+            shape = dutyShape,
+            color = Color.White,
+            shadowElevation = 3.dp,
+            border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
         ) {
-            val dutyShape = RoundedCornerShape(20.dp)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(dutyShape)
-                    .background(Color.White.bg())
-                    .border(1.dp, Color(0xFFE2E8F0).bd(), dutyShape)
                     .clickable { onOnlineChange?.invoke(!isOnline) }
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    .padding(horizontal = 18.dp, vertical = 15.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {

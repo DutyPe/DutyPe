@@ -1371,10 +1371,10 @@ fun WorkerHomeScreen(
                 .zIndex(99f)
         ) {
             Surface(
-                shape = CircleShape,
-                color = Color.White.bg(),
-                shadowElevation = 4.dp,
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                shadowElevation = 6.dp,
+                border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f))
             ) {
                 Row(
                     modifier = Modifier
@@ -1385,20 +1385,20 @@ fun WorkerHomeScreen(
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
-                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                        .padding(horizontal = 20.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocalOffer,
                         contentDescription = null,
-                        tint = Color(0xFFFF5722),
-                        modifier = Modifier.size(16.dp)
+                        tint = Color(0xFFFF385C),
+                        modifier = Modifier.size(18.dp)
                     )
                     Text(
                         text = "Apply free · 0 fee",
-                        color = Color(0xFF0F172A).fg(),
-                        fontSize = 13.5.sp,
+                        color = Color(0xFF222222),
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }

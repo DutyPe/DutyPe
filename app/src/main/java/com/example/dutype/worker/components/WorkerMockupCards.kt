@@ -89,13 +89,16 @@ fun WorkerMockupJobCard(
             .bouncyClickable { onCardClick() }
     ) {
         // Top Image Container with badges and heart
-        Box(
+        Surface(
             modifier = Modifier
                 .width(cardWidth)
-                .height(imageHeight)
-                .clip(RoundedCornerShape(cardRadius))
-                .background(Color(0xFFE2E8F0))
+                .height(imageHeight),
+            shape = RoundedCornerShape(cardRadius),
+            shadowElevation = 2.dp,
+            color = Color(0xFFF1F5F9),
+            border = BorderStroke(0.6.dp, Color(0xFFE2E8F0).copy(alpha = 0.6f))
         ) {
+            Box(modifier = Modifier.fillMaxSize()) {
             val photoUrl = job.photoUrl?.takeIf { it.isNotBlank() }
             if (photoUrl != null) {
                 AsyncImage(
@@ -201,6 +204,7 @@ fun WorkerMockupJobCard(
                     modifier = Modifier.size(17.dp)
                 )
             }
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -283,14 +287,17 @@ fun WorkerMockupServiceCard(
             .width(cardWidth)
             .bouncyClickable { onCardClick() }
     ) {
-        Box(
+        Surface(
             modifier = Modifier
                 .width(cardWidth)
-                .height(imageHeight)
-                .clip(RoundedCornerShape(cardRadius))
-                .background(Color(0xFFE2E8F0))
+                .height(imageHeight),
+            shape = RoundedCornerShape(cardRadius),
+            shadowElevation = 2.dp,
+            color = Color(0xFFF1F5F9),
+            border = BorderStroke(0.6.dp, Color(0xFFE2E8F0).copy(alpha = 0.6f))
         ) {
-            if (!imageUrl.isNullOrBlank()) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (!imageUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = title,
@@ -354,6 +361,7 @@ fun WorkerMockupServiceCard(
                     tint = if (isSaved) Color(0xFFFF3B30) else Color.White,
                     modifier = Modifier.size(17.dp)
                 )
+            }
             }
         }
 
