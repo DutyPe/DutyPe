@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 857
-        versionName = "7.7"
+        versionCode = 858
+        versionName = "7.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -408,8 +408,9 @@ dependencies {
     // Play Integrity API client is pulled in transitively by firebase-appcheck-playintegrity
 
 
-    // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    // DataStore (explicitly aligned with 1.1.3 to match transitive resolution from Firebase sessions)
+    implementation("androidx.datastore:datastore-preferences:1.1.3")
+    implementation("androidx.datastore:datastore:1.1.3")
 
     // Google Sign-In with Credential Manager
     implementation("androidx.credentials:credentials:1.6.0-beta03")

@@ -1373,7 +1373,7 @@ fun WorkerHomeScreen(
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = Color.White,
-                shadowElevation = 2.dp,
+                shadowElevation = 1.dp,
                 border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f))
             ) {
                 Row(

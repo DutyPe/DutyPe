@@ -111,15 +111,71 @@
 -dontwarn androidx.compose.**
 
 # -----------------------------------------------------------------------------
-# Jetpack DataStore Protobuf internal classes (Prevents AbstractMethodError in RawMessageInfo)
+# Google Protobuf & Jetpack DataStore Protobuf (Prevents AbstractMethodError in Firestore and DataStore)
 # -----------------------------------------------------------------------------
--keep class androidx.datastore.preferences.protobuf.** { *; }
--keepclassmembers class * extends androidx.datastore.preferences.protobuf.GeneratedMessageLite {
-    <fields>;
-    <methods>;
+-keep class androidx.datastore.preferences.protobuf.ManifestSchemaFactory { *; }
+-keep class androidx.datastore.preferences.protobuf.ManifestSchemaFactory$* { *; }
+-keep class androidx.datastore.preferences.protobuf.GeneratedMessageInfoFactory { *; }
+-keep class androidx.datastore.preferences.protobuf.RawMessageInfo { *; }
+-keep interface androidx.datastore.preferences.protobuf.MessageInfo {
+    *** getSyntax(...);
+    *** isMessageSetWireFormat(...);
+    *** getDefaultInstance(...);
 }
--keep class * extends androidx.datastore.preferences.protobuf.MessageLite { *; }
+-keep interface androidx.datastore.preferences.protobuf.MessageInfoFactory {
+    *** messageInfoFor(...);
+    *** isSupported(...);
+}
+
+-keep class com.google.protobuf.ManifestSchemaFactory { *; }
+-keep class com.google.protobuf.ManifestSchemaFactory$* { *; }
+-keep class com.google.protobuf.GeneratedMessageInfoFactory { *; }
+-keep class com.google.protobuf.RawMessageInfo { *; }
+-keep interface com.google.protobuf.MessageInfo {
+    *** getSyntax(...);
+    *** isMessageSetWireFormat(...);
+    *** getDefaultInstance(...);
+}
+-keep interface com.google.protobuf.MessageInfoFactory {
+    *** messageInfoFor(...);
+    *** isSupported(...);
+}
+
+-keepclassmembers class * implements androidx.datastore.preferences.protobuf.MessageInfoFactory {
+    *** messageInfoFor(...);
+    *** isSupported(...);
+}
+-keepclassmembers class * implements com.google.protobuf.MessageInfoFactory {
+    *** messageInfoFor(...);
+    *** isSupported(...);
+}
+-keepclassmembers class * implements androidx.datastore.preferences.protobuf.MessageInfo {
+    *** getSyntax(...);
+    *** isMessageSetWireFormat(...);
+    *** getDefaultInstance(...);
+}
+-keepclassmembers class * implements com.google.protobuf.MessageInfo {
+    *** getSyntax(...);
+    *** isMessageSetWireFormat(...);
+    *** getDefaultInstance(...);
+}
+
+-keepclassmembers class * {
+    *** messageInfoFor(...);
+    *** isSupported(java.lang.Class);
+    *** getSyntax(...);
+    *** isMessageSetWireFormat(...);
+    *** getDefaultInstance(...);
+}
+-keepclassmembers interface * {
+    *** messageInfoFor(...);
+    *** isSupported(java.lang.Class);
+    *** getSyntax(...);
+    *** isMessageSetWireFormat(...);
+    *** getDefaultInstance(...);
+}
 -dontwarn androidx.datastore.preferences.protobuf.**
+-dontwarn com.google.protobuf.**
 
 # -----------------------------------------------------------------------------
 # Hilt / Dagger & Lifecycle ViewModel Factory (Prevents UnsupportedOperationException in Factory.create)
