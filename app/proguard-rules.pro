@@ -78,7 +78,7 @@
 -dontwarn coil.**
 
 # -----------------------------------------------------------------------------
-# Kotlin Coroutines & Jetpack Compose Stability
+# Kotlin Coroutines & Jetpack Compose Stability & Node Architecture
 # -----------------------------------------------------------------------------
 -keepclassmembers class * extends kotlin.coroutines.jvm.internal.SuspendLambda {
     *** invokeSuspend(...);
@@ -96,17 +96,46 @@
 -keepclassmembers class androidx.compose.runtime.internal.ComposableLambdaImpl { *; }
 -keep class androidx.compose.runtime.internal.ComposableLambda { *; }
 -keep interface androidx.compose.runtime.internal.ComposableLambda { *; }
+
+# Prevent AbstractMethodError on Compose UiApplier node mutations
+-keep class androidx.compose.runtime.Applier { *; }
+-keep class androidx.compose.runtime.AbstractApplier { *; }
+-keep class androidx.compose.ui.node.UiApplier { *; }
+-keepclassmembers class * implements androidx.compose.runtime.Applier {
+    void insertTopDown(int, java.lang.Object);
+    void insertBottomUp(int, java.lang.Object);
+    void remove(int, int);
+    void move(int, int, int);
+    void clear();
+}
 -dontwarn androidx.compose.**
 
 # -----------------------------------------------------------------------------
-# Hilt / Dagger Dependency Injection
+# Jetpack DataStore Protobuf internal classes (Prevents AbstractMethodError in RawMessageInfo)
 # -----------------------------------------------------------------------------
--keep,allowobfuscation,allowshrinking class dagger.hilt.android.internal.** { *; }
+-keep class androidx.datastore.preferences.protobuf.** { *; }
+-keepclassmembers class * extends androidx.datastore.preferences.protobuf.GeneratedMessageLite {
+    <fields>;
+    <methods>;
+}
+-keep class * extends androidx.datastore.preferences.protobuf.MessageLite { *; }
+-dontwarn androidx.datastore.preferences.protobuf.**
+
+# -----------------------------------------------------------------------------
+# Hilt / Dagger & Lifecycle ViewModel Factory (Prevents UnsupportedOperationException in Factory.create)
+# -----------------------------------------------------------------------------
+-keep,allowobfuscation class dagger.hilt.android.internal.** { *; }
 -keep class * extends androidx.lifecycle.ViewModel {
     <init>(...);
 }
 -keep @dagger.hilt.android.lifecycle.HiltViewModel class *
 -keep class * implements dagger.assisted.AssistedFactory
+-keep class androidx.hilt.navigation.** { *; }
+-keep class androidx.hilt.navigation.compose.** { *; }
+-keep interface androidx.lifecycle.ViewModelProvider$Factory { *; }
+-keep class androidx.lifecycle.ViewModelProvider { *; }
+-keep class androidx.lifecycle.ViewModelProvider$* { *; }
+-keep class androidx.lifecycle.viewmodel.CreationExtras { *; }
 
 -keepclassmembers class * {
     @javax.inject.Inject <init>(...);
