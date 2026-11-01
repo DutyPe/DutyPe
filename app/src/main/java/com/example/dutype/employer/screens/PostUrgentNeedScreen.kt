@@ -209,9 +209,10 @@ fun PostUrgentNeedContent(
     suspend fun refreshEmployerLocationState(): Boolean {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         val employer = userId?.let { profileCompletionService.getEmployer(it).getOrNull() }
-        val valid = employer != null && GeoUtils.hasValidCoordinates(employer.lat, employer.lng)
+        val isDummyColony = employer?.address?.contains("VDO", ignoreCase = true) == true
+        val valid = employer != null && GeoUtils.hasValidCoordinates(employer.lat, employer.lng) && !isDummyColony
         hasEmployerLocation = valid
-        if (addressText.isBlank() && employer != null && employer.address.isNotBlank()) {
+        if (addressText.isBlank() && employer != null && employer.address.isNotBlank() && !isDummyColony) {
             addressText = employer.address
         }
         if (contactNumber.isBlank()) {
@@ -285,8 +286,15 @@ fun PostUrgentNeedContent(
 
     LaunchedEffect(Unit) {
         val hasSavedLocation = refreshEmployerLocationState()
-        if (!hasSavedLocation && locationService.hasLocationPermission()) {
+        if (locationService.hasLocationPermission()) {
             autoPickEmployerLocation()
+        } else if (!hasSavedLocation) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
         }
     }
 

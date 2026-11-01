@@ -69,10 +69,15 @@ class SubscriptionRepository @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val rows = firestore.collection(AppConfig.COLLECTION).document(AppConfig.DOC_SUBSCRIPTION_PLANS)
             .get().await().get("plans") as? List<Map<String, Any?>>
-        rows.orEmpty().mapNotNull { row -> (row["id"] as? String)?.let { Plan.fromMap(it, row) } }.filterNot { it.legacy }
+        val fetched = rows.orEmpty().mapNotNull { row -> (row["id"] as? String)?.let { Plan.fromMap(it, row) } }.filterNot { it.legacy }
+        if (fetched.none { it.id == "single_job_49" || it.priceRupees == 49L }) {
+            listOf(DEFAULT_PLANS.first()) + fetched
+        } else {
+            fetched
+        }
     }.getOrElse {
         Timber.w(it, "subscription plans read failed")
-        emptyList()
+        DEFAULT_PLANS
     }.ifEmpty { DEFAULT_PLANS }
 
     suspend fun getActiveQrCodes(): List<QrCode> = runCatching {
@@ -133,9 +138,9 @@ class SubscriptionRepository @Inject constructor(
         /** Same as the server's DEFAULT_PLANS (functions/src/subscriptions.ts): ₹99 without AI, ₹199 / ₹299 with DutyPe AI. */
         val DEFAULT_PLANS = listOf(
             Plan("single_job_49", "Single Job", 4_900, 1, 10, 30, "1 job post & 10 worker contact unlocks • DutyPe AI", "Instant Hire", ai = true, aiPerDay = 10),
-            Plan("basic_99", "Basic", 9_900, 3, 25, 30, "3 job posts & 25 worker contact unlocks • DutyPe AI", "Value Pack", ai = true, aiPerDay = 25),
-            Plan("launch_pass_199", "Launch Pass", 19_900, 5, 50, 45, "5 verified hires + 50 worker contact unlocks • 45 Days", "Most Popular", ai = true, aiPerDay = 50),
-            Plan("business_pro_499", "Business Pro", 49_900, 20, 100, 45, "Unlimited applicant contacts + urgent hiring • 45 Days", "Best Value", ai = true, aiPerDay = 500)
+            Plan("basic_99", "Starter Basic", 9_900, 3, 25, 30, "3 job posts & 25 worker contact unlocks • DutyPe AI", "Value Pack", ai = true, aiPerDay = 25),
+            Plan("launch_pass_199", "Launch Pass", 19_900, 5, 50, 45, "5 verified hires + 50 worker contact unlocks • 45 Days • Liri AI", "Most Popular", ai = true, aiPerDay = 50),
+            Plan("business_pro_499", "Business Pro", 49_900, 20, 100, 45, "20 job posts + 100 unlocks • 45 Days • Liri AI Pro", "Best Value", ai = true, aiPerDay = 500)
         )
     }
 }

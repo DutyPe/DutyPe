@@ -115,15 +115,27 @@ private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedSt
     if (isSingle) {
         add(buildAnnotatedString { append("1 job posting credit (Instant publish)") })
         add(buildAnnotatedString { append("10 worker contact unlocks (Phone & WhatsApp)") })
+        add(buildAnnotatedString {
+            withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) {
+                append("DutyPe AI hiring assistant")
+            }
+            append(" (10 prompts/day)")
+        })
         add(buildAnnotatedString { append("Instant alert sent to nearby workers") })
         add(buildAnnotatedString { append("Direct calling with zero agent fee") })
         add(buildAnnotatedString { append("30-day single job validity") })
     } else if (isBasic) {
         add(buildAnnotatedString { append("$jobCredits job posting credits") })
         add(buildAnnotatedString { append("$contactUnlocks worker contact unlocks") })
-        add(buildAnnotatedString { append("Browse available hiring opportunities") })
-        add(buildAnnotatedString { append("Contact workers directly") })
-        add(buildAnnotatedString { append("45-day extended plan validity") })
+        add(buildAnnotatedString {
+            withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) {
+                append("DutyPe AI hiring assistant")
+            }
+            append(" (25 prompts/day)")
+        })
+        add(buildAnnotatedString { append("Browse verified local workers") })
+        add(buildAnnotatedString { append("Direct candidate calling on phone") })
+        add(buildAnnotatedString { append("30-day plan validity") })
     } else if (isLaunch) {
         add(buildAnnotatedString { append("$jobCredits job posting credits") })
         add(buildAnnotatedString { append("$contactUnlocks worker contact unlocks") })
@@ -131,45 +143,45 @@ private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedSt
             withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) {
                 append("Liri AI voice assistant")
             }
+            append(" (50 actions/day)")
         })
         add(buildAnnotatedString { append("AI-powered top 3 recommendations") })
         add(buildAnnotatedString { append("Voice in Telugu, Hindi & English") })
-        add(buildAnnotatedString { append("Up to 50 AI actions per day") })
         add(buildAnnotatedString { append("45-day extended plan validity") })
     } else {
         // Business Pro
-        add(buildAnnotatedString { append("20 job posting credits") })
+        add(buildAnnotatedString { append("20 job posting credits (Unlimited)") })
         add(buildAnnotatedString { append("100 worker contact unlocks") })
         add(buildAnnotatedString {
             withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) {
-                append("Liri AI voice assistant")
+                append("Liri AI voice assistant Pro")
             }
+            append(" (500 actions/day)")
         })
-        add(buildAnnotatedString { append("AI-powered top 3 recommendations") })
+        add(buildAnnotatedString { append("Priority applicant match notifications") })
         add(buildAnnotatedString { append("Voice in Telugu, Hindi & English") })
-        add(buildAnnotatedString { append("Up to 500 AI actions per day") })
         add(buildAnnotatedString { append("45-day extended plan validity") })
     }
 }
 
 private fun planTagline(plan: Plan): String = when {
-    plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Quick 1-Job Hire"
-    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "For occasional hiring"
-    plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "For small businesses hiring regularly"
-    else -> "For frequent hiring and multiple vacancies"
+    plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Ideal for: One-time micro employer (e.g. 1 cook or 1 maid)"
+    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Ideal for: Small shops, clinics, small coaching institutes"
+    plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Ideal for: Restaurants, supermarkets, schools, hostels"
+    else -> "Ideal for: Manpower agencies, factories, hotel chains"
 }
 
 private fun planSummary(plan: Plan): String = when {
     plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Post 1 single job & get direct calls"
-    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Post jobs and contact workers directly"
-    plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Hire with AI assistance"
-    else -> "Manage frequent hiring with more credits"
+    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Post 3 jobs & contact 25 candidates directly"
+    plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Hire faster with AI voice assistance"
+    else -> "Full hiring power with 100 unlocks & AI Pro"
 }
 
 private fun planButtonLabel(plan: Plan, isCurrent: Boolean): String = when {
     isCurrent -> "Renew Plan"
     plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Choose Single Job (₹49)"
-    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Choose Basic (₹99)"
+    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Choose Starter Basic (₹99)"
     plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Choose Launch Pass (45 Days)"
     else -> "Choose Business Pro (45 Days)"
 }
@@ -1006,21 +1018,32 @@ private fun PagerDots(total: Int, current: Int) {
 }
 
 @Composable
-private fun PopularPill() {
+private fun PlanBadgePill(tag: String) {
+    val (bgColor, borderColor, textColor) = when (tag) {
+        "Most Popular", "RECOMMENDED" -> Triple(Color(0xFFFEF3C7), Color(0xFFFCD34D), Color(0xFFD97706))
+        "Instant Hire" -> Triple(Color(0xFFEFF6FF), Color(0xFFBFDBFE), Color(0xFF2563EB))
+        "Value Pack" -> Triple(Color(0xFFECFDF5), Color(0xFFA7F3D0), Color(0xFF059669))
+        else -> Triple(Color(0xFFF5F3FF), Color(0xFFDDD6FE), Color(0xFF7C3AED))
+    }
     Box(
         modifier = Modifier
-            .background(Color(0xFFFEF3C7), RoundedCornerShape(50))
-            .border(1.dp, Color(0xFFFCD34D), RoundedCornerShape(50))
+            .background(bgColor, RoundedCornerShape(50))
+            .border(1.dp, borderColor, RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
-            text = "RECOMMENDED",
+            text = tag.uppercase(),
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFD97706),
+            color = textColor,
             letterSpacing = 0.5.sp
         )
     }
+}
+
+@Composable
+private fun PopularPill() {
+    PlanBadgePill("Most Popular")
 }
 
 @Composable
@@ -1065,6 +1088,13 @@ private fun PlanPageCard(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
+            val badgeText = when {
+                plan.tag.isNotBlank() -> plan.tag
+                isRecommended || plan.priceRupees in 100..250 -> "Most Popular"
+                plan.priceRupees <= 49 -> "Instant Hire"
+                plan.priceRupees <= 99 -> "Value Pack"
+                else -> "Best Value"
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1076,16 +1106,14 @@ private fun PlanPageCard(
                     fontWeight = FontWeight.Bold,
                     color = PlanTitleInk.fg()
                 )
-                if (isRecommended) {
-                    PopularPill()
-                }
+                PlanBadgePill(badgeText)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = planTagline(plan),
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = Ink600.fg()
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Ink700.fg()
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -1096,8 +1124,8 @@ private fun PlanPageCard(
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
                     text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
@@ -1105,12 +1133,32 @@ private fun PlanPageCard(
                     fontWeight = FontWeight.Bold,
                     color = PlanTitleInk.fg()
                 )
+                if (!isFree && plan.originalPriceRupees > plan.priceRupees) {
+                    Text(
+                        text = "\u20B9${plan.originalPriceRupees}",
+                        fontSize = 15.sp,
+                        color = Ink400.fg(),
+                        style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                    )
+                    Surface(
+                        color = Color(0xFFDCFCE7),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "${plan.discountPercentage}% OFF",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF15803D),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 if (!isFree) {
                     Text(
-                        text = " / ${plan.validityDays} days",
-                        fontSize = 13.sp,
+                        text = "/ ${plan.validityDays}d",
+                        fontSize = 12.sp,
                         color = Ink500.fg(),
-                        modifier = Modifier.padding(bottom = 3.dp)
+                        modifier = Modifier.padding(start = 2.dp)
                     )
                 }
             }

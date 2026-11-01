@@ -216,3 +216,130 @@ export const sendWhatsappPromo = onCallSecured(
     });
     return { dryRun: false, ...summary, sent, failed, errors };
   });
+
+/**
+ * Admin: Broadcast WhatsApp launch offers / templates directly to employers.
+ * Supports:
+ * 1) Single test message to any phone number (`isSingleTest: true`, `testPhone`, `name`, `city`, `postJobUrl`)
+ * 2) Bulk broadcast to all registered employers in Firestore OR a custom list of numbers
+ * 3) `dryRun: true` to inspect recipients, variables, and cost without triggering messages
+ */
+export const sendWhatsappEmployerBroadcast = onCallSecured(
+  { enforceAppCheck: false, timeoutSeconds: 540, memory: "512MB", secrets: [WHATSAPP_TOKEN_SECRET] },
+  async (raw: unknown, context) => {
+    if (!(await isCallerAdmin(context))) fail("permission-denied", "Admins only");
+    const data = obj(raw);
+    const template = str(data, "template", { max: 120, pattern: /^[a-z0-9_]+$/ });
+    const lang = str(data, "lang", { max: 10, optional: true }) || "en";
+    const dryRun = data.dryRun !== false;
+    const isSingleTest = data.isSingleTest === true;
+    const testPhone = str(data, "testPhone", { max: 30, optional: true });
+    const defaultName = str(data, "name", { max: 80, optional: true }) || "Sir/Madam";
+    const defaultCity = str(data, "city", { max: 80, optional: true }) || "Khammam";
+    const postJobUrl = str(data, "postJobUrl", { max: 200, optional: true }) || "https://dutype.in/employer/post-job";
+    const customPhones = Array.isArray(data.customPhones)
+      ? (data.customPhones as unknown[]).map((p) => String(p ?? "").trim()).filter(Boolean)
+      : [];
+
+    if (!waReady()) fail("failed-precondition", "WhatsApp is not configured on the server");
+
+    // Single test mode
+    if (isSingleTest) {
+      if (!testPhone) fail("invalid-argument", "testPhone is required for single test");
+      let cleaned = testPhone.replace(/\D/g, "");
+      if (cleaned.length === 10) cleaned = "91" + cleaned;
+      const formatted = "+" + cleaned;
+      if (!/^\+91[6-9]\d{9}$/.test(formatted)) {
+        fail("invalid-argument", "Invalid Indian phone number: " + testPhone);
+      }
+      const params = [defaultName, defaultCity, postJobUrl];
+      if (dryRun) {
+        return { ok: true, dryRun: true, phone: formatted, template, params };
+      }
+      const res = await sendWaTemplate(formatted, template, lang, params);
+      if (!res.ok) {
+        fail("internal", "WhatsApp send failed: " + (res.error || "unknown error"));
+      }
+      return { ok: true, dryRun: false, phone: formatted, template, params };
+    }
+
+    // Bulk broadcast mode
+    const targetMap = new Map<string, { phone: string; name: string; city: string }>();
+
+    if (customPhones.length > 0) {
+      for (const rawPhone of customPhones) {
+        let cleaned = rawPhone.replace(/\D/g, "");
+        if (cleaned.length === 10) cleaned = "91" + cleaned;
+        const formatted = "+" + cleaned;
+        if (/^\+91[6-9]\d{9}$/.test(formatted)) {
+          targetMap.set(formatted, { phone: formatted, name: defaultName, city: defaultCity });
+        }
+      }
+    } else {
+      // Fetch employers from employer_profiles
+      const snap = await db.collection(EmployerProfiles.COLLECTION).limit(1000).get();
+      for (const d of snap.docs) {
+        const phone = String(d.get(EmployerProfiles.PHONE) || "").trim();
+        const empName = String(d.get(EmployerProfiles.OWNER_NAME) || d.get(EmployerProfiles.BUSINESS_NAME) || "").trim() || defaultName;
+        const empCity = String(d.get(EmployerProfiles.AREA) || d.get(EmployerProfiles.ADDRESS) || "").trim() || defaultCity;
+        let cleaned = phone.replace(/\D/g, "");
+        if (cleaned.length === 10) cleaned = "91" + cleaned;
+        const formatted = "+" + cleaned;
+        if (/^\+91[6-9]\d{9}$/.test(formatted)) {
+          targetMap.set(formatted, { phone: formatted, name: empName, city: empCity });
+        }
+      }
+    }
+
+    const targets = Array.from(targetMap.values());
+    const summary = {
+      matched: targets.length,
+      willSend: targets.length,
+      dryRun
+    };
+
+    if (dryRun) {
+      return { ...summary, sample: targets.slice(0, 5) };
+    }
+
+    if (!targets.length) {
+      return { dryRun: false, matched: 0, sent: 0, failed: 0, errors: [] };
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    // Send in batches of 10
+    for (let i = 0; i < targets.length; i += 10) {
+      await Promise.all(
+        targets.slice(i, i + 10).map(async (t) => {
+          const params = [t.name, t.city, postJobUrl];
+          const r = await sendWaTemplate(t.phone, template, lang, params);
+          if (r.ok) {
+            sent++;
+          } else {
+            failed++;
+            if (errors.length < 5 && r.error) errors.push(`${t.phone}: ${r.error}`);
+          }
+        })
+      );
+      // Abort early if the first batch fails completely (template error or bad auth)
+      if (i === 0 && sent === 0 && failed > 0) break;
+    }
+
+    await db.collection(WC.COLLECTION).add({
+      [WC.TEMPLATE]: template,
+      [WC.LANGS]: [lang],
+      [WC.PARAMS]: [defaultName, defaultCity, postJobUrl],
+      [WC.AUDIENCE]: "EMPLOYER_BROADCAST",
+      [WC.MATCHED]: targets.length,
+      [WC.SENT]: sent,
+      [WC.FAILED]: failed,
+      [WC.BY]: context.auth!.uid,
+      [WC.CREATED_AT]: Timestamp.now()
+    });
+
+    return { dryRun: false, matched: targets.length, sent, failed, errors };
+  }
+);

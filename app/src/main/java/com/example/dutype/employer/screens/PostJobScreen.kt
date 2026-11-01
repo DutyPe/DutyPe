@@ -1283,6 +1283,11 @@ private fun PostJobSideEffects(c: PostJobController) {
         c.restoreDraft()
         c.loadEmployerProfile()
         c.clearLegacyStepRedirectFlag()
+        if (c.location.isBlank() || c.location.contains("VDO", ignoreCase = true)) {
+            if (c.locationService.hasLocationPermission()) {
+                c.startLocationFetch { _ -> "" }
+            }
+        }
     }
 }
 

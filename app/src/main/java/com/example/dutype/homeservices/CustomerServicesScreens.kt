@@ -3314,7 +3314,7 @@ private fun LocalityPickerBottomSheet(
                             color = Color(0xFF1E40AF)
                         )
                         Text(
-                            text = "Auto-detect phone GPS (e.g. VDO's Colony / Khammam)",
+                            text = "Auto-detect phone GPS (Instant live location)",
                             fontSize = 11.5.sp,
                             color = Color(0xFF3B82F6)
                         )
