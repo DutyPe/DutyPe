@@ -1,4 +1,4 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.fg
@@ -26,6 +26,13 @@ import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 import androidx.compose.ui.Alignment
@@ -1402,5 +1409,444 @@ private fun WelcomeTile(
         Spacer(modifier = Modifier.height(12.dp))
         Text(title, color = Color(0xFF0F172A).fg(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitle, color = Color(0xFF64748B).fg(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * Trust & Credibility Card on Employer Home Screen:
+ * Displays live social proof that 300+ phone-verified workers are available in the employer's area,
+ * establishing that DutyPe is genuine, active, and capable of instant same-day staffing.
+ */
+@Composable
+fun LocalWorkersSocialProofCard(
+    cityName: String,
+    onHireClick: () -> Unit,
+    onUrgentClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val locationLabel = cityName.trim().takeIf { it.isNotBlank() } ?: "Your Area"
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onHireClick),
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White,
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f)),
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
+                    )
+                    Text(
+                        text = "300+ Active Workers Near You",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A).fg()
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFF0FDF4),
+                    border = BorderStroke(0.6.dp, Color(0xFFBBF7D0))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Verified Profiles",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF15803D)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Looking for staff in $locationLabel? Over 300+ verified workers are online across cooks, helpers, drivers, electricians, cleaners & delivery roles.",
+                fontSize = 12.5.sp,
+                color = Color(0xFF475569).fg(),
+                lineHeight = 17.sp
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Trust highlights row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneInTalk,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "Direct Contact",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF334155).fg()
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FlashOn,
+                        contentDescription = null,
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Hire within 10 Mins",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF334155).fg()
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "0% Commission",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF334155).fg()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Action row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onUrgentClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FlashOn,
+                        contentDescription = null,
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Urgent Staff",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Button(
+                    onClick = onHireClick,
+                    modifier = Modifier
+                        .weight(1.3f)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                ) {
+                    Text(
+                        text = "Post Vacancy (₹49)",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * 48-Hour Free Trial Countdown Banner / Badge for Employer Home Screen
+ * Displays real-time ticking countdown: [HH:MM:SS]
+ * Highlights 1 free job post, creates urgency to hire or upgrade to ₹49 Single Job plan.
+ */
+@Composable
+fun EmployerTrialCountdownCard(
+    trialExpiresAt: Long,
+    freeJobPostsUsed: Int,
+    hasActiveSubscription: Boolean,
+    onPostJobClick: () -> Unit,
+    onUpgradeClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (hasActiveSubscription) return
+
+    val now = System.currentTimeMillis()
+    var remainingMillis by remember(trialExpiresAt) {
+        mutableLongStateOf((trialExpiresAt - now).coerceAtLeast(0L))
+    }
+
+    LaunchedEffect(trialExpiresAt) {
+        while (remainingMillis > 0L) {
+            delay(1000L)
+            remainingMillis = (trialExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L)
+        }
+    }
+
+    val isExpired = remainingMillis <= 0L || (trialExpiresAt > 0L && remainingMillis <= 0L) || freeJobPostsUsed >= 1
+    val totalSeconds = (remainingMillis / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isExpired) Color(0xFFF8FAFC).bg() else Color(0xFFFFFBEB).bg()
+        ),
+        border = BorderStroke(
+            1.5.dp,
+            if (isExpired) Color(0xFFCBD5E1).bd() else Color(0xFFF59E0B).bd()
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Top Badge Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isExpired) Color(0xFF64748B) else Color(0xFFD97706),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (isExpired) "🔒 TRIAL EXPIRED" else "⚡ 48-HOUR FREE TRIAL",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+
+                if (!isExpired) {
+                    Text(
+                        text = if (freeJobPostsUsed == 0) "1 Free Job Left" else "Job Live",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF92400E)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Main Urgency Content
+            if (!isExpired) {
+                Text(
+                    text = if (freeJobPostsUsed == 0)
+                        "Your Free Trial Ends In:"
+                    else
+                        "Your Free Trial Job Expires In:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF78350F)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Timer Digits Blocks
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TimerDigitBox(value = String.format(java.util.Locale.US, "%02d", hours), label = "HRS")
+                    Text(":", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
+                    TimerDigitBox(value = String.format(java.util.Locale.US, "%02d", minutes), label = "MIN")
+                    Text(":", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
+                    TimerDigitBox(value = String.format(java.util.Locale.US, "%02d", seconds), label = "SEC", isPulsing = true)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = if (freeJobPostsUsed == 0)
+                        "Post 1 free job now before the timer expires. Zero upfront charges."
+                    else
+                        "Upgrade to Single Job (₹49) to keep your job active and unlock unlimited candidate contacts.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF92400E),
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (freeJobPostsUsed == 0) {
+                        Button(
+                            onClick = onPostJobClick,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                        ) {
+                            Text("Post Free Job", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                    Button(
+                        onClick = onUpgradeClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    ) {
+                        Text(
+                            text = "Upgrade (₹49)",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            } else {
+                // Expired State
+                Text(
+                    text = "Your 48-Hour Free Trial Has Ended",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Subscribe to Single Job Plan (₹49) or Launch Pass (₹199) to post new vacancies and contact candidates.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onUpgradeClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                ) {
+                    Text("Unlock Plans (from ₹49)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimerDigitBox(
+    value: String,
+    label: String,
+    isPulsing: Boolean = false
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFFFEF3C7),
+        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+        modifier = Modifier.width(54.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                color = if (isPulsing) Color(0xFFB45309) else Color(0xFF78350F),
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = label,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF92400E),
+                letterSpacing = 0.5.sp
+            )
+        }
     }
 }

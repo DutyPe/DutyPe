@@ -97,6 +97,7 @@ data class Plan(
 
     val originalPriceRupees: Long
         get() = when (priceRupees) {
+            49L -> 149L
             99L -> 299L
             149L -> 399L
             199L -> 499L

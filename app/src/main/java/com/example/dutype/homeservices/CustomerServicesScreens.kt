@@ -965,7 +965,7 @@ internal fun ActiveBookingStrip(b: ServiceBooking, onClick: () -> Unit, modifier
                     }
                     val headerText = when (b.status) {
                         BookingStatus.PAYMENT_PENDING -> "PAYMENT REQUIRED"
-                        BookingStatus.SEARCHING -> "SEARCHING IN KHAMMAM"
+                        BookingStatus.SEARCHING -> "SEARCHING FOR EXPERT"
                         else -> "LIVE TRACKING"
                     }
                     Box(Modifier.size(8.dp).clip(CircleShape).background(dotColor))
@@ -1359,11 +1359,9 @@ private fun ServicesLocationTopRow(
             0.0
         }
     }
-    val isOutOfArea = remember(userLocation, distKm) {
-        userLocation != null && userLocation.latitude != 0.0 && userLocation.longitude != 0.0 && distKm > 15.0
-    }
+    val isOutOfArea = false
     val etaMinutes = remember(distKm) {
-        (24 + (distKm * 2.2)).toInt().coerceIn(19, 59)
+        (24 + (distKm * 0.5)).toInt().coerceIn(19, 45)
     }
 
     val displayLocation = remember(userLocation, city) {
@@ -3144,23 +3142,67 @@ private fun LocalityPickerBottomSheet(
 
     val allLocalities = remember {
         listOf(
-            LocalityOption("VDO's Colony", "Central Khammam • Residential Hub", 17.2580, 80.1550),
-            LocalityOption("Wyra Road", "City Center • Hub", 17.2473, 80.1514),
-            LocalityOption("Gandhi Chowk", "Main Market & Bus Stand", 17.2485, 80.1528),
-            LocalityOption("Mamata Hospital Road", "Medical & Residential", 17.2650, 80.1620),
-            LocalityOption("Rotary Nagar / Collectorate", "Administrative Zone", 17.2550, 80.1480),
-            LocalityOption("Ballepalli", "South-West Khammam", 17.2350, 80.1380),
-            LocalityOption("Khanapuram Haveli", "North Khammam", 17.2610, 80.1380),
-            LocalityOption("NSP Colony", "Residential Area", 17.2390, 80.1450),
-            LocalityOption("Trunk Road / Kaman Bazaar", "Commercial Shopping", 17.2430, 80.1550),
-            LocalityOption("Pakabanda", "South Khammam", 17.2350, 80.1600),
-            LocalityOption("Yellandu Cross Road", "Bypass & Outer Ring", 17.2720, 80.1580),
-            LocalityOption("Mustafa Nagar", "Residential Hub", 17.2510, 80.1420),
-            LocalityOption("Kaviraj Nagar", "Residential Area", 17.2560, 80.1600),
-            LocalityOption("Burhanpuram", "Central Khammam", 17.2460, 80.1490),
-            LocalityOption("Mayuri Centre", "Commercial Junction", 17.2490, 80.1560),
-            LocalityOption("Srinivasa Nagar / Bank Colony", "Residential Area", 17.2540, 80.1620),
-            LocalityOption("RTC Bus Stand Area", "Transit Hub", 17.2478, 80.1535)
+            // Telangana
+            LocalityOption("Hyderabad", "Telangana • Major Tech & Commercial Capital", 17.3850, 78.4867),
+            LocalityOption("Secunderabad", "Telangana • Twin City & Transit Hub", 17.4399, 78.4983),
+            LocalityOption("Warangal", "Telangana • Historical & Educational City", 17.9689, 79.5941),
+            LocalityOption("Nizamabad", "Telangana • Northern Hub", 18.6725, 78.0941),
+            LocalityOption("Karimnagar", "Telangana • Commercial & Educational Center", 18.4386, 79.1288),
+            LocalityOption("Khammam", "Telangana • Fast-Growing Commercial City", 17.2473, 80.1514),
+            LocalityOption("VDO's Colony", "Khammam • Residential Hub", 17.2580, 80.1550),
+            LocalityOption("Wyra Road", "Khammam • City Center", 17.2473, 80.1514),
+
+            // Andhra Pradesh
+            LocalityOption("Vijayawada", "Andhra Pradesh • Commercial Capital", 16.5062, 80.6480),
+            LocalityOption("Visakhapatnam", "Andhra Pradesh • Coastal Tech & Port City", 17.6868, 83.2185),
+            LocalityOption("Guntur", "Andhra Pradesh • Trade & Educational Center", 16.3067, 80.4365),
+            LocalityOption("Tirupati", "Andhra Pradesh • Major Temple & Industrial City", 13.6288, 79.4192),
+            LocalityOption("Nellore", "Andhra Pradesh • Commercial Hub", 14.4426, 79.9865),
+
+            // Tamil Nadu
+            LocalityOption("Chennai", "Tamil Nadu • Metropolitan Capital & Auto/IT Hub", 13.0827, 80.2707),
+            LocalityOption("Coimbatore", "Tamil Nadu • Industrial & Textile Center", 11.0168, 76.9558),
+            LocalityOption("Madurai", "Tamil Nadu • Cultural & Commercial City", 9.9252, 78.1198),
+            LocalityOption("Tiruchirappalli", "Tamil Nadu • Industrial City", 10.7905, 78.7047),
+            LocalityOption("Salem", "Tamil Nadu • Commercial Hub", 11.6643, 78.1460),
+
+            // Delhi NCR
+            LocalityOption("New Delhi", "Delhi NCR • National Capital", 28.6139, 77.2090),
+            LocalityOption("Noida", "Delhi NCR • Major IT & Media Zone", 28.5355, 77.3910),
+            LocalityOption("Gurugram (Gurgaon)", "Delhi NCR • Corporate & Finance Center", 28.4595, 77.0266),
+            LocalityOption("Ghaziabad", "Delhi NCR • Industrial & Residential Hub", 28.6692, 77.4538),
+            LocalityOption("Faridabad", "Delhi NCR • Industrial Hub", 28.4089, 77.3178),
+
+            // Maharashtra
+            LocalityOption("Mumbai", "Maharashtra • Financial Capital", 19.0760, 72.8777),
+            LocalityOption("Pune", "Maharashtra • IT & Education Center", 18.5204, 73.8567),
+            LocalityOption("Nagpur", "Maharashtra • Central Logistic Hub", 21.1458, 79.0882),
+            LocalityOption("Thane", "Maharashtra • Metropolitan Zone", 19.2183, 72.9781),
+            LocalityOption("Nashik", "Maharashtra • Agricultural & Industrial City", 19.9975, 73.7898),
+
+            // Karnataka
+            LocalityOption("Bengaluru", "Karnataka • Silicon Valley of India", 12.9716, 77.5946),
+            LocalityOption("Mysuru", "Karnataka • Heritage & IT Center", 12.2958, 76.6394),
+            LocalityOption("Hubballi-Dharwad", "Karnataka • Commercial Center", 15.3647, 75.1240),
+
+            // West Bengal & Eastern India
+            LocalityOption("Kolkata", "West Bengal • Eastern Metropolitan Capital", 22.5726, 88.3639),
+            LocalityOption("Bhubaneswar", "Odisha • Tech & Educational Hub", 20.2961, 85.8245),
+            LocalityOption("Patna", "Bihar • Historical Capital", 25.5941, 85.1376),
+
+            // Gujarat & Western India
+            LocalityOption("Ahmedabad", "Gujarat • Commercial & Textile Mega-City", 23.0225, 72.5714),
+            LocalityOption("Surat", "Gujarat • Diamond & Silk Capital", 21.1702, 72.8311),
+            LocalityOption("Vadodara", "Gujarat • Cultural & Industrial Hub", 22.3072, 73.1812),
+
+            // Northern & Central India
+            LocalityOption("Jaipur", "Rajasthan • Pink City & Tourism/Tech Hub", 26.9124, 75.7873),
+            LocalityOption("Lucknow", "Uttar Pradesh • State Capital & Cultural City", 26.8467, 80.9462),
+            LocalityOption("Kanpur", "Uttar Pradesh • Major Industrial City", 26.4499, 80.3319),
+            LocalityOption("Chandigarh", "Punjab/Haryana • Model City & Regional Capital", 30.7333, 76.7794),
+            LocalityOption("Indore", "Madhya Pradesh • Cleanest City & Commercial Capital", 22.7196, 75.8577),
+            LocalityOption("Bhopal", "Madhya Pradesh • State Capital", 23.2599, 77.4126),
+            LocalityOption("Kochi", "Kerala • Coastal Port & Commercial City", 9.9312, 76.2673)
         )
     }
 
@@ -3177,22 +3219,12 @@ private fun LocalityPickerBottomSheet(
             val suggestions = onSearchPlaces(trimmed)
             val mapped = suggestions.mapNotNull { suggestion ->
                 if (suggestion.latitude != 0.0 && suggestion.longitude != 0.0) {
-                    val results = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        suggestion.latitude,
-                        suggestion.longitude,
-                        17.2473,
-                        80.1514,
-                        results
-                    )
-                    val distKm = results[0] / 1000.0
-                    val isOut = distKm > 15.0
                     LocalityOption(
                         name = suggestion.description,
-                        desc = if (isOut) "${String.format("%.1f", distKm)} km Away • Outside Zone" else "${String.format("%.1f", distKm)} km • In Khammam Zone",
+                        desc = "DutyPe Active Service Zone",
                         lat = suggestion.latitude,
                         lng = suggestion.longitude,
-                        isOutside = isOut
+                        isOutside = false
                     )
                 } else null
             }
@@ -3242,7 +3274,7 @@ private fun LocalityPickerBottomSheet(
                         color = SvcInk.fg()
                     )
                     Text(
-                        text = "DutyPe is active in Khammam City (15km radius)",
+                        text = "DutyPe Services available across India (All Tier 1 & Tier 2 Cities)",
                         fontSize = 12.sp,
                         color = SvcMuted.fg()
                     )
@@ -3302,7 +3334,7 @@ private fun LocalityPickerBottomSheet(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search any Khammam area or landmark...", fontSize = 13.sp, color = SvcMuted.fg()) },
+                placeholder = { Text("Search any city, area or landmark...", fontSize = 13.sp, color = SvcMuted.fg()) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = SvcMuted.fg(), modifier = Modifier.size(18.dp)) },
                 trailingIcon = {
                     if (isSearchingPlaces) {
@@ -3327,7 +3359,7 @@ private fun LocalityPickerBottomSheet(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = if (query.isBlank()) "POPULAR KHAMMAM AREAS" else "SEARCH RESULTS (${filtered.size})",
+                text = if (query.isBlank()) "POPULAR CITIES & AREAS" else "SEARCH RESULTS (${filtered.size})",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF94A3B8),
@@ -4334,9 +4366,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
             0.0
         }
     }
-    val isOutOfArea = remember(lat, lng, distanceToKhammamKm) {
-        lat != null && lng != null && distanceToKhammamKm > 15.0
-    }
+    val isOutOfArea = false
     val canBook = !submitting && !quoting && !isOutOfArea && address.trim().length >= 5 && (!scheduled || slot != null) && (!isNightClosed || (scheduled && slot != null))
 
     fun doBook() {

@@ -1,4 +1,4 @@
-package com.example.dutype.firestore
+﻿package com.example.dutype.firestore
 
 /**
  * DutyPe Firestore schema — the single source of truth for collection and field names.
@@ -118,7 +118,9 @@ object FirestoreSchema {
         const val LNG = "lng"
         const val GEOHASH = "geohash"
         const val SUBSCRIPTION = "subscription"       // map, keys in [Subscription] (server)
-        const val FREE_JOB_POSTS_USED = "freeJobPostsUsed" // (server) first 3 job posts are free
+        const val FREE_JOB_POSTS_USED = "freeJobPostsUsed"
+        const val TRIAL_EXPIRES_AT = "trialExpiresAt"
+        const val TRIAL_STARTED_AT = "trialStartedAt" // (server) first 3 job posts are free
         const val REFERRAL_FREE_POSTS = "referralFreePosts"  // (server) free posts earned by referring
         const val REFERRAL_FREE_POSTS_UNTIL = "referralFreePostsUntil"
         const val FREE_URGENT_POSTS_USED = "freeUrgentPostsUsed"  // (server) first 3 urgent posts are free

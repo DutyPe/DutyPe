@@ -1385,7 +1385,7 @@ fun WorkerHomeScreen(
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
-                        .padding(horizontal = 20.dp, vertical = 13.dp),
+                        .padding(horizontal = 22.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -1393,12 +1393,12 @@ fun WorkerHomeScreen(
                         imageVector = Icons.Default.LocalOffer,
                         contentDescription = null,
                         tint = Color(0xFFFF385C),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(19.dp)
                     )
                     Text(
                         text = "Apply free · 0 fee",
                         color = Color(0xFF222222),
-                        fontSize = 14.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -1709,7 +1709,7 @@ internal fun WorkerOutOfAreaBottomSheet(
                     text = "You are currently ${String.format("%.1f", distanceKm)} km away from Khammam City.",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
+                        fontSize = 14.5.sp,
                         color = Color(0xFFDC2626)
                     ),
                     textAlign = TextAlign.Center

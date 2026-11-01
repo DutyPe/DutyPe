@@ -804,7 +804,8 @@ private class PostJobController(
         val isUnlimited = sub?.isUnlimitedCampaign == true
         val grantedFreeJobs = profile?.grantedFreeJobPosts ?: 0
         val freeUsed = profile?.freeJobPostsUsed ?: 0
-        val hasFreePosts = freeUsed < 1
+        val isTrialExpired = profile?.isTrialExpired == true
+        val hasFreePosts = freeUsed < 1 && !isTrialExpired
 
         // First 1 job posting is 100% free for employers. Subscription or credits only required once free jobs are exhausted.
         if (!hasFreePosts && grantedFreeJobs <= 0 && normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
@@ -1057,6 +1058,8 @@ fun PostJobScreen(
     val employerJobViewModel: EmployerJobsViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
+    val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+    val isOnline by connectivityViewModel.isOnline.collectAsState()
     val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
     val employerProfile by subscriptionViewModel.employer.collectAsState()
     val stepState = rememberSaveable { mutableStateOf(1) }
@@ -1238,6 +1241,7 @@ fun PostJobScreen(
                         Box(modifier = Modifier.weight(1f)) {
                             PostJobWizard(
                                 c = c,
+                                isOnline = isOnline,
                                 onOpenAiVoice = { showAiAssistant = true }
                             )
                         }
@@ -1650,7 +1654,7 @@ private fun PostJobSheets(c: PostJobController) {
 
 // ------------------------------------------------------------------- wizard
 @Composable
-private fun PostJobWizard(c: PostJobController, onOpenAiVoice: () -> Unit) {
+private fun PostJobWizard(c: PostJobController, onOpenAiVoice: () -> Unit, isOnline: Boolean = true) {
     val wizardScrollState = rememberScrollState()
     val employerJobUiState by c.employerJobViewModel.uiState.collectAsState()
     val ctaBusy = employerJobUiState.isCreatingJob || c.isSubmittingJob
@@ -1663,19 +1667,12 @@ private fun PostJobWizard(c: PostJobController, onOpenAiVoice: () -> Unit) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            PostJobOfflineBanner()
+            com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
             PostJobSinglePageForm(c, wizardScrollState)
         }
 
         PostJobBottomCta(c, ctaBusy, onOpenAiVoice)
     }
-}
-
-@Composable
-private fun PostJobOfflineBanner() {
-    val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-    val isOnline by connectivityViewModel.isOnline.collectAsState()
-    com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
 }
 
 @Composable

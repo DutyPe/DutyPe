@@ -203,6 +203,8 @@ fun EmployerHomeScreen(
     val subscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
     val showcases by homeServicesViewModel.showcases.collectAsStateWithLifecycle()
+    val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+    val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
 
     // NotificationService for unread count (lightweight)
@@ -456,9 +458,7 @@ fun EmployerHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-        // Offline banner at the very top
-        val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-        val isOnline by connectivityViewModel.isOnline.collectAsState()
+        // Offline banner at the very top (using top-level isOnline)
         com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
 
         //  Birthday Banner - Shows if today is user's birthday
@@ -499,6 +499,8 @@ fun EmployerHomeScreen(
             }
         ) {
             DashboardContent(
+                applicationViewModel = applicationViewModel,
+                homeServicesViewModel = homeServicesViewModel,
                 showcases = showcases,
                 onOpenHomeServices = {
                     navController.navigate(com.example.dutype.navigation.Routes.SERVICES) {
@@ -1082,9 +1084,9 @@ fun EmployerQuickPostSection(
 
 @Composable
 fun EmployerHomeServicesSection(
+    viewModel: com.example.dutype.homeservices.HomeServicesViewModel,
     onOpenServices: () -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
+    modifier: Modifier = Modifier
 ) {
     val catalog by viewModel.catalog.collectAsStateWithLifecycle()
     val effectiveCatalog = catalog ?: remember { com.example.dutype.homeservices.DefaultServicesCatalog.get() }
@@ -1535,7 +1537,8 @@ fun DashboardContent(
     showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
     onBookService: (String) -> Unit = {},
     onOpenServiceBooking: (String) -> Unit = {},
-    applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
+    applicationViewModel: EmployerApplicationViewModel,
+    homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel? = null
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
     val appStats by applicationViewModel.stats.collectAsState()
@@ -1687,6 +1690,32 @@ fun DashboardContent(
                 }
 
 
+                // 48-Hour Free Trial Countdown Timer Card (Strict Free Tier)
+                item(key = "employer_trial_countdown") {
+                    val trialExp = employerProfile?.effectiveTrialExpiresAt ?: 0L
+                    val freeUsed = employerProfile?.freeJobPostsUsed ?: 0
+                    EmployerTrialCountdownCard(
+                        trialExpiresAt = trialExp,
+                        freeJobPostsUsed = freeUsed,
+                        hasActiveSubscription = subscription.isActive,
+                        onPostJobClick = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
+                        onUpgradeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
+                // Trust & Social Proof Card: 300+ Verified Local Workers Available
+                item(key = "employer_local_workers_proof") {
+                    Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        LocalWorkersSocialProofCard(
+                            cityName = employerCity,
+                            onHireClick = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
+                            onUrgentClick = { navController.navigate(Routes.employerPostUrgentNeedRoute(null)) },
+                            modifier = Modifier.padding(bottom = 18.dp)
+                        )
+                    }
+                }
+
                 // Bento Grid Metrics Cards (Active Job Ring, Call-ready Heartbeat, Nearby)
                 item(key = "employer_bento_grid") {
                     val firstJob = activeOpenJobs.firstOrNull()
@@ -1734,12 +1763,15 @@ fun DashboardContent(
                 }
 
                 // Home Services Section with WebApp Remote Images
-                item(key = "employer_home_services") {
-                    Box(modifier = Modifier.cascadeEnter(index = 2)) {
-                        EmployerHomeServicesSection(
-                            onOpenServices = onOpenHomeServices,
-                            modifier = Modifier.padding(bottom = 20.dp)
-                        )
+                if (homeServicesViewModel != null) {
+                    item(key = "employer_home_services") {
+                        Box(modifier = Modifier.cascadeEnter(index = 2)) {
+                            EmployerHomeServicesSection(
+                                viewModel = homeServicesViewModel,
+                                onOpenServices = onOpenHomeServices,
+                                modifier = Modifier.padding(bottom = 20.dp)
+                            )
+                        }
                     }
                 }
 

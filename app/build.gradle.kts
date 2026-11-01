@@ -47,14 +47,14 @@ if (localPropertiesFile.exists()) {
 
 android {
 	namespace = "com.dutype.app"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 858
-        versionName = "7.8"
+        versionCode = 861
+        versionName = "8.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -122,15 +122,10 @@ android {
             //   4. Only then run :app:archiveReleaseMapping and commit the new
             //      app/mapping/release-mapping.txt for the following release.
             // ---------------------------------------------------------------
-            val baselineMapping = file("mapping/release-mapping.txt")
-            if (baselineMapping.exists() && baselineMapping.length() > 1_000_000L) {
-                val applyMappingRules = file(".gradle/applyMapping.pro")
-                applyMappingRules.parentFile.mkdirs()
-                applyMappingRules.writeText(
-                    "-applymapping \"${baselineMapping.absolutePath.replace("\\", "/")}\"\n"
-                )
-                proguardFiles(applyMappingRules)
-            }
+            // Note: -applymapping with R8 is intentionally disabled because applying
+            // stale mapping files causes AbstractMethodError and binary incompatibilities
+            // across library updates (especially in Protobuf / DataStore). R8 generates
+            // a fresh, consistent mapping file for every release build.
         }
         
         debug {
@@ -476,6 +471,10 @@ configurations.all {
             if (requested.group == "androidx.work") {
                 useVersion("2.10.1")
                 because("Force consistent WorkManager version to prevent AbstractMethodError")
+            }
+            if (requested.group == "androidx.datastore") {
+                useVersion("1.1.3")
+                because("Force consistent DataStore version to prevent AbstractMethodError in Protobuf")
             }
 
         }

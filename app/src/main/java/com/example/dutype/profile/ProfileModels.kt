@@ -1,4 +1,4 @@
-package com.example.dutype.profile
+﻿package com.example.dutype.profile
 
 import androidx.annotation.Keep
 import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
@@ -93,6 +93,8 @@ data class EmployerProfile(
     val lng: Double = 0.0,
     val subscription: EmployerSubscription = EmployerSubscription(),
     val freeJobPostsUsed: Int = 0,
+    val trialExpiresAt: Long = 0L,
+    val trialStartedAt: Long = 0L,
     val grantedFreeJobPosts: Int = 0,
     val freeUrgentPostsUsed: Int = 0,
     /** Free posts (normal or urgent) earned by referring friends, usable until [referralFreePostsUntil]. */
@@ -107,6 +109,19 @@ data class EmployerProfile(
     val createdAt: Long = 0L
 ) {
     val isCompany: Boolean get() = employerType == Values.EmployerType.COMPANY
+
+    /** Effective 48-hour trial expiry timestamp (either explicit or 48h from account creation). */
+    val effectiveTrialExpiresAt: Long get() = when {
+        trialExpiresAt > 0L -> trialExpiresAt
+        createdAt > 0L -> createdAt + (48 * 3600 * 1000L)
+        else -> 0L
+    }
+
+    val isTrialActive: Boolean get() =
+        !subscription.isActive && effectiveTrialExpiresAt > System.currentTimeMillis() && freeJobPostsUsed < 1
+
+    val isTrialExpired: Boolean get() =
+        !subscription.isActive && (freeJobPostsUsed >= 1 || (effectiveTrialExpiresAt > 0L && System.currentTimeMillis() >= effectiveTrialExpiresAt))
 
     /** Referral free posts that can be used right now. */
     val referralPostsLeft: Int get() =

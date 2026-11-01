@@ -450,6 +450,15 @@ object DeepLinkHandler {
                 } else false
             }
             
+            // Android App Link: https://dutype.in/employer/post-job or https://dutype.in/post-job
+            data.host == WEB_DOMAIN && (
+                data.pathSegments.firstOrNull() == "post-job" ||
+                (data.pathSegments.firstOrNull() == "employer" && data.pathSegments.getOrNull(1) == "post-job")
+            ) -> {
+                navigateToEmployerPostJob(navController)
+                true
+            }
+
             // Android App Link: https://dutype.in/employer/123
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "employer" -> {
                 val employerId = data.pathSegments.getOrNull(1)

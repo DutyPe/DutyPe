@@ -88,6 +88,8 @@ export const EmployerProfiles = {
   SUBSCRIPTION: "subscription",
   FREE_JOB_POSTS_USED: "freeJobPostsUsed",
   FREE_URGENT_POSTS_USED: "freeUrgentPostsUsed",
+  TRIAL_EXPIRES_AT: "trialExpiresAt",
+  TRIAL_STARTED_AT: "trialStartedAt",
   /** Free posts (normal or urgent) earned by referring; usable until [REFERRAL_FREE_POSTS_UNTIL]. */
   REFERRAL_FREE_POSTS: "referralFreePosts",
   REFERRAL_FREE_POSTS_UNTIL: "referralFreePostsUntil",

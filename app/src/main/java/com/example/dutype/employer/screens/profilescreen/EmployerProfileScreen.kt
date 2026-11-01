@@ -534,6 +534,8 @@ fun EmployerProfileScreen(
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
     val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
+    val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+    val isOnline by connectivityViewModel.isOnline.collectAsState()
     val wallet by homeServicesViewModel.wallet.collectAsState()
     val walletBalanceRupees = (wallet?.balancePaise ?: 0L) / 100
     var showWalletTopupSheet by remember { mutableStateOf(false) }
@@ -758,8 +760,6 @@ fun EmployerProfileScreen(
                 .background(LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
-            val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-            val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
 
             EmpTopBar()

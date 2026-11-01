@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # DutyPe Production R8 / ProGuard Configuration
 # =============================================================================
 # Follows Google Android Developer Best Practices for Code Shrinking:
@@ -113,85 +113,52 @@
 # -----------------------------------------------------------------------------
 # Google Protobuf & Jetpack DataStore Protobuf (Prevents AbstractMethodError in Firestore and DataStore)
 # -----------------------------------------------------------------------------
--keep class androidx.datastore.preferences.protobuf.ManifestSchemaFactory { *; }
--keep class androidx.datastore.preferences.protobuf.ManifestSchemaFactory$* { *; }
--keep class androidx.datastore.preferences.protobuf.GeneratedMessageInfoFactory { *; }
--keep class androidx.datastore.preferences.protobuf.RawMessageInfo { *; }
--keep interface androidx.datastore.preferences.protobuf.MessageInfo {
-    *** getSyntax(...);
-    *** isMessageSetWireFormat(...);
-    *** getDefaultInstance(...);
-}
--keep interface androidx.datastore.preferences.protobuf.MessageInfoFactory {
-    *** messageInfoFor(...);
-    *** isSupported(...);
-}
-
--keep class com.google.protobuf.ManifestSchemaFactory { *; }
--keep class com.google.protobuf.ManifestSchemaFactory$* { *; }
--keep class com.google.protobuf.GeneratedMessageInfoFactory { *; }
--keep class com.google.protobuf.RawMessageInfo { *; }
--keep interface com.google.protobuf.MessageInfo {
-    *** getSyntax(...);
-    *** isMessageSetWireFormat(...);
-    *** getDefaultInstance(...);
-}
--keep interface com.google.protobuf.MessageInfoFactory {
-    *** messageInfoFor(...);
-    *** isSupported(...);
-}
-
--keepclassmembers class * implements androidx.datastore.preferences.protobuf.MessageInfoFactory {
-    *** messageInfoFor(...);
-    *** isSupported(...);
-}
--keepclassmembers class * implements com.google.protobuf.MessageInfoFactory {
-    *** messageInfoFor(...);
-    *** isSupported(...);
-}
--keepclassmembers class * implements androidx.datastore.preferences.protobuf.MessageInfo {
-    *** getSyntax(...);
-    *** isMessageSetWireFormat(...);
-    *** getDefaultInstance(...);
-}
--keepclassmembers class * implements com.google.protobuf.MessageInfo {
-    *** getSyntax(...);
-    *** isMessageSetWireFormat(...);
-    *** getDefaultInstance(...);
-}
-
--keepclassmembers class * {
-    *** messageInfoFor(...);
-    *** isSupported(java.lang.Class);
-    *** getSyntax(...);
-    *** isMessageSetWireFormat(...);
-    *** getDefaultInstance(...);
-}
--keepclassmembers interface * {
-    *** messageInfoFor(...);
-    *** isSupported(java.lang.Class);
-    *** getSyntax(...);
-    *** isMessageSetWireFormat(...);
-    *** getDefaultInstance(...);
-}
+-keep class androidx.datastore.preferences.protobuf.** { *; }
+-keep interface androidx.datastore.preferences.protobuf.** { *; }
 -dontwarn androidx.datastore.preferences.protobuf.**
+
+-keep class com.google.protobuf.** { *; }
+-keep interface com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
+
+-keep class com.google.firebase.firestore.** { *; }
+-dontwarn com.google.firebase.firestore.**
 
 # -----------------------------------------------------------------------------
 # Hilt / Dagger & Lifecycle ViewModel Factory (Prevents UnsupportedOperationException in Factory.create)
 # -----------------------------------------------------------------------------
--keep,allowobfuscation class dagger.hilt.android.internal.** { *; }
+-keep class dagger.hilt.** { *; }
+-keep interface dagger.hilt.** { *; }
+-keep class * extends dagger.hilt.android.internal.lifecycle.HiltViewModelFactory { *; }
+-keep class * implements dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$ViewModelFactoriesEntryPoint { *; }
+-keep class * implements dagger.hilt.android.internal.lifecycle.HiltViewModelMap$KeySet { *; }
+-keep class * extends dagger.hilt.android.internal.lifecycle.HiltViewModelMap { *; }
+-keep class **_HiltModules* { *; }
+-keep class **_Factory { *; }
+-keep class **_MembersInjector { *; }
+
+# Keep all ViewModel class names and constructors unobfuscated so Hilt's StringKey map matches
 -keep class * extends androidx.lifecycle.ViewModel {
     <init>(...);
 }
--keep @dagger.hilt.android.lifecycle.HiltViewModel class *
+-keep class **.*ViewModel {
+    <init>(...);
+}
+-keep @dagger.hilt.android.lifecycle.HiltViewModel class * {
+    <init>(...);
+}
 -keep class * implements dagger.assisted.AssistedFactory
 -keep class androidx.hilt.navigation.** { *; }
 -keep class androidx.hilt.navigation.compose.** { *; }
 -keep interface androidx.lifecycle.ViewModelProvider$Factory { *; }
+-keep class * implements androidx.lifecycle.ViewModelProvider$Factory {
+    <methods>;
+}
 -keep class androidx.lifecycle.ViewModelProvider { *; }
 -keep class androidx.lifecycle.ViewModelProvider$* { *; }
 -keep class androidx.lifecycle.viewmodel.CreationExtras { *; }
+-keep class androidx.lifecycle.viewmodel.MutableCreationExtras { *; }
+-keep class androidx.lifecycle.SavedStateHandle { *; }
 
 -keepclassmembers class * {
     @javax.inject.Inject <init>(...);
@@ -228,7 +195,7 @@
 # Firebase SDKs ship their own consumer-rules.pro. Keep only component
 # registrars and service entry points to allow reflection-based discovery.
 # -----------------------------------------------------------------------------
--keep class * implements com.google.firebase.components.ComponentRegistrar {
+-keep class ** implements com.google.firebase.components.ComponentRegistrar {
     public <init>();
     public java.util.List getComponents();
 }
@@ -272,10 +239,10 @@
 -keep interface androidx.work.impl.model.** { *; }
 -keepclassmembers class androidx.work.impl.model.** { *; }
 -keepclassmembers interface androidx.work.impl.model.** { *; }
--keep class * extends androidx.work.impl.model.** { *; }
--keep class * implements androidx.work.impl.model.** { *; }
--keepclassmembers class * extends androidx.work.impl.model.** { *; }
--keepclassmembers class * implements androidx.work.impl.model.** { *; }
+-keep class ** extends androidx.work.impl.model.** { *; }
+-keep class ** implements androidx.work.impl.model.** { *; }
+-keepclassmembers class ** extends androidx.work.impl.model.** { *; }
+-keepclassmembers class ** implements androidx.work.impl.model.** { *; }
 -keep class androidx.work.impl.background.systemjob.SystemJobService { *; }
 -keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
 -keep class androidx.work.impl.foreground.SystemForegroundService { *; }

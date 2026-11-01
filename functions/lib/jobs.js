@@ -33,7 +33,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const JOB_LIFETIME_MS = 30 * DAY_MS;
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 const DELETE_WINDOW_MS = 30 * 60 * 1000;
-const LIFETIME_FREE_JOB_POSTS = 3;
+const LIFETIME_FREE_JOB_POSTS = 1;
+const TRIAL_JOB_LIFETIME_MS = 48 * 60 * 60 * 1000;
 const IST_OFFSET_MS = 330 * 60 * 1000;
 /** A retried trigger event older than this is dropped. */
 const EVENT_MAX_AGE_MS = 60 * 60 * 1000;
@@ -170,26 +171,35 @@ function chargeForPost(tx, employer, quota, nowMs, config) {
         });
         return "free";
     }
-    // 2. First 1 job posting free for employers (guaranteed baseline, customizable via app_config/job_posting)
+    // 2. First 1 job posting free trial for employers (strict 48-hour limit)
     const freeUsed = Number(employer.data[schema_1.EmployerProfiles.FREE_JOB_POSTS_USED] || 0);
     const maxFreeJobs = (config && config.freeJobPostingEnabled !== false && config.freeJobsCount > 0)
         ? config.freeJobsCount
-        : 1; // Guaranteed default: first 1 job posting free!
+        : 1; // Strict limit: 1 free trial job post!
     const employerCreatedAt = employer.data[schema_1.EmployerProfiles.CREATED_AT] instanceof Timestamp
         ? employer.data[schema_1.EmployerProfiles.CREATED_AT].toMillis()
         : Number(employer.data[schema_1.EmployerProfiles.CREATED_AT] || 0);
+    const trialExpiresAt = employer.data[schema_1.EmployerProfiles.TRIAL_EXPIRES_AT] instanceof Timestamp
+        ? employer.data[schema_1.EmployerProfiles.TRIAL_EXPIRES_AT].toMillis()
+        : Number(employer.data[schema_1.EmployerProfiles.TRIAL_EXPIRES_AT] || 0);
+    const effectiveTrialDeadline = trialExpiresAt || (employerCreatedAt > 0 ? employerCreatedAt + TRIAL_JOB_LIFETIME_MS : 0);
     const eligible = !config ||
         config.appliesTo === "ALL_USERS" ||
         (config.appliesTo === "NEW_USERS" && employerCreatedAt >= (config.effectiveFrom || 0)) ||
         config.appliesTo === undefined;
     if (eligible && freeUsed < maxFreeJobs) {
+        if (effectiveTrialDeadline > 0 && nowMs > effectiveTrialDeadline) {
+            (0, input_1.fail)("resource-exhausted", "Your 48-hour free trial has expired. Please subscribe to an Employer Plan (from ₹49) to post jobs & contact workers.");
+        }
         tx.update(employer.ref, {
             [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+            [schema_1.EmployerProfiles.TRIAL_EXPIRES_AT]: Timestamp.fromMillis(nowMs + TRIAL_JOB_LIFETIME_MS),
+            [schema_1.EmployerProfiles.TRIAL_STARTED_AT]: Timestamp.fromMillis(nowMs),
         });
         return "free";
     }
     // 3. Otherwise, stop free job posting completely - subscription required
-    (0, input_1.fail)("resource-exhausted", "You have used all 3 free job posts. Please subscribe to an Employer Plan to post more jobs.");
+    (0, input_1.fail)("resource-exhausted", "Your free trial has ended. Please subscribe to an Employer Plan (from ₹49) to post jobs & contact workers.");
 }
 /** The employer's posts since midnight IST — for the duplicate check. */
 async function postsToday(uid, nowMs) {
@@ -274,7 +284,7 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
         }
         if (Object.keys(profileFill).length)
             tx.update(employer.ref, profileFill);
-        tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: businessName || companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS) })));
+        tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: businessName || companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + (charge === "free" ? TRIAL_JOB_LIFETIME_MS : JOB_LIFETIME_MS)) })));
         tx.create(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId), Object.assign(Object.assign({}, input.details), { [schema_1.JobDetails.EMPLOYER_ID]: uid }));
         tx.create(contactRef(jobId), {
             [schema_1.JobContacts.EMPLOYER_ID]: uid,
@@ -353,7 +363,7 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
         const charge = chargeForPost(tx, employer, quota, nowMs, config);
         tx.update(ref, {
             [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN,
-            [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS),
+            [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + (charge === "free" ? TRIAL_JOB_LIFETIME_MS : JOB_LIFETIME_MS)),
         });
         return { jobId, charge };
     });

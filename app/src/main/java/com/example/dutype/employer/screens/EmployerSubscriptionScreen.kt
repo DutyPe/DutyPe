@@ -105,18 +105,25 @@ private val PlanTitleInk = Color(0xFF0F0F0F)
 
 @Composable
 private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedString> = buildList {
-    val isBasic = plan.id.contains("basic", ignoreCase = true) || plan.priceRupees <= 99
+    val isSingle = plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49
+    val isBasic = !isSingle && (plan.id.contains("basic", ignoreCase = true) || plan.priceRupees <= 99)
     val isLaunch = plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250
 
     val jobCredits = if (plan.jobs > 0) plan.jobs else if (isBasic) 3 else if (isLaunch) 5 else 20
     val contactUnlocks = if (plan.instantUnlocks > 0) plan.instantUnlocks else if (isBasic) 25 else if (isLaunch) 50 else 100
 
-    if (isBasic) {
+    if (isSingle) {
+        add(buildAnnotatedString { append("1 job posting credit (Instant publish)") })
+        add(buildAnnotatedString { append("10 worker contact unlocks (Phone & WhatsApp)") })
+        add(buildAnnotatedString { append("Instant alert sent to nearby workers") })
+        add(buildAnnotatedString { append("Direct calling with zero agent fee") })
+        add(buildAnnotatedString { append("30-day single job validity") })
+    } else if (isBasic) {
         add(buildAnnotatedString { append("$jobCredits job posting credits") })
         add(buildAnnotatedString { append("$contactUnlocks worker contact unlocks") })
         add(buildAnnotatedString { append("Browse available hiring opportunities") })
         add(buildAnnotatedString { append("Contact workers directly") })
-        add(buildAnnotatedString { append("30-day plan validity") })
+        add(buildAnnotatedString { append("45-day extended plan validity") })
     } else if (isLaunch) {
         add(buildAnnotatedString { append("$jobCredits job posting credits") })
         add(buildAnnotatedString { append("$contactUnlocks worker contact unlocks") })
@@ -128,7 +135,7 @@ private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedSt
         add(buildAnnotatedString { append("AI-powered top 3 recommendations") })
         add(buildAnnotatedString { append("Voice in Telugu, Hindi & English") })
         add(buildAnnotatedString { append("Up to 50 AI actions per day") })
-        add(buildAnnotatedString { append("30-day plan validity") })
+        add(buildAnnotatedString { append("45-day extended plan validity") })
     } else {
         // Business Pro
         add(buildAnnotatedString { append("20 job posting credits") })
@@ -141,27 +148,30 @@ private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedSt
         add(buildAnnotatedString { append("AI-powered top 3 recommendations") })
         add(buildAnnotatedString { append("Voice in Telugu, Hindi & English") })
         add(buildAnnotatedString { append("Up to 500 AI actions per day") })
-        add(buildAnnotatedString { append("30-day plan validity") })
+        add(buildAnnotatedString { append("45-day extended plan validity") })
     }
 }
 
 private fun planTagline(plan: Plan): String = when {
-    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees <= 99 -> "For occasional hiring"
+    plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Quick 1-Job Hire"
+    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "For occasional hiring"
     plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "For small businesses hiring regularly"
     else -> "For frequent hiring and multiple vacancies"
 }
 
 private fun planSummary(plan: Plan): String = when {
-    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees <= 99 -> "Post jobs and contact workers directly"
+    plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Post 1 single job & get direct calls"
+    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Post jobs and contact workers directly"
     plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Hire with AI assistance"
     else -> "Manage frequent hiring with more credits"
 }
 
 private fun planButtonLabel(plan: Plan, isCurrent: Boolean): String = when {
     isCurrent -> "Renew Plan"
-    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees <= 99 -> "Choose Basic"
-    plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Choose Launch Pass"
-    else -> "Choose Business Pro"
+    plan.id.contains("single", ignoreCase = true) || plan.priceRupees in 1..49 -> "Choose Single Job (₹49)"
+    plan.id.contains("basic", ignoreCase = true) || plan.priceRupees in 50..99 -> "Choose Basic (₹99)"
+    plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250 -> "Choose Launch Pass (45 Days)"
+    else -> "Choose Business Pro (45 Days)"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1097,7 +1107,7 @@ private fun PlanPageCard(
                 )
                 if (!isFree) {
                     Text(
-                        text = " / 30 days",
+                        text = " / ${plan.validityDays} days",
                         fontSize = 13.sp,
                         color = Ink500.fg(),
                         modifier = Modifier.padding(bottom = 3.dp)
