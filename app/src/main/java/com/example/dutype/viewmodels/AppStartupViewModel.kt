@@ -40,9 +40,10 @@ class AppStartupViewModel @Inject constructor(
         val currentUser = FirebaseAuth.getInstance().currentUser
         val cached = StartDestinationCache.read(context)
         if (currentUser == null) {
-            // Unauthenticated users can never be routed to home screens or profile setup.
-            // Guest mode was removed, so they must be on ONBOARDING (fresh) or SELECT_ROLE.
-            if (cached == Routes.ONBOARDING || cached == null) {
+            // Unauthenticated/guest users can stay on cached WORKER_HOME or EMPLOYER_HOME
+            if (cached == Routes.WORKER_HOME || cached == Routes.EMPLOYER_HOME) {
+                cached
+            } else if (cached == Routes.ONBOARDING || cached == null) {
                 Routes.ONBOARDING
             } else {
                 Routes.SELECT_ROLE
@@ -80,14 +81,24 @@ class AppStartupViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 2. Check Role & Auth (Guest Mode removed)
+                // 2. Check Role & Auth (Guest Mode supported)
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 val dataStoreRole = profileSetupStateManager.getUserRole()
 
                 if (currentUser == null) {
-                    Timber.d("🚀 AppStartupViewModel -> SELECT_ROLE (User not authenticated)")
-                    updateDestination(Routes.SELECT_ROLE)
-                    return@launch
+                    if (dataStoreRole == UserRole.WORKER) {
+                        Timber.d("🚀 AppStartupViewModel -> WORKER_HOME (Guest user)")
+                        updateDestination(Routes.WORKER_HOME)
+                        return@launch
+                    } else if (dataStoreRole == UserRole.EMPLOYER) {
+                        Timber.d("🚀 AppStartupViewModel -> EMPLOYER_HOME (Guest user)")
+                        updateDestination(Routes.EMPLOYER_HOME)
+                        return@launch
+                    } else {
+                        Timber.d("🚀 AppStartupViewModel -> SELECT_ROLE (Guest without selected role)")
+                        updateDestination(Routes.SELECT_ROLE)
+                        return@launch
+                    }
                 }
 
                 // Accounts whose login token predates the role claim (set by the server, e.g. after the

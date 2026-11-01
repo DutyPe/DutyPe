@@ -118,17 +118,33 @@ fun SelectRoleScreen(
             else -> "English"
         }
 
-        fun applyRole(role: String) {
-            Timber.d("🔍 Role selected: $role")
+        fun applyRole(role: String, asGuest: Boolean = true) {
+            Timber.d("🔍 Role selected: $role, asGuest: $asGuest")
             val targetRole = if (role == "EMPLOYER")
                 com.example.dutype.models.UserRole.EMPLOYER
             else
                 com.example.dutype.models.UserRole.WORKER
             scope.launch {
                 profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+                runCatching {
+                    val topic = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER)
+                        com.example.dutype.services.FCMTokenManager.TOPIC_EMPLOYERS
+                    else
+                        com.example.dutype.services.FCMTokenManager.TOPIC_WORKERS
+                    com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic(topic)
+                }
             }
             if (onRoleSelected != null) {
                 onRoleSelected.invoke(role)
+            } else if (asGuest) {
+                val dest = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER)
+                    Routes.EMPLOYER_HOME
+                else
+                    Routes.WORKER_HOME
+                navController.navigate(dest) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                    launchSingleTop = true
+                }
             } else {
                 navController.navigate("${Routes.ENHANCED_LOGIN}?role=$role")
             }
@@ -206,7 +222,37 @@ fun SelectRoleScreen(
 
             Spacer(modifier = Modifier.weight(0.85f))
 
-            ContinueButton(onClick = { applyRole(selectedRole) })
+            ContinueButton(
+                onClick = { applyRole(selectedRole, asGuest = true) },
+                buttonText = if (selectedRole == "WORKER") "Explore Jobs (No Login Needed)" else "Explore Candidates (No Login Needed)"
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Already have an account? ",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = SubtitleGray.fg(),
+                        fontSize = 14.sp
+                    )
+                )
+                Text(
+                    text = "Log In",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF2563EB),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    ),
+                    modifier = Modifier.clickable {
+                        applyRole(selectedRole, asGuest = false)
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -243,7 +289,10 @@ private fun HeadlineBlock() {
 }
 
 @Composable
-private fun ContinueButton(onClick: () -> Unit) {
+private fun ContinueButton(
+    onClick: () -> Unit,
+    buttonText: String = stringResource(R.string.continue_text)
+) {
     val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "continue_arrow_pulse")
     val arrowOffset by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -275,9 +324,9 @@ private fun ContinueButton(onClick: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = stringResource(R.string.continue_text),
+                text = buttonText,
                 style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = 16.5.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )

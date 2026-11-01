@@ -404,18 +404,46 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Direct location permission request on screen entry
+    // P0 DROP-OFF PREVENTION: Location permission is NOT requested on screen launch.
+    // It is requested ONLY contextually when the user taps "Jobs Near Me", 5km filter, or the location header,
+    // preceded by LocationPermissionBottomSheet explaining the benefits transparently.
     LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            hasAttemptedLocationRequest = true
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
+        if (hasLocationPermission) {
             isLocationLoading = true
+        }
+    }
+
+    val postNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        Timber.i("POST_NOTIFICATIONS permission result: $isGranted")
+        if (isGranted) {
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
+                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
+                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_WORKERS)
+                    if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
+                    }
+                }
+            }
+        }
+    }
+
+    // Smart Notification Permission Primer (Zomato/Swiggy UX Strategy)
+    // Never prompt on cold start. Prompt contextually after 12s of active browsing if permission is not yet granted
+    // and cooling-off period (3 days) has elapsed.
+    LaunchedEffect(Unit) {
+        delay(12_000)
+        val hasPermission = notificationPermissionManager.isNotificationPermissionGranted()
+        if (!hasPermission) {
+            val prefs = context.getSharedPreferences("notification_primer_prefs", Context.MODE_PRIVATE)
+            val lastDismissed = prefs.getLong("last_dismissed_worker_ts", 0L)
+            val threeDaysMs = 3 * 24 * 60 * 60 * 1000L
+            if (System.currentTimeMillis() - lastDismissed > threeDaysMs) {
+                showNotificationBottomSheet = true
+            }
         }
     }
 
@@ -585,11 +613,7 @@ fun WorkerHomeScreen(
                 Timber.w(it, "Failed to load worker rating summary for home header")
             }
         } else {
-            Timber.w("WORKER_HOME: User is not authenticated, redirecting to select_role")
-            rootNavController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
-                popUpTo(0) { inclusive = true }
-                launchSingleTop = true
-            }
+            Timber.i("WORKER_HOME: User is guest worker, staying on home screen with guest capabilities")
         }
     }
 
@@ -1473,12 +1497,31 @@ fun WorkerHomeScreen(
             )
         }
 
-        // Notification permission bottom sheet
+        // Notification permission bottom sheet (Zomato/Swiggy Hook Strategy)
         NotificationPermissionBottomSheet(
             isVisible = showNotificationBottomSheet,
-            onDismiss = { showNotificationBottomSheet = false },
+            onDismiss = {
+                showNotificationBottomSheet = false
+                context.getSharedPreferences("notification_primer_prefs", Context.MODE_PRIVATE)
+                    .edit().putLong("last_dismissed_worker_ts", System.currentTimeMillis()).apply()
+            },
             onEnableNotifications = {
-                openNotificationSettings(context)
+                showNotificationBottomSheet = false
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    openNotificationSettings(context)
+                }
+                scope.launch(Dispatchers.IO) {
+                    runCatching {
+                        val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
+                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
+                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_WORKERS)
+                        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+                            fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
+                        }
+                    }
+                }
             },
             userRole = "worker"
         )

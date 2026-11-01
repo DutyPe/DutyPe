@@ -274,11 +274,7 @@ fun EmployerHomeScreen(
             instantHelpViewModel.loadEmployerUrgentNeeds()
             applicationViewModel.loadEmployerApplications()
         } else {
-            Timber.w("EMPLOYER_HOME: No employerId - user not authenticated, redirecting to select_role")
-            rootNavController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
-                popUpTo(0) { inclusive = true }
-                launchSingleTop = true
-            }
+            Timber.i("EMPLOYER_HOME: User is guest employer, staying on home screen with guest capabilities")
         }
     }
 
@@ -436,7 +432,39 @@ fun EmployerHomeScreen(
     val isRefreshing = false
     val error = employerJobUiState.error
     val showEmployerCashBonus = false
-    val showEmployerWelcomeCard = false
+    val showEmployerWelcomeCard = isGuestEmployer
+
+    val postNotificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        Timber.i("Employer POST_NOTIFICATIONS permission result: $isGranted")
+        if (isGranted) {
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
+                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
+                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_EMPLOYERS)
+                    if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
+                    }
+                }
+            }
+        }
+    }
+
+    // Smart Notification Permission Primer for Employers (Zomato/Swiggy UX Strategy)
+    LaunchedEffect(Unit) {
+        delay(15_000)
+        val hasPermission = notificationPermissionManager.isNotificationPermissionGranted()
+        if (!hasPermission) {
+            val prefs = context.getSharedPreferences("notification_primer_prefs", android.content.Context.MODE_PRIVATE)
+            val lastDismissed = prefs.getLong("last_dismissed_employer_ts", 0L)
+            val threeDaysMs = 3 * 24 * 60 * 60 * 1000L
+            if (System.currentTimeMillis() - lastDismissed > threeDaysMs) {
+                showNotificationBottomSheet = true
+            }
+        }
+    }
     val employerWelcomeMessage = when {
         referralConfig.employerUnlimitedJobPostingEnabled && showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_with_bonus)
         referralConfig.employerUnlimitedJobPostingEnabled -> stringResource(R.string.guest_employer_welcome_message_posts)
@@ -586,9 +614,28 @@ fun EmployerHomeScreen(
         // Notification permission bottom sheet
         NotificationPermissionBottomSheet(
             isVisible = showNotificationBottomSheet,
-            onDismiss = { showNotificationBottomSheet = false },
+            onDismiss = {
+                showNotificationBottomSheet = false
+                context.getSharedPreferences("notification_primer_prefs", android.content.Context.MODE_PRIVATE)
+                    .edit().putLong("last_dismissed_employer_ts", System.currentTimeMillis()).apply()
+            },
             onEnableNotifications = {
-                openNotificationSettings(context)
+                showNotificationBottomSheet = false
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    openNotificationSettings(context)
+                }
+                coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching {
+                        val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
+                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
+                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_EMPLOYERS)
+                        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+                            fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
+                        }
+                    }
+                }
             },
             userRole = "employer"
         )

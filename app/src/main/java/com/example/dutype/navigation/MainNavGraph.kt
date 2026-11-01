@@ -131,7 +131,7 @@ fun MainNavGraph(
             val route = entry.destination.route ?: return@collect
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (route in stableEntryPoints) {
-                if (currentUser == null && route != Routes.ONBOARDING && route != Routes.SELECT_ROLE) {
+                if (currentUser == null && route != Routes.ONBOARDING && route != Routes.SELECT_ROLE && route != Routes.WORKER_HOME && route != Routes.EMPLOYER_HOME) {
                     runCatching { StartDestinationCache.save(context, Routes.SELECT_ROLE) }
                 } else {
                     runCatching { StartDestinationCache.save(context, route) }
