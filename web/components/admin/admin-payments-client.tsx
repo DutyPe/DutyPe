@@ -24,6 +24,9 @@ const millis = (v: unknown) => (v instanceof Timestamp ? v.toMillis() : typeof v
 type PaymentRequestRow = {
   id: string;
   employerId: string;
+  employerName?: string;
+  employerPhone?: string;
+  paymentMethod?: string;
   planId: string;
   amountPaise: number;
   upiIdUsed: string;
@@ -73,6 +76,9 @@ export function AdminPaymentsClient() {
         return {
           id: d.id,
           employerId: String(data[S.EMPLOYER_ID] ?? ""),
+          employerName: String(data.employerName ?? ""),
+          employerPhone: String(data.employerPhone ?? ""),
+          paymentMethod: String(data.paymentMethod ?? ""),
           planId: String(data[S.PLAN_ID] ?? ""),
           amountPaise: Number(data[S.AMOUNT_PAISE] ?? 0),
           upiIdUsed: String(data[S.UPI_ID_USED] ?? ""),
@@ -246,10 +252,42 @@ export function AdminPaymentsClient() {
                 <tbody>
                   {requests.map((req) => (
                     <tr key={req.id}>
-                      <td><code>{req.employerId}</code><div>{req.createdAt ? new Date(req.createdAt).toLocaleString() : ""}</div></td>
-                      <td><code>{req.planId}</code></td>
-                      <td>₹{(req.amountPaise / 100).toLocaleString("en-IN")}</td>
-                      <td><code className="utr-code">{req.utrNumber}</code></td>
+                      <td>
+                        <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                          {req.employerName || "Employer Account"}
+                        </div>
+                        {req.employerPhone && (
+                          <div style={{ fontSize: "0.85rem", color: "#2563eb", fontWeight: 500, margin: "2px 0" }}>
+                            📞 <a href={"tel:" + req.employerPhone}>{req.employerPhone}</a>
+                          </div>
+                        )}
+                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                          <code>{req.employerId}</code>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 2 }}>
+                          {req.createdAt ? new Date(req.createdAt).toLocaleString() : ""}
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 600, textTransform: "capitalize" }}>
+                          {req.planId.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 700, fontSize: "1.05rem", color: "#0f172a" }}>
+                          ₹{(req.amountPaise / 100).toLocaleString("en-IN")}
+                        </span>
+                      </td>
+                      <td>
+                        <code className="utr-code" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                          {req.utrNumber || "AUTO_UPI"}
+                        </code>
+                        {req.paymentMethod && (
+                          <div style={{ fontSize: "0.7rem", color: "#16a34a", marginTop: 2 }}>
+                            ● {req.paymentMethod}
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <span className={`status-badge ${req.status.toLowerCase()}`}>
                           {req.status}

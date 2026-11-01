@@ -5356,219 +5356,273 @@ fun MicroWalletTopupSheet(
     viewModel: HomeServicesViewModel
 ) {
     val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var amountInput by remember { mutableStateOf("50") }
     val enteredAmount = amountInput.toIntOrNull() ?: 0
     val isAmountValid = enteredAmount >= 50
     var utrInput by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
-    var showUtrInput by remember { mutableStateOf(false) }
+    var showManualUtr by remember { mutableStateOf(false) }
 
     val upiId = "dutypein@ybl"
-    val upiName = "DutyPe"
+    val upiName = "Banoth Vamsi"
+    val currentDepositAmount = if (isAmountValid) enteredAmount else 50
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White.bg()
+        containerColor = Color.White
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Header
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFEFF6FF)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.AccountBalanceWallet,
-                        contentDescription = null,
-                        tint = Color(0xFF2563EB),
-                        modifier = Modifier.size(24.dp)
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEFF6FF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            "DutyPe Service Wallet",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            "Fast 1-click home service bookings",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                 }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(
-                        "DutyPe Micro-Wallet",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = Color(0xFF0F172A).fg()
-                    )
-                    Text(
-                        "Closed-loop PPI • Zero-click instant booking",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B).fg()
-                    )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color(0xFF64748B))
                 }
             }
 
-            // Balance banner
+            // Minimal Balance Card
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFFFFBEB),
-                border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                color = Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "Current Balance: ₹$currentBalanceRupees",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF92400E)
-                    )
-                    Text(
-                        "Booking platform fee (₹$requiredFeeRupees) is auto-deducted with zero clicks. Load minimum ₹50 to unlock instant 1-click booking.",
-                        fontSize = 12.sp,
-                        color = Color(0xFFB45309)
-                    )
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Current Balance", fontSize = 12.sp, color = Color(0xFF64748B))
+                        Text("₹$currentBalanceRupees", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color(0xFF0F172A))
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFDCFCE7),
+                        border = BorderStroke(1.dp, Color(0xFF86EFAC))
+                    ) {
+                        Text(
+                            "Booking Fee: ₹$requiredFeeRupees",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF166534),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
-            // Enter deposit amount (minimum ₹50) with quick chips
+            // Quick Selection Chips & Amount
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Deposit Amount (Minimum ₹50)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFF0F172A).fg())
-
-                OutlinedTextField(
-                    value = amountInput,
-                    onValueChange = { input ->
-                        val digits = input.filter { it.isDigit() }.take(5)
-                        amountInput = digits
-                    },
-                    leadingIcon = {
-                        Text("₹", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A).fg())
-                    },
-                    placeholder = { Text("50") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    isError = amountInput.isNotEmpty() && !isAmountValid,
-                    supportingText = {
-                        if (amountInput.isNotEmpty() && !isAmountValid) {
-                            Text("Minimum deposit is ₹50", color = Color(0xFFDC2626), fontSize = 12.sp)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Quick selection chips: 50, 100, 150
+                Text("Select Recharge Amount", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFF334155))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    listOf(50, 100, 150).forEach { amt ->
+                    listOf(50, 100, 200).forEach { amt ->
                         val isSelected = enteredAmount == amt
                         Surface(
                             modifier = Modifier
-                                .clickable {
-                                    amountInput = amt.toString()
-                                },
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) Color(0xFFEFF6FF) else Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, if (isSelected) Color(0xFF2563EB) else Color(0xFFCBD5E1))
+                                .weight(1f)
+                                .clickable { amountInput = amt.toString() },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9),
+                            border = BorderStroke(1.dp, if (isSelected) Color(0xFF0F172A) else Color(0xFFE2E8F0))
                         ) {
                             Text(
                                 text = "₹$amt",
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color(0xFF1D4ED8) else Color(0xFF334155),
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else Color(0xFF334155),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 10.dp)
                             )
                         }
                     }
                 }
             }
 
-            val currentDepositAmount = if (isAmountValid) enteredAmount else 50
-
-            // Benefits explanation
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            // Verified Payee Assurance Banner (Banoth Vamsi)
+            Surface(
                 shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFEFF6FF),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("💡 How it works:", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF1E293B))
-                    Text("• ₹$currentDepositAmount will be credited after admin verification of your payment reference.", fontSize = 11.5.sp, color = Color(0xFF475569))
-                    Text("• When booking, the ₹9 fee is auto-deducted invisibly in the background.", fontSize = 11.5.sp, color = Color(0xFF475569))
-                    Text("• Cancelled before partner arrival? Fee is instantly refunded to your wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        "Payee: BANOTH VAMSI (dutypein@ybl) • Official DutyPe",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E40AF)
+                    )
                 }
             }
 
-            // 1-Click Pay with UPI button
+            // 1-Click Pay with UPI button (Instant Launch, Zero Friction)
             Button(
                 onClick = {
-                    val uri = Uri.parse("upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=$currentDepositAmount&cu=INR&tn=${Uri.encode("DutyPe Micro Wallet Load")}")
+                    val refCode = "WL${System.currentTimeMillis() % 10000000}"
+                    val uri = Uri.parse(
+                        "upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=$currentDepositAmount&cu=INR&tn=${Uri.encode("DutyPe Wallet Load ₹$currentDepositAmount")}&tr=$refCode"
+                    )
                     val intent = Intent(Intent.ACTION_VIEW, uri)
                     try {
                         context.startActivity(intent)
                     } catch (_: Exception) {
                         Toast.makeText(context, "No UPI app found. Please pay to $upiId directly.", Toast.LENGTH_LONG).show()
                     }
-                    showUtrInput = true
+                    // Auto-record deposit request so user doesn't need to manually type UTR!
+                    scope.launch {
+                        viewModel.depositWalletFunds(currentDepositAmount, refCode)
+                            .onSuccess {
+                                Toast.makeText(context, "Wallet deposit of ₹$currentDepositAmount initiated. Will be credited shortly!", Toast.LENGTH_LONG).show()
+                                onTopupSuccess()
+                                onDismiss()
+                            }
+                            .onFailure {
+                                Toast.makeText(context, it.message ?: "Failed to record deposit", Toast.LENGTH_SHORT).show()
+                            }
+                    }
                 },
                 enabled = isAmountValid,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
             ) {
-                Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color(0xFFFACC15), modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Pay ₹$currentDepositAmount via any UPI App (GPay/PhonePe)", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                Text("Pay ₹$currentDepositAmount via UPI (GPay / PhonePe)", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
             }
 
-            // UTR input for deposit completion
-            if (showUtrInput) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Enter 12-Digit UPI Reference / UTR Number:", fontSize = 12.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+            // Copy UPI ID row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("UPI ID: $upiId", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
+                Text(
+                    "Copy UPI",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2563EB),
+                    modifier = Modifier
+                        .clickable {
+                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(upiId))
+                            Toast.makeText(context, "UPI ID copied: $upiId", Toast.LENGTH_SHORT).show()
+                        }
+                        .padding(4.dp)
+                )
+            }
+
+            // Optional Manual UTR Toggle
+            Text(
+                text = if (showManualUtr) "▲ Hide manual UTR" else "▼ Enter UTR manually (Optional)",
+                fontSize = 11.5.sp,
+                color = Color(0xFF94A3B8),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showManualUtr = !showManualUtr }
+                    .padding(vertical = 2.dp)
+            )
+
+            if (showManualUtr) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     OutlinedTextField(
                         value = utrInput,
-                        onValueChange = { if (it.length <= 12) utrInput = it.filter { c -> c.isDigit() } },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. 428912345678", fontSize = 13.sp) },
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        onValueChange = { if (it.length <= 16) utrInput = it.filter { c -> c.isLetterOrDigit() } },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("12-digit UTR", fontSize = 12.sp) },
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp)
                     )
                     Button(
                         onClick = {
-                            if (utrInput.length < 12) {
-                                Toast.makeText(context, "Please enter a valid 12-digit UPI UTR number", Toast.LENGTH_SHORT).show()
+                            if (utrInput.length < 6) {
+                                Toast.makeText(context, "Please enter valid UTR", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                             isSubmitting = true
                             scope.launch {
                                 viewModel.depositWalletFunds(currentDepositAmount, utrInput)
                                     .onSuccess {
-                                        Toast.makeText(context, "Deposit request for ₹$currentDepositAmount submitted with UTR $utrInput. Credits will be added once verified by admin.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Deposit submitted with UTR $utrInput", Toast.LENGTH_SHORT).show()
                                         isSubmitting = false
+                                        onTopupSuccess()
                                         onDismiss()
                                     }
                                     .onFailure {
-                                        Toast.makeText(context, it.message ?: "Deposit failed", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, it.message ?: "Failed", Toast.LENGTH_SHORT).show()
                                         isSubmitting = false
                                     }
                             }
                         },
-                        enabled = !isSubmitting && utrInput.length == 12,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                        enabled = !isSubmitting && utrInput.length >= 6,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
                     ) {
-                        if (isSubmitting) {
-                            com.example.dutype.components.ButtonThreeDotsLoader()
-                        } else {
-                            Text("Submit UTR for Admin Verification", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
-                        }
+                        Text("Submit", fontSize = 12.sp)
                     }
                 }
             }

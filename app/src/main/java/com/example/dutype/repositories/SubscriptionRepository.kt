@@ -24,6 +24,8 @@ import javax.inject.Singleton
 data class PaymentRequest(
     val id: String = "",
     val employerId: String = "",
+    val employerName: String = "",
+    val employerPhone: String = "",
     val planId: String = "",
     val amountPaise: Long = 0L,
     val upiIdUsed: String = "",
@@ -42,6 +44,8 @@ data class PaymentRequest(
         fun from(id: String, d: Map<String, Any?>): PaymentRequest = PaymentRequest(
             id = id,
             employerId = d[SubscriptionPayments.EMPLOYER_ID] as? String ?: "",
+            employerName = d["employerName"] as? String ?: "",
+            employerPhone = d["employerPhone"] as? String ?: "",
             planId = d[SubscriptionPayments.PLAN_ID] as? String ?: "",
             amountPaise = (d[SubscriptionPayments.AMOUNT_PAISE] as? Number)?.toLong() ?: 0L,
             upiIdUsed = d[SubscriptionPayments.UPI_ID_USED] as? String ?: "",
@@ -93,9 +97,13 @@ class SubscriptionRepository @Inject constructor(
         amountPaise: Long,
         upiIdUsed: String,
         utrNumber: String,
-        screenshotUrl: String
+        screenshotUrl: String,
+        employerName: String = "",
+        employerPhone: String = ""
     ): Result<String> = runCatching {
         val uid = auth.currentUser?.uid ?: error("Not signed in")
+        val phone = employerPhone.ifBlank { auth.currentUser?.phoneNumber.orEmpty() }
+        val name = employerName.ifBlank { auth.currentUser?.displayName.orEmpty() }
         val ref = firestore.collection(SubscriptionPayments.COLLECTION).document()
         ref.set(
             mapOf(
@@ -106,7 +114,11 @@ class SubscriptionRepository @Inject constructor(
                 SubscriptionPayments.UTR_NUMBER to utrNumber.trim(),
                 SubscriptionPayments.SCREENSHOT_URL to screenshotUrl,
                 SubscriptionPayments.STATUS to PaymentRequest.STATUS_PENDING,
-                SubscriptionPayments.CREATED_AT to Timestamp.now()
+                SubscriptionPayments.CREATED_AT to Timestamp.now(),
+                "employerName" to name,
+                "employerPhone" to phone,
+                "payeeName" to "Banoth Vamsi",
+                "paymentMethod" to "UPI_INTENT"
             )
         ).await()
         ref.id

@@ -557,19 +557,13 @@ export function AdminWhatsappOffersClient() {
                     Hello <strong>{empName || "{{1}}"}</strong>,
                   </div>
                   <div style={{ marginBottom: 8 }}>
-                    Need reliable staff for your business in <strong>{empCity || "{{2}}"}</strong>?
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    Over 300+ verified local workers (cooks, helpers, drivers, cleaners, electricians) are actively looking for work right near you.
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    Skip high commissions and costly agencies. Post your job vacancy in less than 2 minutes for just <strong>₹49 (or use your 48-hour free trial)</strong> and talk directly to candidates on the phone.
+                    Need reliable staff in <strong>{empCity || "{{2}}"}</strong>? 500+ verified local workers (cooks, helpers, drivers, cleaners) are ready to join.
                   </div>
                   <div style={{ marginBottom: 10 }}>
-                    Tap below to hire your next staff today:
+                    Post your job in 2 mins for just <strong>₹49 (or test with 48-hr Free Trial)</strong> and call candidates directly on phone.
                   </div>
-                  <div style={{ background: "#f1f5f9", padding: "8px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.775rem", color: "#0284c7", wordBreak: "break-all" }}>
-                    {empLink || "{{3}}"}
+                  <div style={{ background: "#ecfdf5", padding: "6px 8px", borderRadius: 6, border: "1px solid #a7f3d0", fontSize: "0.75rem", color: "#065f46", marginBottom: 6 }}>
+                    ✓ Short copy: 0% truncation &middot; No &ldquo;... Read more&rdquo; fold
                   </div>
                   <div style={{ textAlign: "right", fontSize: "0.65rem", color: "#8696a0", marginTop: 6 }}>
                     10:30 AM &middot; &#10003;&#10003;

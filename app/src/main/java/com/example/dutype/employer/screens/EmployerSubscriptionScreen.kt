@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -338,277 +339,287 @@ fun EmployerSubscriptionScreen(
         }
     }
 
-    // Modal Bottom Sheet for Checkout (UPI Details & UTR entry)
+    // Professional UPI Payment Gateway Bottom Sheet
     if (showPaymentSheet && selectedPlan != null) {
         val plan = selectedPlan!!
+        val currentPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
+        val employerProfile = viewModel.employer.value
+        val employerDisplayName = employerProfile?.businessName?.ifBlank { employerProfile.ownerName }.orEmpty()
+
         ModalBottomSheet(
             onDismissRequest = { showPaymentSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            scrimColor = Color.Black.copy(alpha = 0.35f),
+            scrimColor = Color.Black.copy(alpha = 0.45f),
             dragHandle = null,
-            containerColor = Color.White.bg()
+            containerColor = Color.White
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 10.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 20.dp, vertical = 14.dp)
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Header: DutyPe Secure Checkout
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.checkout_title, plan.name),
-                        style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
-                        fontFamily = MeeshoFontFamily
-                    )
-                    IconButton(onClick = { showPaymentSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = Ink700.fg())
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.amount_payable, plan.priceRupees.toString()),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Ink900.fg()
-                    )
-                    Text(
-                        text = "/ 30 days validity",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Ink500.fg()
-                    )
-                }
-
-                // Step 1: Copy UPI ID
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StepLabel(step = 1, text = stringResource(R.string.auto_copy_upi_id_pay))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SurfaceMuted.bg(), RoundedCornerShape(10.dp))
-                            .border(1.dp, Hairline.bd(), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "dutypein@ybl",
-                            fontFamily = MeeshoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Ink900.fg()
-                        )
-                        IconButton(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString("dutypein@ybl"))
-                                Toast.makeText(context, context.getString(R.string.upi_id_copied), Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = stringResource(R.string.copy_button),
-                                tint = Ink500.fg()
-                            )
-                        }
-                    }
-                }
-
-                // Step 2: QR Codes if configured
-                if (qrs.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StepLabel(step = 2, text = stringResource(R.string.auto_or_scan_the_active_payment_qr))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(SurfaceMuted.bg()),
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF1F5F9)),
                             contentAlignment = Alignment.Center
                         ) {
-                            AsyncImage(
-                                model = qrs.first().imageUrl,
-                                contentDescription = qrs.first().label,
-                                modifier = Modifier.fillMaxHeight(),
-                                contentScale = ContentScale.Fit
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF0F172A),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                        Text(
-                            text = qrs.first().label,
-                            fontSize = 11.sp,
-                            color = Ink500.fg(),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Column {
+                            Text(
+                                text = "DutyPe Secure Checkout",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = "Instant UPI Payment Rail",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                    IconButton(onClick = { showPaymentSheet = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
                     }
                 }
 
-                // Non-refundable notice
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceMuted.bg(), RoundedCornerShape(10.dp))
-                        .border(1.dp, Hairline.bd(), RoundedCornerShape(10.dp))
-                        .padding(12.dp)
+                // 1. Order Summary Card
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = stringResource(R.string.cd_info),
-                            tint = Ink500.fg()
-                        )
-                        Text(
-                            text = stringResource(R.string.auto_payments_are_non_refundable_verify_your_ut),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Ink700.fg()
-                        )
-                    }
-                }
-
-                // Step 3: UTR Number input
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StepLabel(step = if (qrs.isNotEmpty()) 3 else 2, text = stringResource(R.string.auto_enter_12_digit_utr_number))
-                    OutlinedTextField(
-                        value = utrNumber,
-                        onValueChange = { if (it.length <= 12 && it.all { char -> char.isDigit() }) utrNumber = it },
-                        placeholder = { Text(stringResource(R.string.utr_placeholder)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Brand.bd(),
-                            unfocusedBorderColor = Hairline.bd(),
-                            cursorColor = Brand.fg()
-                        )
-                    )
-                }
-
-                // Step 4: Upload screenshot
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StepLabel(
-                        step = if (qrs.isNotEmpty()) 4 else 3,
-                        text = stringResource(R.string.auto_attach_payment_screenshot_optional)
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { if (selectedImageUri == null) screenshotPicker.launch("image/*") }
-                            .background(SurfaceMuted.bg(), RoundedCornerShape(10.dp))
-                            .border(1.dp, Hairline.bd(), RoundedCornerShape(10.dp))
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (selectedImageUri != null) {
-                                AsyncImage(
-                                    model = selectedImageUri,
-                                    contentDescription = stringResource(R.string.selected_screenshot),
-                                    modifier = Modifier
-                                        .size(60.dp)
-                                        .clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
                                 Text(
-                                    text = stringResource(R.string.auto_screenshot_attached),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 13.sp,
-                                    color = Ink700.fg()
+                                    text = plan.name,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
                                 )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = stringResource(R.string.camera),
-                                    tint = Ink500.fg()
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = stringResource(R.string.auto_upload_screenshot),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 13.sp,
-                                    color = Ink700.fg()
+                                    text = "${plan.jobs} Job Posts • ${plan.instantUnlocks} Contact Unlocks • ${plan.validityDays} Days",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
                                 )
                             }
-                        }
-                        if (selectedImageUri != null) {
-                            IconButton(
-                                onClick = { selectedImageUri = null },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.remove_screenshot),
-                                    tint = Danger.fg()
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "₹${plan.priceRupees}",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF0F172A)
+                                )
+                                Text(
+                                    text = "All inclusive",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF16A34A),
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
                     }
                 }
 
-                // Submit Button
-                val isSubmitEnabled = utrNumber.trim().length == 12 && !isUploadingScreenshot && (submitState !is SubmitState.Loading)
+                // 2. Official Payee Assurance Banner (Payee: Banoth Vamsi)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF2563EB)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Payee: ",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF1E40AF)
+                                )
+                                Text(
+                                    text = "BANOTH VAMSI",
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E3A8A)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "• Official Account",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF2563EB),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Text(
+                                text = "Your UPI app will show 'Banoth Vamsi'. Please complete payment without worry.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF3B82F6),
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+
+                // 3. 1-Click Pay via Any UPI App (Direct Intent, Zero Friction)
                 Button(
                     onClick = {
-                        if (selectedImageUri != null) {
-                            isUploadingScreenshot = true
-                            scope.launch {
-                                val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown"
-                                val path = "payment_screenshots/$userId/payment_${System.currentTimeMillis()}.webp"
-                                val uploadResult = ImageUploadUtils.uploadWithRetry(context, selectedImageUri!!, path)
-                                isUploadingScreenshot = false
-                                when (uploadResult) {
-                                    is ImageUploadUtils.UploadResult.Success -> {
-                                        viewModel.submitPayment(plan, utrNumber, uploadResult.downloadUrl)
-                                    }
-                                    is ImageUploadUtils.UploadResult.Failure -> {
-                                        Toast.makeText(context, context.getString(R.string.image_upload_failed_msg, uploadResult.error.orEmpty()), Toast.LENGTH_LONG).show()
-                                    }
-                                    is ImageUploadUtils.UploadResult.Progress -> { /* progress handled locally if needed */ }
-                                }
-                            }
-                        } else {
-                            viewModel.submitPayment(plan, utrNumber, "")
+                        val refCode = "DP${(System.currentTimeMillis() % 1000000)}"
+                        val upiUri = Uri.parse(
+                            "upi://pay?pa=dutypein@ybl&pn=${Uri.encode("Banoth Vamsi")}&am=${plan.priceRupees}&cu=INR&tn=${Uri.encode("DutyPe Plan ₹${plan.priceRupees} - $currentPhone")}&tr=$refCode"
+                        )
+                        val upiIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, upiUri)
+                        try {
+                            context.startActivity(upiIntent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "No UPI app found. Please pay to dutypein@ybl", Toast.LENGTH_LONG).show()
                         }
+                        // Automatically record the payment initiation with employer details! Zero UTR/Screenshot friction!
+                        viewModel.recordUpiPaymentInitiated(
+                            plan = plan,
+                            referenceId = refCode,
+                            employerName = employerDisplayName,
+                            employerPhone = currentPhone
+                        )
+                        showPaymentSheet = false
                     },
-                    enabled = isSubmitEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Brand.bg()),
-                    shape = RoundedCornerShape(10.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
                 ) {
-                    if (submitState is SubmitState.Loading || isUploadingScreenshot) {
-                        com.example.dutype.components.DutyPeLoader(color = Color.White, size = 24.dp)
-                    } else {
-                        Text(
-                            text = stringResource(R.string.auto_submit_transaction_details),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
+                    Text(
+                        text = "⚡ Pay ₹${plan.priceRupees} via UPI (GPay / PhonePe / Paytm)",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
 
-                if (submitState is SubmitState.Error) {
+                // 4. Copy UPI ID and Security Trust Strip
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFF8FAFC), RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "UPI ID: dutypein@ybl",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF334155)
+                        )
+                    }
                     Text(
-                        text = (submitState as SubmitState.Error).message,
-                        color = Danger.fg(),
-                        fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        text = "Copy",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color(0xFF2563EB),
+                        modifier = Modifier
+                            .clickable {
+                                clipboardManager.setText(AnnotatedString("dutypein@ybl"))
+                                Toast.makeText(context, "UPI ID copied: dutypein@ybl", Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
+                }
+
+                // Optional Manual UTR Toggle
+                var showManualUtr by remember { mutableStateOf(false) }
+                Text(
+                    text = if (showManualUtr) "▲ Hide manual UTR" else "▼ Enter UTR manually (Optional)",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showManualUtr = !showManualUtr }
+                        .padding(vertical = 4.dp)
+                )
+
+                if (showManualUtr) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = utrNumber,
+                            onValueChange = { if (it.length <= 12 && it.all { c -> c.isDigit() }) utrNumber = it },
+                            placeholder = { Text("12-digit UTR", fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        Button(
+                            onClick = {
+                                if (utrNumber.length == 12) {
+                                    viewModel.submitPayment(plan, utrNumber, "")
+                                    showPaymentSheet = false
+                                } else {
+                                    Toast.makeText(context, "Please enter 12-digit UTR", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                        ) {
+                            Text("Submit", fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }
@@ -621,7 +632,7 @@ fun EmployerSubscriptionScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.bg())
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -630,18 +641,18 @@ fun EmployerSubscriptionScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = stringResource(R.string.cd_success),
+                        contentDescription = "Success",
                         tint = Success.fg(),
                         modifier = Modifier.size(64.dp)
                     )
                     Text(
-                        text = stringResource(R.string.auto_submission_successful),
+                        text = "Payment Initiated Successfully!",
                         style = AppTypography.displayTitle.copy(fontWeight = FontWeight.Bold, color = Ink900.fg()),
                         textAlign = TextAlign.Center,
                         fontFamily = MeeshoFontFamily
                     )
                     Text(
-                        text = stringResource(R.string.auto_your_upi_reference_has_been_submitted_admi),
+                        text = "Your payment to Banoth Vamsi (DutyPe) has been recorded. Our team will verify and activate your credits within 2-5 minutes!",
                         style = AppTypography.bodySmall.copy(color = Ink500.fg()),
                         textAlign = TextAlign.Center
                     )
@@ -651,28 +662,9 @@ fun EmployerSubscriptionScreen(
                             navController.popBackStack()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Brand.bg())
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
                     ) {
-                        Text(stringResource(R.string.go_to_dashboard), fontWeight = FontWeight.Bold)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            val phoneNumber = "918019151847"
-                            val message = "Hi DutyPe Team, please verify my purchased subscription plan. UTR: $utrNumber"
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${android.net.Uri.encode(message)}")
-                            }
-                            try {
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, context.getString(R.string.whatsapp_not_installed), Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Success.fg()),
-                        border = BorderStroke(1.dp, Success.bd())
-                    ) {
-                        Text(stringResource(R.string.contact_admin_whatsapp), fontWeight = FontWeight.Bold)
+                        Text("Go to Dashboard", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }

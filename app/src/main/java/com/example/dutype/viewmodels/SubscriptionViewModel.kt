@@ -80,6 +80,36 @@ class SubscriptionViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Frictionless UPI payment recording:
+     * When user initiates or completes payment via UPI app (GPay/PhonePe), DutyPe automatically
+     * records the request with employer details and reference ID so the user doesn't have to enter
+     * any 12-digit UTR or upload screenshots.
+     */
+    fun recordUpiPaymentInitiated(
+        plan: Plan,
+        referenceId: String,
+        employerName: String = "",
+        employerPhone: String = "",
+        upiIdUsed: String = "dutypein@ybl"
+    ) {
+        if (_submitState.value == SubmitState.Loading) return
+        viewModelScope.launch {
+            _submitState.value = SubmitState.Loading
+            subscriptionRepository.submitPaymentRequest(
+                planId = plan.id,
+                amountPaise = plan.pricePaise,
+                upiIdUsed = upiIdUsed,
+                utrNumber = referenceId,
+                screenshotUrl = "",
+                employerName = employerName,
+                employerPhone = employerPhone
+            )
+                .onSuccess { _submitState.value = SubmitState.Success }
+                .onFailure { _submitState.value = SubmitState.Error(it.message ?: "Failed to submit payment") }
+        }
+    }
+
     fun resetSubmitState() {
         _submitState.value = SubmitState.Idle
     }
