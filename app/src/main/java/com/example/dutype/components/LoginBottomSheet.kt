@@ -210,6 +210,20 @@ fun LoginBottomSheet(
                                 role = outcome.role
                             )
 
+                            // Authoritative users/{uid} sync
+                            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users").document(currentUser.uid)
+                                .set(
+                                    mapOf(
+                                        "uid" to currentUser.uid,
+                                        "phoneNumber" to (currentUser.phoneNumber ?: outcome.user?.phone.orEmpty()),
+                                        "role" to outcome.role.name,
+                                        "name" to (outcome.user?.name ?: ""),
+                                        "updatedAt" to com.google.firebase.Timestamp.now()
+                                    ),
+                                    com.google.firebase.firestore.SetOptions.merge()
+                                )
+
                             val shouldGoToProfileSetup =
                                 outcome.destination == OtpViewModel.PostOtpDestination.PROFILE_SETUP &&
                                     onProfileSetupRequired != null

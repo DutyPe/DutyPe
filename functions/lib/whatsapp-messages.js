@@ -252,7 +252,9 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
         if (!/^\+91[6-9]\d{9}$/.test(formatted)) {
             (0, input_1.fail)("invalid-argument", "Invalid Indian phone number: " + testPhone);
         }
-        const params = [defaultName, defaultCity, postJobUrl];
+        const params = (Array.isArray(data.params) && data.params.length > 0)
+            ? data.params
+            : [defaultName, defaultCity];
         if (dryRun) {
             return { ok: true, dryRun: true, phone: formatted, template, params };
         }
@@ -309,7 +311,9 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
     // Send in batches of 10
     for (let i = 0; i < targets.length; i += 10) {
         await Promise.all(targets.slice(i, i + 10).map(async (t) => {
-            const params = [t.name, t.city, postJobUrl];
+            const params = (Array.isArray(data.params) && data.params.length > 0)
+                ? [t.name, t.city, ...(data.params.slice(2))]
+                : [t.name, t.city];
             const r = await (0, whatsapp_1.sendWaTemplate)(t.phone, template, lang, params);
             if (r.ok) {
                 sent++;
@@ -327,7 +331,7 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
     await db.collection(schema_1.WhatsappCampaigns.COLLECTION).add({
         [schema_1.WhatsappCampaigns.TEMPLATE]: template,
         [schema_1.WhatsappCampaigns.LANGS]: [lang],
-        [schema_1.WhatsappCampaigns.PARAMS]: [defaultName, defaultCity, postJobUrl],
+        [schema_1.WhatsappCampaigns.PARAMS]: [defaultName, defaultCity],
         [schema_1.WhatsappCampaigns.AUDIENCE]: "EMPLOYER_BROADCAST",
         [schema_1.WhatsappCampaigns.MATCHED]: targets.length,
         [schema_1.WhatsappCampaigns.SENT]: sent,

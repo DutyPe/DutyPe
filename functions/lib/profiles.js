@@ -103,6 +103,15 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAut
         customClaims.admin = true;
     }
     await admin.auth().setCustomUserClaims(uid, customClaims);
+    // Authoritative users/{uid} document with role and profile metadata
+    await db.collection("users").doc(uid).set({
+        uid,
+        phoneNumber: phone,
+        role,
+        name,
+        updatedAt: Timestamp.now(),
+        createdAt: Timestamp.now(),
+    }, { merge: true }).catch((err) => functions.logger.warn("Failed to set users doc in completeRegistration", err));
     const code = await (0, referrals_1.ensureWallet)(uid, role, name, true);
     const referralError = referralCode ? await (0, referrals_1.registerReferral)(uid, referralCode, phone, name) : null;
     // Registered earlier at a DutyPe help desk? Credit that field agent.

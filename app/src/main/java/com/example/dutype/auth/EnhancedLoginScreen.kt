@@ -226,6 +226,20 @@ private fun OtpLoginScreen(
                                 name = resolvedName ?: "",
                                 role = outcome.role
                             )
+
+                            // Authoritative users/{uid} sync
+                            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users").document(currentUser.uid)
+                                .set(
+                                    mapOf(
+                                        "uid" to currentUser.uid,
+                                        "phoneNumber" to (currentUser.phoneNumber ?: outcome.user?.phone.orEmpty()),
+                                        "role" to outcome.role.name,
+                                        "name" to (resolvedName ?: outcome.user?.name ?: ""),
+                                        "updatedAt" to com.google.firebase.Timestamp.now()
+                                    ),
+                                    com.google.firebase.firestore.SetOptions.merge()
+                                )
                             otpViewModel.lastTruecallerResult?.photoUrl?.trim()?.takeIf { it.isNotBlank() }?.let { pic ->
                                 profileCompletionViewModel.saveUserPhotoUrl(pic)
                             }

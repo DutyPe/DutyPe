@@ -130,6 +130,7 @@ export function AdminWhatsappOffersClient() {
         name: empName.trim(),
         city: empCity.trim(),
         postJobUrl: empLink.trim(),
+        params: [empName.trim(), empCity.trim()],
         dryRun: false,
       });
       setTestResult(res.data as Result);
@@ -178,6 +179,7 @@ export function AdminWhatsappOffersClient() {
         name: empName.trim(),
         city: empCity.trim(),
         postJobUrl: empLink.trim(),
+        params: [empName.trim(), empCity.trim()],
         customPhones: empTarget === "CUSTOM_LIST" ? parsedCustom : [],
         dryRun,
       });

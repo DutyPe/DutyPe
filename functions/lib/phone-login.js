@@ -238,6 +238,14 @@ exports.verifyWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: 
     ]);
     const claims = Object.assign({ phone_number: phone }, (existingRole ? { role: existingRole } : {}));
     admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+    if (existingRole) {
+        await db.collection("users").doc(uid).set({
+            uid,
+            phoneNumber: phone,
+            role: existingRole,
+            updatedAt: Timestamp.now(),
+        }, { merge: true }).catch(() => undefined);
+    }
     const tokenPromise = admin.auth().createCustomToken(uid, claims);
     let name = "";
     let isProfileComplete = false;
