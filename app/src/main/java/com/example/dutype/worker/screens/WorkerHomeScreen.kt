@@ -584,6 +584,16 @@ fun WorkerHomeScreen(
         announcementViewModel.loadAnnouncements("worker")
     }
 
+    // First-visit location prompt: immediately asks for location permission when arriving for the first time
+    LaunchedEffect(hasLocationPermission) {
+        if (!hasLocationPermission && !locationPreferences.hasPromptedFirstTimeLocation()) {
+            locationPreferences.setPromptedFirstTimeLocation(true)
+            delay(600)
+            shouldFetchCurrentLocationAfterPermission = true
+            showLocationPermissionBottomSheet = true
+        }
+    }
+
     // Review prompt: Prompt worker to rate on Google Play after spending some active time (35 seconds)
     LaunchedEffect(Unit) {
         delay(35_000)
@@ -1047,7 +1057,7 @@ fun WorkerHomeScreen(
     // white surface so the role identity stays consistent across the app.
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFFF8FAFC).bg())
+        .background(Color(0xFFFAFFFF).bg())
     ) {
         WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 
@@ -1096,7 +1106,7 @@ fun WorkerHomeScreen(
                                 state = pullToRefreshState,
                                 isRefreshing = isRefreshingActive,
                                 modifier = Modifier.align(Alignment.TopCenter),
-                                containerColor = Color.White.bg(),
+                                containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
                                 color = com.example.dutype.ui.theme.WorkerColors.Primary.fg()
                             )
                         }
@@ -1715,7 +1725,7 @@ internal fun WorkerOutOfAreaBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(

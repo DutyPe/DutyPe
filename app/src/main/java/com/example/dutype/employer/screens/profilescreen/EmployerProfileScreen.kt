@@ -149,15 +149,15 @@ private fun EmpTopBar() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 20.5.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = stringResource(R.string.emp_profile_account),
-            color = EmpNavy.fg(),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+            text = stringResource(R.string.profile),
+            color = Color(0xFF222222).fg(),
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.5).sp
         )
     }
 }
@@ -169,7 +169,7 @@ private fun EmpAvatar(ui: EmpProfileUi, onClick: () -> Unit, size: androidx.comp
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(Color(0xFFF8FAFC).bg())
+            .background(Color(0xFFF7F7F7).bg())
             .border(1.5.dp, Color(0xFFE2E8F0).bd(), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -206,7 +206,7 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .bouncyClickable(onClick = if (ui.isLoggedIn) actions.onEdit else actions.onLogin),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -332,29 +332,32 @@ private fun EmpMenuRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
-            .bouncyClickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = null,
-            tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-            modifier = Modifier.size(23.dp)
+            tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF2B2B2B),
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(
+                15.5.sp,
+                FontWeight.Normal,
+                if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)
+            ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
         if (showStars) {
             Text(
-                text = "\u2605\u2605\u2605\u2605\u2605",
-                style = profileTextStyle(11.sp, FontWeight.Normal, EmpAmber.fg())
+                text = "★★★★★",
+                style = profileTextStyle(12.sp, FontWeight.Normal, EmpAmber.fg())
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
@@ -363,11 +366,11 @@ private fun EmpMenuRow(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
                     .background(Color(0xFFEFF6FF).bg())
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                    .padding(horizontal = 9.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = pill,
-                    style = profileTextStyle(11.sp, FontWeight.SemiBold, Color(0xFF2563EB).fg()),
+                    style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF2563EB).fg()),
                     maxLines = 1
                 )
             }
@@ -376,8 +379,8 @@ private fun EmpMenuRow(
         Icon(
             painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
             contentDescription = null,
-            tint = Color(0xFF717171),
-            modifier = Modifier.size(18.dp)
+            tint = Color(0xFF717171).fg(),
+            modifier = Modifier.size(18.5.dp)
         )
     }
 }
@@ -387,35 +390,27 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 0.dp)
     ) {
-        // Section 1: Hiring & Management
-        Text(
-            text = "Hiring & Management",
-            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
+        // Section 1: Hiring & Management (No Section Title, No inner dividers)
         EmpMenuRow(
-            iconRes = R.drawable.myjobs,
+            iconRes = R.drawable.ic_profile_history,
             title = stringResource(R.string.emp_profile_my_posted_jobs),
             pill = null,
             onClick = actions.onMyJobs
         )
-        ProfileRowDivider()
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_wallet,
             title = "Services Wallet",
             pill = "₹${ui.walletBalanceRupees}",
             onClick = actions.onWallet
         )
-        ProfileRowDivider()
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_wallet,
             title = stringResource(R.string.emp_profile_subscription_credits),
             pill = null,
             onClick = actions.onSubscription
         )
-        ProfileRowDivider()
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_globe,
             title = stringResource(R.string.emp_profile_work_locations),
@@ -423,23 +418,20 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             onClick = actions.onLocations
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Section 2: Support & Referral
-        Text(
-            text = "Support & Referral",
-            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
-            modifier = Modifier.padding(bottom = 8.dp)
+        // Divider BETWEEN sections
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 20.5.dp, vertical = 12.dp),
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd()
         )
+
+        // Section 2: Support & Referral (No Section Title, No inner dividers)
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_help,
             title = stringResource(R.string.emp_profile_help_support),
             pill = null,
             onClick = actions.onHelp
         )
-        ProfileRowDivider()
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_gift,
             title = stringResource(R.string.emp_profile_refer_employer, EmpReferAmount),
@@ -447,30 +439,20 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             onClick = actions.onRefer
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Section 3: Settings & About
-        Text(
-            text = "Settings & About",
-            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
-            modifier = Modifier.padding(bottom = 8.dp)
+        // Divider BETWEEN sections
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 20.5.dp, vertical = 12.dp),
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd()
         )
+
+        // Section 3: Settings & Feedback (No Section Title, No inner dividers, Safety & rules removed)
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_settings,
             title = stringResource(R.string.settings),
             pill = null,
             onClick = actions.onSettings
         )
-        ProfileRowDivider()
-        EmpMenuRow(
-            iconRes = R.drawable.ic_profile_help,
-            title = stringResource(R.string.guide_entry),
-            pill = null,
-            onClick = actions.onGuidelines
-        )
-        ProfileRowDivider()
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_star,
             title = stringResource(R.string.about_nav_rate_playstore),
@@ -478,20 +460,10 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             onClick = actions.onRateApp,
             showStars = true
         )
-        ProfileRowDivider()
     }
 }
 
-@Composable
-private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-}
+
 
 @Composable
 private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifier: Modifier) {
@@ -512,7 +484,7 @@ private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifie
         Box(modifier = Modifier.cascadeEnter(index = 2)) {
             EmpMenuCard(ui = ui, actions = actions)
         }
-        EmpAccountCard(ui = ui, actions = actions)
+
         Spacer(modifier = Modifier.height(90.dp))
     }
 }
@@ -731,14 +703,17 @@ fun EmployerProfileScreen(
                     showLoginBottomSheet = true
                 }
             },
-            onLogin = { rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER") },
+            onLogin = {
+                pendingMenuAction = "profile"
+                showLoginBottomSheet = true
+            },
             onCompany = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
             onMyJobs = { go(Routes.EMPLOYER_MY_JOBS, "my_jobs") },
             onLocations = { go(Routes.EMPLOYER_MANAGE_ADDRESSES, "locations") },
-            onSubscription = { go(Routes.EMPLOYER_SUBSCRIPTION, null) },
+            onSubscription = { go(Routes.EMPLOYER_SUBSCRIPTION, "subscription") },
             onHistory = { go(Routes.EMPLOYER_HISTORY, "job_posts") },
-            onRefer = { go(Routes.EMPLOYER_REFER_EARN, null) },
-            onWallet = { showWalletTopupSheet = true },
+            onRefer = { go(Routes.EMPLOYER_REFER_EARN, "refer_earn") },
+            onWallet = { go(Routes.SERVICE_WALLET, "wallet") },
             onGuidelines = { nav.navigate(Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.EMPLOYER)) },
             onRateApp = { openPlayStoreListing(context) },
             onSettings = { rootNavController.navigate(Routes.SETTINGS) },
@@ -823,6 +798,7 @@ fun EmployerProfileScreen(
             requiredFeeRupees = 9,
             onDismiss = { showWalletTopupSheet = false },
             onTopupSuccess = { showWalletTopupSheet = false },
+            navController = localNavController ?: rootNavController,
             viewModel = homeServicesViewModel
         )
     }
@@ -846,12 +822,15 @@ fun EmployerProfileScreen(
             when (pendingMenuAction) {
                 "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
                 "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
+                "my_jobs" -> localNavController?.navigate(Routes.EMPLOYER_MY_JOBS) ?: rootNavController.navigate(Routes.EMPLOYER_MY_JOBS)
+                "wallet" -> localNavController?.navigate(Routes.SERVICE_WALLET) ?: rootNavController.navigate(Routes.SERVICE_WALLET)
+                "subscription" -> localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
                 "locations" -> runCatching {
                     localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
                 }.onFailure {
                     timber.log.Timber.e(it, "Error navigating to pending locations action")
                 }
-                // "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
+                "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
             }
             pendingMenuAction = null
         },

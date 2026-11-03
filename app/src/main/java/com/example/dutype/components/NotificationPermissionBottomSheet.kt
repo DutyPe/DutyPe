@@ -1,4 +1,5 @@
 package com.example.dutype.components
+import com.example.dutype.ui.theme.bg
 
 import android.content.Context
 import android.content.Intent
@@ -155,7 +156,7 @@ fun NotificationPermissionBottomSheet(
             sheetState = sheetState,
             modifier = modifier,
             dragHandle = null,
-            containerColor = Color.White,
+            containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFAFFFF),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(

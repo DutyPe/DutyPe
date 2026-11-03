@@ -571,7 +571,8 @@ private fun TimelineJobCard(
                 ) {
                     JobStatusBadge(
                         isClosed = isClosed,
-                        isExpired = isExpired
+                        isExpired = isExpired,
+                        status = job.status
                     )
 
                     Text(
@@ -765,7 +766,8 @@ private fun HistoryJobCard(
 
                 JobStatusBadge(
                     isClosed = isClosed,
-                    isExpired = isExpired
+                    isExpired = isExpired,
+                    status = job.status
                 )
             }
 
@@ -893,9 +895,11 @@ private fun JobListing.toRepostDraft(): JobDraftDataStore.JobDraft = JobDraftDat
 @Composable
 private fun JobStatusBadge(
     isClosed: Boolean,
-    isExpired: Boolean
+    isExpired: Boolean,
+    status: String = ""
 ) {
     val (color, text, icon) = when {
+        status.equals("deleted", ignoreCase = true) -> Triple(EmployerColors.Error, "Deleted", Icons.Default.Delete)
         isExpired -> Triple(EmployerColors.Error, stringResource(R.string.history_expired), Icons.Default.EventBusy)
         isClosed -> Triple(EmployerColors.TextSecondary, stringResource(R.string.closed), Icons.Default.Cancel)
         else -> Triple(EmployerColors.Success, stringResource(R.string.open_status), Icons.Default.CheckCircle)

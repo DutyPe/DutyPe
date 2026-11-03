@@ -55,7 +55,7 @@ import androidx.compose.ui.res.stringResource
  */
 
 // Design tokens (mockup 17)
-private val ScreenBg = Color(0xFFFFFFFF)
+private val ScreenBg = Color(0xFFFAFFFF)
 private val InkBlack = Color(0xFF0F0F0F)
 private val Emerald = Color(0xFF10B981)
 private val EmeraldTint = Color(0xFFF0FDF4)

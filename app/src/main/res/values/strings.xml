@@ -204,7 +204,7 @@
     <string name="bottom_nav_profile">Profile</string>
     <string name="bottom_nav_chat">Chat</string>
     <string name="bottom_nav_categories">Categories</string>
-    <string name="bottom_nav_account">Account</string>
+    <string name="bottom_nav_account">Profile</string>
     <string name="bottom_nav_services">Services</string>
     <string name="contact_support_whatsapp">Contact Support on WhatsApp</string>
     <string name="onboarding_title_1">Work Near You</string>
@@ -2985,4 +2985,11 @@
     <string name="partner_read_rules">Read Partner Rules &amp; Code of Conduct →</string>
     <string name="partner_submit_btn">Submit Application</string>
     <string name="partner_fill_required">Fill required details to submit</string>
+    <!-- Hiring Room Calling & Custom Price Additions -->
+    <string name="job_closed_cannot_call">This job is filled or closed. Calling is disabled.</string>
+    <string name="job_closed_calls_disabled">Position is filled/closed. Worker calling is disabled.</string>
+    <string name="name_your_own_price">Name Your Own Price</string>
+    <string name="offer_your_price_title">Offer Your Own Price</string>
+    <string name="offer_your_price_desc">You can propose your own price for any service (min ₹49), or keep our standard rate!</string>
+    <string name="min_price_rule">Minimum ₹49 • Cannot be ₹00</string>
 </resources>

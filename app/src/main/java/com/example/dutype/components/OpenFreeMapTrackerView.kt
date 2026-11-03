@@ -529,7 +529,7 @@ fun OpenFreeMapTrackerView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFF8FAFC))
+                    .background(Color(0xFFF7F7F7))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

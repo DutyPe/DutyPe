@@ -215,7 +215,7 @@ private fun EmptyTips(tips: List<String>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF9FAFB).bg(), RoundedCornerShape(12.dp))
+            .background(Color(0xFFF7F7F7).bg(), RoundedCornerShape(12.dp))
             .border(1.dp, Frame1.bd(), RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)

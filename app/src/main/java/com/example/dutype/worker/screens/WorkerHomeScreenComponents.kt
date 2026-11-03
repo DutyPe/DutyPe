@@ -1891,7 +1891,7 @@ fun WorkerLiveEarningsSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF8FAFC).bg())
+                        .background(Color(0xFFF7F7F7).bg())
                         .border(0.5.dp, Color(0xFFF1F5F9).bd(), RoundedCornerShape(12.dp))
                         .padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2278,10 +2278,10 @@ private fun HomeBellButton(hasUnread: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Outlined.Notifications,
+            painter = painterResource(id = R.drawable.ic_bell_outline),
             contentDescription = "Notifications",
             tint = HomeInk.fg(),
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(20.dp)
         )
         if (hasUnread) {
             Box(

@@ -213,7 +213,7 @@ fun AiPostAssistantSheet(onDismiss: () -> Unit, onApply: (AiJobDraft) -> Unit) {
         onDismissRequest = {
             voiceEngine.stop()
             onDismiss()
-        }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color.White.bg()) {
+        }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -280,7 +280,7 @@ private fun DraftCard(d: AiJobDraft, summary: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8FAFC).bg(), shape)
+            .background(Color(0xFFF7F7F7).bg(), shape)
             .border(1.dp, Color(0xFFE2E8F0).bd(), shape)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)

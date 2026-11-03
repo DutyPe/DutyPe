@@ -143,9 +143,10 @@ class HomeServicesViewModel @Inject constructor(
 
     suspend fun book(
         service: ServiceItem, addressText: String, area: String, lat: Double, lng: Double, note: String, scheduledAt: Long?,
-        couponCode: String = ""
+        couponCode: String = "", customPrice: Int? = null
     ): Result<String> = runCatching {
-        repo.createBooking(service.id, addressText, area, lat, lng, note, scheduledAt, couponCode, service.price)
+        val finalPrice = customPrice ?: service.price
+        repo.createBooking(service.id, addressText, area, lat, lng, note, scheduledAt, couponCode, finalPrice)
     }.mapError()
 
     suspend fun startCode(bookingId: String): String = runCatching { repo.startCode(bookingId) }.getOrDefault("")

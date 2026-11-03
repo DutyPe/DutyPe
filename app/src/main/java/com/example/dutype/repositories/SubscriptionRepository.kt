@@ -11,6 +11,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -18,6 +19,25 @@ import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+
+@Keep
+data class RazorpayOrderResult(
+    val orderId: String = "",
+    val amountPaise: Long = 0L,
+    val currency: String = "INR",
+    val keyId: String = "rzp_test_Tuw8VzuHNLVm1y",
+    val name: String = "DutyPe",
+    val description: String = ""
+)
+
+@Keep
+data class RazorpayVerifyResult(
+    val ok: Boolean = false,
+    val status: String = "",
+    val planId: String = "",
+    val orderId: String = "",
+    val paymentId: String = ""
+)
 
 /** `subscription_payment_requests/{id}` — an employer's UPI payment proof, verified by an admin. */
 @Keep
@@ -66,7 +86,8 @@ data class PaymentRequest(
 @Singleton
 class SubscriptionRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions
 ) {
     /** Plans from app_config; built-in defaults when the doc is missing or unreadable. */
     suspend fun getPlans(): List<Plan> = runCatching {
@@ -74,11 +95,14 @@ class SubscriptionRepository @Inject constructor(
         val rows = firestore.collection(AppConfig.COLLECTION).document(AppConfig.DOC_SUBSCRIPTION_PLANS)
             .get().await().get("plans") as? List<Map<String, Any?>>
         val fetched = rows.orEmpty().mapNotNull { row -> (row["id"] as? String)?.let { Plan.fromMap(it, row) } }.filterNot { it.legacy }
-        if (fetched.none { it.id == "single_job_49" || it.priceRupees == 49L }) {
-            listOf(DEFAULT_PLANS.first()) + fetched
-        } else {
-            fetched
+        
+        // Ensure all 4 standard plans (₹49, ₹99, ₹199, ₹499) are ALWAYS present in the exact order
+        val defaultMap = DEFAULT_PLANS.associateBy { it.id }
+        val mergedStandard = DEFAULT_PLANS.map { def ->
+            fetched.find { it.id == def.id } ?: def
         }
+        val customOthers = fetched.filter { it.id !in defaultMap.keys }
+        mergedStandard + customOthers
     }.getOrElse {
         Timber.w(it, "subscription plans read failed")
         DEFAULT_PLANS
@@ -117,7 +141,7 @@ class SubscriptionRepository @Inject constructor(
                 SubscriptionPayments.CREATED_AT to Timestamp.now(),
                 "employerName" to name,
                 "employerPhone" to phone,
-                "payeeName" to "Banoth Vamsi",
+                "payeeName" to "DutyPe",
                 "paymentMethod" to "UPI_INTENT"
             )
         ).await()
@@ -144,6 +168,65 @@ class SubscriptionRepository @Inject constructor(
                 }
             }
         awaitClose { registration.remove() }
+    }
+
+    /**
+     * Creates an authorized Razorpay Order via Cloud Functions.
+     */
+    suspend fun createRazorpayOrder(
+        planId: String? = null,
+        type: String = "SUBSCRIPTION",
+        amountRupees: Int? = null
+    ): Result<RazorpayOrderResult> = runCatching {
+        val payload = mutableMapOf<String, Any?>("type" to type)
+        if (planId != null) payload["planId"] = planId
+        if (amountRupees != null) payload["amountRupees"] = amountRupees
+
+        @Suppress("UNCHECKED_CAST")
+        val res = functions.getHttpsCallable("createRazorpayOrder")
+            .call(payload)
+            .await().data as? Map<String, Any?> ?: error("Empty response from server")
+
+        RazorpayOrderResult(
+            orderId = res["orderId"] as? String ?: error("Missing orderId"),
+            amountPaise = (res["amountPaise"] as? Number)?.toLong() ?: 0L,
+            currency = res["currency"] as? String ?: "INR",
+            keyId = res["keyId"] as? String ?: "rzp_live_TvEYRD4s7DgLuj",
+            name = res["name"] as? String ?: "DutyPe",
+            description = res["description"] as? String ?: "DutyPe Payment"
+        )
+    }
+
+    /**
+     * Verifies the cryptographic HMAC-SHA256 signature and activates the subscription instantly.
+     */
+    suspend fun verifyRazorpayPayment(
+        orderId: String,
+        paymentId: String,
+        signature: String,
+        planId: String? = null,
+        type: String = "SUBSCRIPTION"
+    ): Result<RazorpayVerifyResult> = runCatching {
+        val payload = mutableMapOf<String, Any?>(
+            "type" to type,
+            "orderId" to orderId,
+            "paymentId" to paymentId,
+            "signature" to signature
+        )
+        if (planId != null) payload["planId"] = planId
+
+        @Suppress("UNCHECKED_CAST")
+        val res = functions.getHttpsCallable("verifyRazorpayPayment")
+            .call(payload)
+            .await().data as? Map<String, Any?> ?: error("Empty response from server")
+
+        RazorpayVerifyResult(
+            ok = res["ok"] as? Boolean ?: false,
+            status = res["status"] as? String ?: "",
+            planId = res["planId"] as? String ?: (planId ?: ""),
+            orderId = res["orderId"] as? String ?: orderId,
+            paymentId = res["paymentId"] as? String ?: paymentId
+        )
     }
 
     private companion object {

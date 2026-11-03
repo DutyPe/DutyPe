@@ -1,38 +1,33 @@
 package com.example.dutype.navigation
 
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+
 /**
- * One-shot, same-process handoff queue from the outer [MainNavGraph] to the
+ * Reactive and one-shot handoff queue from the outer [MainNavGraph] to the
  * nested [EmployerMainScreen] NavHost.
- *
- * Why this exists:
- *  - `EmployerMainScreen` owns its own `NavController` (see
- *    [EmployerMainScreen]). Routes like `employer_post_job` only exist in
- *    that inner graph.
- *  - When the user finishes [com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen]
- *    with `returnRoute = employer_post_job`, the outer controller cannot
- *    navigate there — that route isn't in the outer graph. Crash:
- *    `Navigation destination ... cannot be found in the navigation graph`.
- *
- * How this works:
- *  - The setup screen sets [pendingRoute] then navigates the outer controller
- *    to [Routes.EMPLOYER_HOME], which mounts `EmployerMainScreen`.
- *  - `EmployerMainScreen` checks [pendingRoute] on first composition and, if
- *    set, pushes it onto its inner controller and clears the queue.
- *
- * Single in-memory slot is intentional: this is a UI handoff, not a message
- * bus, so there's never more than one pending value.
  */
 object EmployerInnerNavQueue {
     @Volatile
     private var pendingRoute: String? = null
 
+    private val _events = MutableSharedFlow<String>(
+        replay = 1,
+        extraBufferCapacity = 2,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val events = _events.asSharedFlow()
+
     fun setPending(route: String) {
         pendingRoute = route
+        _events.tryEmit(route)
     }
 
     fun consume(): String? {
         val route = pendingRoute
         pendingRoute = null
+        _events.resetReplayCache()
         return route
     }
 }

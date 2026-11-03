@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendWhatsappEmployerBroadcast = exports.sendWhatsappPromo = exports.whatsappPromos = void 0;
+exports.fetchTelanganaEmployers = exports.sendWhatsappEmployerBroadcast = exports.sendWhatsappPromo = exports.whatsappPromos = void 0;
 exports.whatsappServiceAssigned = whatsappServiceAssigned;
 exports.stopWhatsappPromos = stopWhatsappPromos;
 /**
@@ -218,17 +218,25 @@ exports.sendWhatsappPromo = (0, secure_callable_1.onCallSecured)({ enforceAppChe
     return Object.assign(Object.assign({ dryRun: false }, summary), { sent, failed, errors });
 });
 /**
- * Admin: Broadcast WhatsApp launch offers / templates directly to employers.
+ * Admin: Broadcast WhatsApp launch offers / templates directly to employers or workers.
  * Supports:
  * 1) Single test message to any phone number (`isSingleTest: true`, `testPhone`, `name`, `city`, `postJobUrl`)
- * 2) Bulk broadcast to all registered employers in Firestore OR a custom list of numbers
- * 3) `dryRun: true` to inspect recipients, variables, and cost without triggering messages
+ * 2) Bulk broadcast to registered employers (`EMPLOYERS`), registered workers (`WORKERS`), or `BOTH` in Firestore OR a custom list
+ * 3) State filtering (`targetState`: e.g. "TELANGANA" to hyper-focus on Telangana employers)
+ * 4) Exact city filtering (`targetCity`: e.g. "Khammam", "Hyderabad", "Vijayawada", "Visakhapatnam", or "ALL")
+ * 5) Dynamic city extraction (`extractCleanCity`) so {{2}} is always hyper-local (e.g. Khammam, Hyderabad)
+ * 6) `dryRun: true` to inspect recipients, variables, breakdown counts, and cost without triggering messages
  */
 exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false, timeoutSeconds: 540, memory: "512MB", secrets: [whatsapp_1.WHATSAPP_TOKEN_SECRET] }, async (raw, context) => {
     if (!(await (0, app_config_1.isCallerAdmin)(context)))
         (0, input_1.fail)("permission-denied", "Admins only");
     const data = (0, input_1.obj)(raw);
     const template = (0, input_1.str)(data, "template", { max: 120, pattern: /^[a-z0-9_]+$/ });
+    const englishTemplate = (0, input_1.str)(data, "englishTemplate", { max: 120, optional: true, pattern: /^[a-z0-9_]+$/ });
+    const routingMode = (0, input_1.str)(data, "routingMode", { max: 30, optional: true }) || "AUTO";
+    const audienceTarget = (0, input_1.str)(data, "audienceTarget", { max: 30, optional: true }) || "EMPLOYERS";
+    const targetState = (0, input_1.str)(data, "targetState", { max: 30, optional: true }) || "ALL";
+    const targetCity = (0, input_1.str)(data, "targetCity", { max: 60, optional: true }) || "ALL";
     const lang = (0, input_1.str)(data, "lang", { max: 10, optional: true }) || "en";
     const dryRun = data.dryRun !== false;
     const isSingleTest = data.isSingleTest === true;
@@ -252,19 +260,109 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
         if (!/^\+91[6-9]\d{9}$/.test(formatted)) {
             (0, input_1.fail)("invalid-argument", "Invalid Indian phone number: " + testPhone);
         }
-        const params = (Array.isArray(data.params) && data.params.length > 0)
+        let params = Array.isArray(data.params)
             ? data.params
             : [defaultName, defaultCity];
         if (dryRun) {
             return { ok: true, dryRun: true, phone: formatted, template, params };
         }
-        const res = await (0, whatsapp_1.sendWaTemplate)(formatted, template, lang, params);
+        let res = await (0, whatsapp_1.sendWaTemplate)(formatted, template, lang, params);
+        // Auto-fallback if Meta reports 132000 (parameter count mismatch)
+        if (!res.ok && res.error && res.error.includes("132000")) {
+            functions.logger.warn("WhatsApp 132000 parameter mismatch, auto-retrying with 0 parameters (static template)...");
+            const retryRes0 = await (0, whatsapp_1.sendWaTemplate)(formatted, template, lang, []);
+            if (retryRes0.ok) {
+                res = retryRes0;
+                params = [];
+            }
+            else if (params.length !== 1) {
+                functions.logger.warn("WhatsApp 132000 parameter mismatch, auto-retrying with 1 parameter (name only)...");
+                const retryRes1 = await (0, whatsapp_1.sendWaTemplate)(formatted, template, lang, [defaultName]);
+                if (retryRes1.ok) {
+                    res = retryRes1;
+                    params = [defaultName];
+                }
+            }
+        }
         if (!res.ok) {
             (0, input_1.fail)("internal", "WhatsApp send failed: " + (res.error || "unknown error"));
         }
         return { ok: true, dryRun: false, phone: formatted, template, params };
     }
-    // Bulk broadcast mode
+    // Helper to detect if employer/worker is in Telugu states (Telangana / Andhra Pradesh)
+    const NON_TELUGU_IDENTIFIERS = [
+        "bengaluru", "bangalore", "karnataka", "mumbai", "pune", "maharashtra",
+        "delhi", "chennai", "tamil nadu", "kolkata", "west bengal", "kerala",
+        "kochi", "gujarat", "ahmedabad", "jaipur", "rajasthan", "lucknow",
+        "uttar pradesh", "bihar", "patna", "madhya pradesh", "indore", "bhopal",
+        "punjab", "chandigarh", "haryana", "gurugram", "noida", "goa", "odisha"
+    ];
+    function isTeluguStateEmployer(stateText, cityText, addrText) {
+        const combined = `${stateText || ""} ${cityText || ""} ${addrText || ""}`.toLowerCase();
+        for (const nonTe of NON_TELUGU_IDENTIFIERS) {
+            if (combined.includes(nonTe))
+                return false;
+        }
+        return true;
+    }
+    const TG_IDENTIFIERS = [
+        "telangana", "khammam", "hyderabad", "secunderabad", "warangal", "hanumakonda", "kazipet",
+        "karimnagar", "nizamabad", "nalgonda", "suryapet", "mahabubnagar", "siddipet", "mancherial",
+        "kothagudem", "bhadradri", "medchal", "malkajgiri", "ranga reddy", "rangareddy", "sangareddy",
+        "jagitial", "kamareddy", "peddapalli", "sircilla", "wanaparthy", "gadwal", "nagarkurnool",
+        "vikarabad", "asifabad", "adilabad", "mulugu", "narayanpet", "abids", "tellapur", "yella reddy guda",
+        "ameerpet", "madhapur", "gachibowli", "kukatpally", "dilsukhnagar", "lb nagar", "uppal",
+        "begumpet", "kondapur", "hitec city", "jubilee hills", "banjara hills", "wyra", "sathupally", "madhira"
+    ];
+    function isTelanganaProfile(cityText, addrText) {
+        const combined = `${cityText || ""} ${addrText || ""}`.toLowerCase();
+        return TG_IDENTIFIERS.some((k) => combined.includes(k));
+    }
+    // Dynamic clean city extraction to guarantee {{2}} has the real locality (e.g., Khammam, Hyderabad)
+    const KNOWN_TELUGU_CITIES = [
+        "Khammam", "Hyderabad", "Secunderabad", "Warangal", "Hanamkonda", "Kazipet",
+        "Vijayawada", "Visakhapatnam", "Vizag", "Guntur", "Nellore", "Kurnool",
+        "Tirupati", "Kadapa", "Kakinada", "Rajahmundry", "Karimnagar", "Nizamabad",
+        "Nalgonda", "Mahabubnagar", "Suryapet", "Miryalaguda", "Ramagundam",
+        "Mancherial", "Adilabad", "Siddipet", "Sangareddy", "Medak", "Eluru",
+        "Ongole", "Anantapur", "Chittoor", "Vizianagaram", "Srikakulam",
+        "Machilipatnam", "Bhimavaram", "Tenali", "Proddatur", "Hindupur",
+        "Kothagudem", "Bhadrachalam", "Palvancha", "Sathupally", "Madhira", "Wyra",
+        "Yellandu", "Bengaluru", "Bangalore", "Chennai", "Mumbai", "Pune", "Delhi"
+    ];
+    function extractCleanCity(area, address, fallback = "Khammam") {
+        const combined = `${area || ""} ${address || ""}`.trim();
+        if (!combined)
+            return fallback;
+        // 1. Direct keyword match for prominent cities
+        for (const city of KNOWN_TELUGU_CITIES) {
+            const regex = new RegExp(`\\b${city}\\b`, "i");
+            if (regex.test(combined)) {
+                return city.toLowerCase() === "vizag" ? "Visakhapatnam" : city;
+            }
+        }
+        // 2. Use area if concise and non-empty (stripped of pincode)
+        if (area && area.trim().length > 0) {
+            const cleanArea = area.replace(/\b\d{6}\b/g, "").replace(/[,.-]/g, " ").trim();
+            const parts = cleanArea.split(/\s+/).filter(Boolean);
+            if (parts.length > 0 && parts.length <= 3) {
+                return parts.join(" ");
+            }
+        }
+        // 3. Fallback: parse address segments from end
+        if (address) {
+            const segments = address.split(",").map((s) => s.trim()).filter(Boolean);
+            for (let i = segments.length - 1; i >= 0; i--) {
+                const seg = segments[i].replace(/\b\d{6}\b/g, "").trim();
+                if (seg.length >= 3 && seg.length <= 25 && !/\d/.test(seg)) {
+                    if (!/^(telangana|andhra pradesh|india|ap|tg|ts)$/i.test(seg)) {
+                        return seg;
+                    }
+                }
+            }
+        }
+        return fallback;
+    }
     const targetMap = new Map();
     if (customPhones.length > 0) {
         for (const rawPhone of customPhones) {
@@ -273,34 +371,137 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
                 cleaned = "91" + cleaned;
             const formatted = "+" + cleaned;
             if (/^\+91[6-9]\d{9}$/.test(formatted)) {
-                targetMap.set(formatted, { phone: formatted, name: defaultName, city: defaultCity });
+                targetMap.set(formatted, {
+                    phone: formatted,
+                    name: defaultName,
+                    city: defaultCity,
+                    rawLocation: defaultCity,
+                    role: "EMPLOYER",
+                    isTeluguState: true
+                });
             }
         }
     }
     else {
-        // Fetch employers from employer_profiles
-        const snap = await db.collection(schema_1.EmployerProfiles.COLLECTION).limit(1000).get();
-        for (const d of snap.docs) {
-            const phone = String(d.get(schema_1.EmployerProfiles.PHONE) || "").trim();
-            const empName = String(d.get(schema_1.EmployerProfiles.OWNER_NAME) || d.get(schema_1.EmployerProfiles.BUSINESS_NAME) || "").trim() || defaultName;
-            const empCity = String(d.get(schema_1.EmployerProfiles.AREA) || d.get(schema_1.EmployerProfiles.ADDRESS) || "").trim() || defaultCity;
-            let cleaned = phone.replace(/\D/g, "");
-            if (cleaned.length === 10)
-                cleaned = "91" + cleaned;
-            const formatted = "+" + cleaned;
-            if (/^\+91[6-9]\d{9}$/.test(formatted)) {
-                targetMap.set(formatted, { phone: formatted, name: empName, city: empCity });
+        // 1. Fetch employers if requested
+        if (audienceTarget === "EMPLOYERS" || audienceTarget === "BOTH") {
+            const empSnap = await db.collection(schema_1.EmployerProfiles.COLLECTION).limit(1000).get();
+            for (const d of empSnap.docs) {
+                const phone = String(d.get(schema_1.EmployerProfiles.PHONE) || "").trim();
+                const empName = String(d.get(schema_1.EmployerProfiles.OWNER_NAME) || d.get(schema_1.EmployerProfiles.BUSINESS_NAME) || "").trim() || defaultName;
+                const area = String(d.get(schema_1.EmployerProfiles.AREA) || "").trim();
+                const addr = String(d.get(schema_1.EmployerProfiles.ADDRESS) || "").trim();
+                const empCity = extractCleanCity(area, addr, defaultCity);
+                const empState = String(d.get("state") || d.get("location.state") || "").trim();
+                const isTe = isTeluguStateEmployer(empState, empCity, addr);
+                let cleaned = phone.replace(/\D/g, "");
+                if (cleaned.length === 10)
+                    cleaned = "91" + cleaned;
+                const formatted = "+" + cleaned;
+                if (/^\+91[6-9]\d{9}$/.test(formatted)) {
+                    targetMap.set(formatted, {
+                        phone: formatted,
+                        name: empName,
+                        city: empCity,
+                        rawLocation: `${area} ${addr}`.trim(),
+                        role: "EMPLOYER",
+                        isTeluguState: isTe
+                    });
+                }
+            }
+            // 1b. If targeting Telangana, also aggregate active verified Telangana business job posters
+            if (targetState === "TELANGANA") {
+                const jobSnap = await db.collection(schema_1.Jobs.COLLECTION).where(schema_1.Jobs.STATE, "==", "Telangana").limit(400).get();
+                const contactsSnap = await db.collection(schema_1.JobContacts.COLLECTION).limit(500).get();
+                const contactsMap = new Map();
+                contactsSnap.docs.forEach((cd) => {
+                    contactsMap.set(cd.id, String(cd.data()[schema_1.JobContacts.CONTACT_NUMBER] || ""));
+                });
+                for (const jd of jobSnap.docs) {
+                    const jdata = jd.data();
+                    const rawPhone = contactsMap.get(jd.id);
+                    if (rawPhone) {
+                        let cleaned = String(rawPhone).replace(/\D/g, "");
+                        if (cleaned.length === 10)
+                            cleaned = "91" + cleaned;
+                        const formatted = "+" + cleaned;
+                        if (/^\+91[6-9]\d{9}$/.test(formatted)) {
+                            if (!targetMap.has(formatted)) {
+                                const name = String(jdata[schema_1.Jobs.COMPANY_NAME] || defaultName).trim();
+                                const city = String(jdata[schema_1.Jobs.DISTRICT] || jdata[schema_1.Jobs.AREA] || "Telangana").trim();
+                                targetMap.set(formatted, {
+                                    phone: formatted,
+                                    name,
+                                    city,
+                                    rawLocation: String(jdata[schema_1.Jobs.AREA] || city).trim(),
+                                    role: "EMPLOYER",
+                                    isTeluguState: true
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // 2. Fetch workers if requested
+        if (audienceTarget === "WORKERS" || audienceTarget === "BOTH") {
+            const workerSnap = await db.collection(schema_1.WorkerProfiles.COLLECTION).limit(1000).get();
+            for (const d of workerSnap.docs) {
+                const phone = String(d.get(schema_1.WorkerProfiles.PHONE) || d.get("mobile") || "").trim();
+                const workerName = String(d.get(schema_1.WorkerProfiles.NAME) || "").trim() || "Candidate";
+                const area = String(d.get(schema_1.WorkerProfiles.AREA) || "").trim();
+                const addr = String(d.get(schema_1.WorkerProfiles.ADDRESS) || "").trim();
+                const workerCity = extractCleanCity(area, addr, defaultCity);
+                const workerState = String(d.get("state") || d.get("location.state") || "").trim();
+                const isTe = isTeluguStateEmployer(workerState, workerCity, addr);
+                let cleaned = phone.replace(/\D/g, "");
+                if (cleaned.length === 10)
+                    cleaned = "91" + cleaned;
+                const formatted = "+" + cleaned;
+                if (/^\+91[6-9]\d{9}$/.test(formatted)) {
+                    if (!targetMap.has(formatted) || audienceTarget === "WORKERS") {
+                        targetMap.set(formatted, {
+                            phone: formatted,
+                            name: workerName,
+                            city: workerCity,
+                            rawLocation: `${area} ${addr}`.trim(),
+                            role: "WORKER",
+                            isTeluguState: isTe
+                        });
+                    }
+                }
             }
         }
     }
-    const targets = Array.from(targetMap.values());
+    let allTargets = Array.from(targetMap.values());
+    // Apply Target State Filtering if specified
+    if (targetState === "TELANGANA") {
+        allTargets = allTargets.filter((t) => isTelanganaProfile(t.city, t.rawLocation));
+    }
+    // Apply Exact City Filtering if specified
+    if (targetCity && targetCity !== "ALL") {
+        const needle = targetCity.trim().toLowerCase();
+        allTargets = allTargets.filter((t) => t.city.toLowerCase() === needle || t.rawLocation.toLowerCase().includes(needle));
+    }
+    // Apply Region / Language filtering based on routingMode
+    if (routingMode === "TELUGU_ONLY") {
+        allTargets = allTargets.filter((t) => t.isTeluguState);
+    }
+    else if (routingMode === "ENGLISH_ONLY") {
+        allTargets = allTargets.filter((t) => !t.isTeluguState);
+    }
+    const targets = allTargets;
     const summary = {
         matched: targets.length,
         willSend: targets.length,
-        dryRun
+        dryRun,
+        teluguCount: targets.filter((t) => t.isTeluguState).length,
+        englishCount: targets.filter((t) => !t.isTeluguState).length,
+        employerCount: targets.filter((t) => t.role === "EMPLOYER").length,
+        workerCount: targets.filter((t) => t.role === "WORKER").length,
     };
     if (dryRun) {
-        return Object.assign(Object.assign({}, summary), { sample: targets.slice(0, 5) });
+        return Object.assign(Object.assign({}, summary), { sample: targets.slice(0, 8) });
     }
     if (!targets.length) {
         return { dryRun: false, matched: 0, sent: 0, failed: 0, errors: [] };
@@ -311,10 +512,55 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
     // Send in batches of 10
     for (let i = 0; i < targets.length; i += 10) {
         await Promise.all(targets.slice(i, i + 10).map(async (t) => {
-            const params = (Array.isArray(data.params) && data.params.length > 0)
-                ? [t.name, t.city, ...(data.params.slice(2))]
-                : [t.name, t.city];
-            const r = await (0, whatsapp_1.sendWaTemplate)(t.phone, template, lang, params);
+            // Determine language and template for this recipient
+            let recipientTemplate = template;
+            let recipientLang = lang;
+            if (routingMode === "AUTO") {
+                if (t.isTeluguState) {
+                    recipientTemplate = template;
+                    recipientLang = "te";
+                }
+                else {
+                    recipientTemplate = englishTemplate || template;
+                    recipientLang = "en";
+                }
+            }
+            else if (routingMode === "ALL_TELUGU") {
+                recipientTemplate = template;
+                recipientLang = "te";
+            }
+            else if (routingMode === "ALL_ENGLISH") {
+                recipientTemplate = englishTemplate || template;
+                recipientLang = "en";
+            }
+            let params;
+            if (Array.isArray(data.params)) {
+                if (data.params.length === 0) {
+                    params = [];
+                }
+                else if (data.params.length === 1) {
+                    params = [t.name];
+                }
+                else {
+                    params = [t.name, t.city, ...(data.params.slice(2))];
+                }
+            }
+            else {
+                params = [t.name, t.city];
+            }
+            let r = await (0, whatsapp_1.sendWaTemplate)(t.phone, recipientTemplate, recipientLang, params);
+            if (!r.ok && r.error && r.error.includes("132000")) {
+                // Auto retry with 0 params or 1 param
+                const retry0 = await (0, whatsapp_1.sendWaTemplate)(t.phone, recipientTemplate, recipientLang, []);
+                if (retry0.ok) {
+                    r = retry0;
+                }
+                else {
+                    const retry1 = await (0, whatsapp_1.sendWaTemplate)(t.phone, recipientTemplate, recipientLang, [t.name]);
+                    if (retry1.ok)
+                        r = retry1;
+                }
+            }
             if (r.ok) {
                 sent++;
             }
@@ -340,5 +586,86 @@ exports.sendWhatsappEmployerBroadcast = (0, secure_callable_1.onCallSecured)({ e
         [schema_1.WhatsappCampaigns.CREATED_AT]: Timestamp.now()
     });
     return { dryRun: false, matched: targets.length, sent, failed, errors };
+});
+/**
+ * Admin: Aggregates verified Telangana employers from both registered employer profiles
+ * and active verified Telangana job listings into a single de-duplicated audience.
+ */
+exports.fetchTelanganaEmployers = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false, timeoutSeconds: 60, memory: "256MB" }, async (_raw, context) => {
+    if (!(await (0, app_config_1.isCallerAdmin)(context)))
+        (0, input_1.fail)("permission-denied", "Admins only");
+    const TG_IDENTIFIERS = [
+        "telangana", "khammam", "hyderabad", "secunderabad", "warangal", "hanumakonda", "kazipet",
+        "karimnagar", "nizamabad", "nalgonda", "suryapet", "mahabubnagar", "siddipet", "mancherial",
+        "kothagudem", "bhadradri", "medchal", "malkajgiri", "ranga reddy", "rangareddy", "sangareddy",
+        "jagitial", "kamareddy", "peddapalli", "sircilla", "wanaparthy", "gadwal", "nagarkurnool",
+        "vikarabad", "asifabad", "adilabad", "mulugu", "narayanpet", "abids", "tellapur", "yella reddy guda",
+        "ameerpet", "madhapur", "gachibowli", "kukatpally", "dilsukhnagar", "lb nagar", "uppal",
+        "begumpet", "kondapur", "hitec city", "jubilee hills", "banjara hills", "wyra", "sathupally", "madhira"
+    ];
+    const employersMap = new Map();
+    // 1. Registered employer_profiles
+    const empSnap = await db.collection(schema_1.EmployerProfiles.COLLECTION).limit(1000).get();
+    for (const d of empSnap.docs) {
+        const data = d.data();
+        const phone = String(data[schema_1.EmployerProfiles.PHONE] || "").trim();
+        if (!phone)
+            continue;
+        const combined = `${data[schema_1.EmployerProfiles.AREA] || ""} ${data[schema_1.EmployerProfiles.ADDRESS] || ""} ${data.state || ""} ${data.city || ""} ${data.district || ""}`.toLowerCase();
+        const isTg = TG_IDENTIFIERS.some((k) => combined.includes(k));
+        if (isTg) {
+            let cleaned = phone.replace(/\D/g, "");
+            if (cleaned.length === 10)
+                cleaned = "91" + cleaned;
+            if (cleaned.length === 12 && cleaned.startsWith("91")) {
+                const formatted = "+" + cleaned;
+                const name = String(data[schema_1.EmployerProfiles.BUSINESS_NAME] || data[schema_1.EmployerProfiles.OWNER_NAME] || "Business Owner").trim();
+                const city = String(data.city || data[schema_1.EmployerProfiles.AREA] || "Telangana").trim();
+                employersMap.set(cleaned, {
+                    phone: formatted,
+                    name,
+                    city,
+                    area: String(data[schema_1.EmployerProfiles.AREA] || city).trim(),
+                    source: "employer_profile"
+                });
+            }
+        }
+    }
+    // 2. Active verified Telangana job posters
+    const jobSnap = await db.collection(schema_1.Jobs.COLLECTION).where(schema_1.Jobs.STATE, "==", "Telangana").limit(400).get();
+    const contactsSnap = await db.collection(schema_1.JobContacts.COLLECTION).limit(500).get();
+    const contactsMap = new Map();
+    contactsSnap.docs.forEach((cd) => {
+        contactsMap.set(cd.id, String(cd.data()[schema_1.JobContacts.CONTACT_NUMBER] || ""));
+    });
+    for (const jd of jobSnap.docs) {
+        const jdata = jd.data();
+        const rawPhone = contactsMap.get(jd.id);
+        if (rawPhone) {
+            let cleaned = String(rawPhone).replace(/\D/g, "");
+            if (cleaned.length === 10)
+                cleaned = "91" + cleaned;
+            if (cleaned.length === 12 && cleaned.startsWith("91")) {
+                if (!employersMap.has(cleaned)) {
+                    const formatted = "+" + cleaned;
+                    const name = String(jdata[schema_1.Jobs.COMPANY_NAME] || "Business Owner").trim();
+                    const city = String(jdata[schema_1.Jobs.DISTRICT] || jdata[schema_1.Jobs.AREA] || "Telangana").trim();
+                    employersMap.set(cleaned, {
+                        phone: formatted,
+                        name,
+                        city,
+                        area: String(jdata[schema_1.Jobs.AREA] || city).trim(),
+                        source: "telangana_job_poster"
+                    });
+                }
+            }
+        }
+    }
+    const employers = Array.from(employersMap.values());
+    return {
+        ok: true,
+        count: employers.length,
+        employers
+    };
 });
 //# sourceMappingURL=whatsapp-messages.js.map

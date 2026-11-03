@@ -26,6 +26,9 @@ import {
 
 type BroadcastMode = "EMPLOYER_OFFER" | "GENERAL_PROMO";
 type EmployerTarget = "ALL_FIRESTORE" | "CUSTOM_LIST";
+type AudienceTarget = "EMPLOYERS" | "WORKERS" | "BOTH";
+type CityFilter = "ALL" | "Khammam" | "Hyderabad" | "Warangal" | "Vijayawada" | "Visakhapatnam" | "Guntur" | "Tirupati" | "Karimnagar" | "Nizamabad" | "Kothagudem" | "CUSTOM";
+type TemplatePreset = "QUICK_HIRE" | "FLIPKART_SAVINGS" | "ZOMATO_SHORTAGE" | "AMAZON_VOLUME" | "CUSTOM";
 type Audience = "ALL" | "WORKER" | "EMPLOYER" | "PARTNER";
 
 type Result = {
@@ -34,6 +37,10 @@ type Result = {
   matched: number;
   due?: number;
   willSend: number;
+  teluguCount?: number;
+  englishCount?: number;
+  employerCount?: number;
+  workerCount?: number;
   skippedRecent?: number;
   ready?: boolean;
   sent?: number;
@@ -42,7 +49,7 @@ type Result = {
   phone?: string;
   template?: string;
   params?: string[];
-  sample?: Array<{ phone: string; name: string; city: string }>;
+  sample?: Array<{ phone: string; name: string; city: string; role?: string; isTeluguState?: boolean }>;
 };
 
 type Campaign = {
@@ -59,14 +66,68 @@ export function AdminWhatsappOffersClient() {
   const [mode, setMode] = useState<BroadcastMode>("EMPLOYER_OFFER");
 
   // Employer Launch Offer State
-  const [empTemplate, setEmpTemplate] = useState("dutype_employer_launch_offer");
+  const [preset, setPreset] = useState<TemplatePreset>("QUICK_HIRE");
+  const [empTemplate, setEmpTemplate] = useState("dutype_employer_quick_hire");
+  const [englishTemplate, setEnglishTemplate] = useState("");
+  const [routingMode, setRoutingMode] = useState<"AUTO" | "TELUGU_ONLY" | "ENGLISH_ONLY" | "ALL_TELUGU" | "ALL_ENGLISH">("AUTO");
+  const [audienceTarget, setAudienceTarget] = useState<AudienceTarget>("EMPLOYERS");
+  const [targetState, setTargetState] = useState<"ALL" | "TELANGANA">("TELANGANA");
+  const [targetCity, setTargetCity] = useState<CityFilter>("ALL");
+  const [customCityInput, setCustomCityInput] = useState("");
   const [empLang, setEmpLang] = useState("en");
+  const [paramCount, setParamCount] = useState<"0" | "1" | "2">("2");
   const [empName, setEmpName] = useState("Business Owner");
-  const [empCity, setEmpCity] = useState("Khammam");
+  const [empCity, setEmpCity] = useState("Telangana");
   const [empLink, setEmpLink] = useState("https://dutype.in/employer/post-job");
   const [testPhone, setTestPhone] = useState("");
   const [empTarget, setEmpTarget] = useState<EmployerTarget>("ALL_FIRESTORE");
   const [customPhonesText, setCustomPhonesText] = useState("");
+  const [fetchingTg, setFetchingTg] = useState(false);
+  const [tgEmployersResult, setTgEmployersResult] = useState<{ count: number; sample: Array<{ phone: string; name: string; city: string; area: string; source: string }> } | null>(null);
+
+  function applyPreset(p: TemplatePreset) {
+    setPreset(p);
+    if (p === "QUICK_HIRE" || p === "FLIPKART_SAVINGS") {
+      setEmpTemplate("dutype_employer_quick_hire");
+      setEnglishTemplate("");
+      setParamCount("2");
+    } else if (p === "ZOMATO_SHORTAGE") {
+      setEmpTemplate("dutype_employer_staff_shortage");
+      setEnglishTemplate("");
+      setParamCount("2");
+    } else if (p === "AMAZON_VOLUME") {
+      setEmpTemplate("dutype_employer_launch_offer");
+      setEnglishTemplate("");
+      setParamCount("2");
+    }
+  }
+
+  async function fetchTelanganaEmployersAction() {
+    setError("");
+    setFetchingTg(true);
+    try {
+      const services = getFirebaseServices();
+      if (!services) throw new Error("Firebase client is not configured.");
+      const res = await httpsCallable(services.functions, "fetchTelanganaEmployers")({});
+      const data = res.data as { ok: boolean; count: number; employers: Array<{ phone: string; name: string; city: string; area: string; source: string }> };
+      if (data.ok && data.employers) {
+        const phones = data.employers.map((e) => e.phone).join("\n");
+        setCustomPhonesText(phones);
+        setEmpTarget("CUSTOM_LIST");
+        setTargetState("TELANGANA");
+        setRoutingMode("ALL_TELUGU");
+        setEmpTemplate("dutype_employer_quick_hire");
+        setTgEmployersResult({
+          count: data.count,
+          sample: data.employers.slice(0, 10)
+        });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to fetch Telangana employers.");
+    } finally {
+      setFetchingTg(false);
+    }
+  }
 
   // General Promo State
   const [promoTemplate, setPromoTemplate] = useState("dasara_festival_special_2026");
@@ -119,6 +180,7 @@ export function AdminWhatsappOffersClient() {
     try {
       const services = getFirebaseServices();
       if (!services) throw new Error("Firebase client is not configured.");
+      const computedParams = paramCount === "0" ? [] : paramCount === "1" ? [empName.trim()] : [empName.trim(), empCity.trim()];
       const res = await httpsCallable(
         services.functions,
         "sendWhatsappEmployerBroadcast"
@@ -130,7 +192,7 @@ export function AdminWhatsappOffersClient() {
         name: empName.trim(),
         city: empCity.trim(),
         postJobUrl: empLink.trim(),
-        params: [empName.trim(), empCity.trim()],
+        params: computedParams,
         dryRun: false,
       });
       setTestResult(res.data as Result);
@@ -169,17 +231,24 @@ export function AdminWhatsappOffersClient() {
     try {
       const services = getFirebaseServices();
       if (!services) throw new Error("Firebase client is not configured.");
+      const computedParams = paramCount === "0" ? [] : paramCount === "1" ? [empName.trim()] : [empName.trim(), empCity.trim()];
+      const activeCity = targetCity === "CUSTOM" ? customCityInput.trim() : targetCity;
       const res = await httpsCallable(
         services.functions,
         "sendWhatsappEmployerBroadcast"
       )({
         isSingleTest: false,
         template: empTemplate.trim(),
+        englishTemplate: englishTemplate.trim() || undefined,
+        routingMode,
+        audienceTarget: empTarget === "CUSTOM_LIST" ? "EMPLOYERS" : audienceTarget,
+        targetState: empTarget === "CUSTOM_LIST" ? "ALL" : targetState,
+        targetCity: activeCity,
         lang: empLang.trim(),
         name: empName.trim(),
         city: empCity.trim(),
         postJobUrl: empLink.trim(),
-        params: [empName.trim(), empCity.trim()],
+        params: computedParams,
         customPhones: empTarget === "CUSTOM_LIST" ? parsedCustom : [],
         dryRun,
       });
@@ -294,7 +363,53 @@ export function AdminWhatsappOffersClient() {
 
       {/* Mode 1: Employer Launch Offer Broadcast Studio */}
       {mode === "EMPLOYER_OFFER" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Hero Action: Fast Target Telangana Employers */}
+          <div className="adm-card" style={{ borderLeft: "4px solid #10b981", background: "linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%)", padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="adm-badge adm-badge-emerald" style={{ fontWeight: 700, padding: "3px 8px" }}>Primary Growth Target</span>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0, color: "#065f46" }}>
+                    Target Telangana State Employers
+                  </h3>
+                </div>
+                <p style={{ margin: "5px 0 0", fontSize: "0.825rem", color: "#047857" }}>
+                  Fetches all registered and verified employers across Hyderabad, Khammam, Warangal, Karimnagar, Nizamabad, Suryapet, and active business job posters into the broadcast list.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="adm-btn adm-btn-primary"
+                disabled={fetchingTg || busy}
+                onClick={fetchTelanganaEmployersAction}
+                style={{
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 18px",
+                  fontWeight: 700,
+                  boxShadow: "0 2px 8px rgba(5,150,105,0.25)",
+                  cursor: "pointer",
+                  color: "#ffffff"
+                }}
+              >
+                <RefreshCw style={{ width: 16, height: 16, animation: fetchingTg ? "spin 1s linear infinite" : "none" }} />
+                {fetchingTg ? "Fetching Telangana Employers..." : "🎯 Fetch Telangana Employers"}
+              </button>
+            </div>
+            {tgEmployersResult && (
+              <div style={{ marginTop: 12, padding: "10px 14px", background: "#ffffff", borderRadius: 8, border: "1px solid #a7f3d0", fontSize: "0.825rem", color: "#065f46" }}>
+                <strong>🎉 Successfully fetched {tgEmployersResult.count} Telangana Employers!</strong> Numbers loaded into the broadcast list with template <code>dutype_employer_quick_hire</code>.
+                <div style={{ marginTop: 6, fontSize: "0.75rem", color: "#047857" }}>
+                  Top locations: {Array.from(new Set(tgEmployersResult.sample.map((s) => s.city))).slice(0, 7).join(", ")} and more.
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
           {/* Left Column: Test & Bulk Controls */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Box 1: Single Phone Test */}
@@ -370,33 +485,92 @@ export function AdminWhatsappOffersClient() {
                 <span className="adm-badge adm-badge-emerald">Meta Approved Template</span>
               </div>
               <div className="adm-card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Campaign Template Strategy Preset */}
+                <div className="adm-form-group">
+                  <label className="adm-form-label">
+                    <span>Campaign Template Strategy</span>
+                    <span className="adm-badge adm-badge-emerald" style={{ fontSize: "0.7rem", padding: "2px 6px" }}>Primary</span>
+                  </label>
+                  <select
+                    className="adm-select"
+                    value={preset}
+                    onChange={(e) => applyPreset(e.target.value as TemplatePreset)}
+                  >
+                    <option value="QUICK_HIRE">🚀 Quick Hire Hook: dutype_employer_quick_hire (₹49 / 0% Agency Fee / 48-Hr Trial) [Meta Approved]</option>
+                    <option value="FLIPKART_SAVINGS">🌟 Flipkart-Style: Massive Savings Hook (₹49 vs Agency Fee)</option>
+                    <option value="ZOMATO_SHORTAGE">⏰ Zomato-Style: Staff Shortage Hook (Immediate Need)</option>
+                    <option value="AMAZON_VOLUME">⚡ Amazon-Style: Volume Alert (500+ Verified Workers)</option>
+                    <option value="CUSTOM">⚙️ Custom Template ID</option>
+                  </select>
+                </div>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div className="adm-form-group">
-                    <label className="adm-form-label">Template ID</label>
+                    <label className="adm-form-label">Primary Template ID *</label>
                     <input
                       type="text"
                       className="adm-input"
                       value={empTemplate}
                       onChange={(e) => setEmpTemplate(e.target.value)}
+                      placeholder="e.g. dutype_employer_quick_hire"
                     />
+                    <span style={{ fontSize: "0.72rem", color: "#64748b" }}>Telugu template or unified template name</span>
                   </div>
                   <div className="adm-form-group">
-                    <label className="adm-form-label">Language</label>
-                    <select
-                      className="adm-select"
-                      value={empLang}
-                      onChange={(e) => setEmpLang(e.target.value)}
-                    >
-                      <option value="en">English (en)</option>
-                      <option value="te">Telugu (te)</option>
-                    </select>
+                    <label className="adm-form-label">English Template ID (Optional)</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={englishTemplate}
+                      onChange={(e) => setEnglishTemplate(e.target.value)}
+                      placeholder="Only if using 2 separate templates"
+                    />
+                    <span style={{ fontSize: "0.72rem", color: "#64748b" }}>Leave blank if using 1 template with 2 languages</span>
                   </div>
+                </div>
+
+                <div className="adm-form-group">
+                  <label className="adm-form-label">Language &amp; Regional State Routing *</label>
+                  <select
+                    className="adm-select"
+                    value={routingMode}
+                    onChange={(e) => setRoutingMode(e.target.value as any)}
+                  >
+                    <option value="AUTO">✨ Auto-Detect by State (AP &amp; Telangana in Telugu, Others in English)</option>
+                    <option value="TELUGU_ONLY">🎯 Filter: AP &amp; Telangana Profiles Only (in Telugu)</option>
+                    <option value="ENGLISH_ONLY">🌐 Filter: Other States Only (in English)</option>
+                    <option value="ALL_TELUGU">All in Telugu (te)</option>
+                    <option value="ALL_ENGLISH">All in English (en)</option>
+                  </select>
+                  <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                    {routingMode === "AUTO"
+                      ? "Automatically detects profile state/city: Telangana & AP receive Telugu, other metros receive English."
+                      : routingMode === "TELUGU_ONLY"
+                      ? "Only targets profiles located in Andhra Pradesh & Telangana."
+                      : "Sends using the selected language configuration."}
+                  </span>
+                </div>
+
+                <div className="adm-form-group">
+                  <label className="adm-form-label">Template Parameters (Meta Configuration)</label>
+                  <select
+                    className="adm-select"
+                    value={paramCount}
+                    onChange={(e) => setParamCount(e.target.value as "0" | "1" | "2")}
+                  >
+                    <option value="2">2 Parameters: &#123;&#123;1&#125;&#125; Name + &#123;&#123;2&#125;&#125; City</option>
+                    <option value="1">1 Parameter: &#123;&#123;1&#125;&#125; Name only</option>
+                    <option value="0">0 Parameters: Static Template (No variables)</option>
+                  </select>
+                  <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                    Select &quot;0 Parameters&quot; if your Meta template has no curly braces, preventing error 132000.
+                  </span>
                 </div>
 
                 {/* Parameters */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div className="adm-form-group">
-                    <label className="adm-form-label">Name Parameter &#123;&#123;1&#125;&#125;</label>
+                    <label className="adm-form-label">Fallback Name Parameter &#123;&#123;1&#125;&#125;</label>
                     <input
                       type="text"
                       className="adm-input"
@@ -406,7 +580,7 @@ export function AdminWhatsappOffersClient() {
                     />
                   </div>
                   <div className="adm-form-group">
-                    <label className="adm-form-label">City Parameter &#123;&#123;2&#125;&#125;</label>
+                    <label className="adm-form-label">Fallback City Parameter &#123;&#123;2&#125;&#125;</label>
                     <input
                       type="text"
                       className="adm-input"
@@ -418,7 +592,7 @@ export function AdminWhatsappOffersClient() {
                 </div>
 
                 <div className="adm-form-group">
-                  <label className="adm-form-label">Deep Link URL &#123;&#123;3&#125;&#125; (Zero-Friction)</label>
+                  <label className="adm-form-label">Deep Link URL &#123;&#123;3&#125;&#125; (Zero-Friction CTA)</label>
                   <input
                     type="text"
                     className="adm-input"
@@ -437,7 +611,7 @@ export function AdminWhatsappOffersClient() {
                         checked={empTarget === "ALL_FIRESTORE"}
                         onChange={() => setEmpTarget("ALL_FIRESTORE")}
                       />
-                      <span>All Registered Employers in Firestore</span>
+                      <span>Registered Profiles in Database</span>
                     </label>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", cursor: "pointer" }}>
                       <input
@@ -449,6 +623,58 @@ export function AdminWhatsappOffersClient() {
                     </label>
                   </div>
                 </div>
+
+                {/* Database Target Options: Role & Exact City */}
+                {empTarget === "ALL_FIRESTORE" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, background: "var(--adm-surface-subtle)", padding: 12, borderRadius: 8, border: "1px solid var(--adm-border)" }}>
+                    <div className="adm-form-group">
+                      <label className="adm-form-label">Database Profile Group</label>
+                      <select
+                        className="adm-select"
+                        value={audienceTarget}
+                        onChange={(e) => setAudienceTarget(e.target.value as AudienceTarget)}
+                      >
+                        <option value="EMPLOYERS">Employers Only (employer_profiles)</option>
+                        <option value="WORKERS">Workers Only (worker_profiles)</option>
+                        <option value="BOTH">Both Employers &amp; Workers</option>
+                      </select>
+                    </div>
+                    <div className="adm-form-group">
+                      <label className="adm-form-label">Exact City / Location Filter</label>
+                      <select
+                        className="adm-select"
+                        value={targetCity}
+                        onChange={(e) => setTargetCity(e.target.value as CityFilter)}
+                      >
+                        <option value="ALL">All Cities &amp; Districts</option>
+                        <option value="Khammam">Khammam (District &amp; Town)</option>
+                        <option value="Hyderabad">Hyderabad &amp; Secunderabad</option>
+                        <option value="Warangal">Warangal / Hanamkonda</option>
+                        <option value="Vijayawada">Vijayawada &amp; Krishna</option>
+                        <option value="Visakhapatnam">Visakhapatnam (Vizag)</option>
+                        <option value="Guntur">Guntur &amp; Amaravati</option>
+                        <option value="Tirupati">Tirupati</option>
+                        <option value="Karimnagar">Karimnagar</option>
+                        <option value="Nizamabad">Nizamabad</option>
+                        <option value="Kothagudem">Kothagudem &amp; Bhadrachalam</option>
+                        <option value="CUSTOM">Custom City...</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {empTarget === "ALL_FIRESTORE" && targetCity === "CUSTOM" && (
+                  <div className="adm-form-group">
+                    <label className="adm-form-label">Custom City Name to Filter</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      placeholder="e.g. Suryapet, Nalgonda, Ongole"
+                      value={customCityInput}
+                      onChange={(e) => setCustomCityInput(e.target.value)}
+                    />
+                  </div>
+                )}
 
                 {empTarget === "CUSTOM_LIST" && (
                   <div className="adm-form-group">
@@ -517,7 +743,39 @@ export function AdminWhatsappOffersClient() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       <div>Total Verified Targets: <strong>{bulkResult.willSend ?? bulkResult.matched}</strong></div>
                       <div>Estimated Meta Cost: <strong>≈ ₹{((bulkResult.willSend ?? bulkResult.matched) * 1.1).toFixed(0)}</strong></div>
+                      {bulkResult.teluguCount !== undefined && (
+                        <div>Telugu (AP &amp; TG): <strong>{bulkResult.teluguCount}</strong></div>
+                      )}
+                      {bulkResult.englishCount !== undefined && (
+                        <div>English (Other States): <strong>{bulkResult.englishCount}</strong></div>
+                      )}
+                      {bulkResult.employerCount !== undefined && (
+                        <div>Employers: <strong>{bulkResult.employerCount}</strong></div>
+                      )}
+                      {bulkResult.workerCount !== undefined && (
+                        <div>Workers: <strong>{bulkResult.workerCount}</strong></div>
+                      )}
                     </div>
+
+                    {/* Sample Recipients Table */}
+                    {bulkResult.sample && bulkResult.sample.length > 0 && (
+                      <div style={{ marginTop: 6, borderTop: "1px solid var(--adm-border)", paddingTop: 8 }}>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--adm-text-muted)", marginBottom: 4 }}>
+                          Sample Recipients ({bulkResult.sample.length}):
+                        </div>
+                        <div style={{ maxHeight: 140, overflowY: "auto", fontSize: "0.72rem" }}>
+                          {bulkResult.sample.map((s, idx) => (
+                            <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px dashed var(--adm-border)" }}>
+                              <span><strong>{s.name}</strong> ({s.phone})</span>
+                              <span style={{ color: "var(--adm-primary)", fontWeight: 600 }}>
+                                📍 {s.city} &middot; <span style={{ textTransform: "capitalize" }}>{s.role?.toLowerCase()}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {!bulkResult.dryRun && (
                       <div style={{ display: "flex", gap: 14, paddingTop: 4, borderTop: "1px solid var(--adm-border)" }}>
                         <span style={{ color: "#059669", fontWeight: 600 }}>Sent: {bulkResult.sent}</span>
@@ -551,17 +809,97 @@ export function AdminWhatsappOffersClient() {
               <div className="adm-phone-chat-bg" style={{ padding: 14 }}>
                 <div className="adm-wa-bubble" style={{ fontSize: "0.85rem", lineHeight: 1.45 }}>
                   <div style={{ fontSize: "0.7rem", color: "#8696a0", marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>
-                    Template &middot; {empTemplate}
+                    Template &middot; {empTemplate} ({routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? "Telugu / Bilingual" : "English"})
                   </div>
-                  <div style={{ marginBottom: 8 }}>
-                    Hello <strong>{empName || "{{1}}"}</strong>,
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    Need reliable staff in <strong>{empCity || "{{2}}"}</strong>? 500+ verified local workers (cooks, helpers, drivers, cleaners) are ready to join.
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    Post your job in 2 mins for just <strong>₹49 (or test with 48-hr Free Trial)</strong> and call candidates directly on phone.
-                  </div>
+
+                  {preset === "QUICK_HIRE" || preset === "FLIPKART_SAVINGS" ? (
+                    <>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>నమస్తే <strong>{empName || "{{1}}"}</strong> 💼,</>
+                        ) : (
+                          <>Hello <strong>{empName || "{{1}}"}</strong> 💼,</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <><strong>{empCity || "{{2}}"}</strong> లో ఖరీదైన ఏజెన్సీలకు వేల రూపాయలు చెల్లించకండి!</>
+                        ) : (
+                          <>Skip expensive hiring agencies in <strong>{empCity || "{{2}}"}</strong>!</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>సేల్స్ స్టాఫ్, క్యాషియర్లు, వంటవారు, డ్రైవర్లు, ఆఫీస్ వర్కర్లను డైరెక్ట్‌గా నియమించుకోండి — <strong>*0% ఏజెన్సీ ఫీజు*</strong>.</>
+                        ) : (
+                          <>Hire verified sales executives, cashiers, cooks, drivers, &amp; office staff directly on phone — <strong>*Zero middleman fee*</strong>.</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>కేవలం <strong>*₹49*</strong> తో లేదా <strong>*48 గంటల ఉచిత ట్రయల్*</strong> తో 2 నిమిషాల్లో పోస్ట్ చేయండి 👇</>
+                        ) : (
+                          <>Post your vacancy in 2 mins for just <strong>*₹49*</strong> (or test risk-free with <strong>*48-Hr Free Trial*</strong>) 👇</>
+                        )}
+                      </div>
+                    </>
+                  ) : preset === "ZOMATO_SHORTAGE" ? (
+                    <>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>నమస్తే <strong>{empName || "{{1}}"}</strong> 👋,</>
+                        ) : (
+                          <>Hello <strong>{empName || "{{1}}"}</strong> 👋,</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <><strong>{empCity || "{{2}}"}</strong> లో మీ షాప్, హోటల్ లేదా ఆఫీస్‌కి అర్జెంట్‌గా పనివారు కావాలా? ⏰</>
+                        ) : (
+                          <>Staff shortage at your shop, hotel, or office in <strong>{empCity || "{{2}}"}</strong>? ⏰</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <><strong>*500+ వెరిఫైడ్ వర్కర్లు*</strong> (సేల్స్, బిల్లింగ్, వంటవారు, హెల్పర్లు, డ్రైవర్లు) <strong>*0% కమీషన్‌తో*</strong> సిద్ధంగా ఉన్నారు.</>
+                        ) : (
+                          <><strong>*500+ verified local staff*</strong> (sales, billing, cooks, helpers, drivers, office boys) are ready to join today with <strong>*0% commission*</strong>.</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>కేవలం <strong>*₹49*</strong> తో లేదా <strong>*48 గంటల ఉచిత ట్రయల్*</strong> తో ఇప్పుడే పోస్ట్ చేయండి 👇</>
+                        ) : (
+                          <>Post vacancy for just <strong>*₹49*</strong> or activate your <strong>*48-Hr Free Trial*</strong> below 👇</>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>నమస్తే <strong>{empName || "{{1}}"}</strong>,</>
+                        ) : (
+                          <>Hello <strong>{empName || "{{1}}"}</strong>,</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <><strong>{empCity || "{{2}}"}</strong> లో మీ వ్యాపారానికి 500+ వెరిఫైడ్ వర్కర్లు సిద్ధంగా ఉన్నారు.</>
+                        ) : (
+                          <>500+ verified local workers in <strong>{empCity || "{{2}}"}</strong> are ready to join your business.</>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        {routingMode === "ALL_TELUGU" || routingMode === "AUTO" ? (
+                          <>కేవలం <strong>*₹49*</strong> తో లేదా <strong>*48 గంటల ఉచిత ట్రయల్*</strong> తో జాబ్ పోస్ట్ చేయండి.</>
+                        ) : (
+                          <>Post vacancy for just <strong>*₹49*</strong> or start your <strong>*48-Hr Free Trial*</strong>.</>
+                        )}
+                      </div>
+                    </>
+                  )}
+
                   <div style={{ background: "#ecfdf5", padding: "6px 8px", borderRadius: 6, border: "1px solid #a7f3d0", fontSize: "0.75rem", color: "#065f46", marginBottom: 6 }}>
                     ✓ Short copy: 0% truncation &middot; No &ldquo;... Read more&rdquo; fold
                   </div>
@@ -569,7 +907,9 @@ export function AdminWhatsappOffersClient() {
                     10:30 AM &middot; &#10003;&#10003;
                   </div>
                   <button type="button" className="adm-wa-button" style={{ marginTop: 8 }}>
-                    Post Job Now (Open App)
+                    {routingMode === "ALL_TELUGU" || (routingMode === "AUTO" && empLang !== "en")
+                      ? "ఇప్పుడే జాబ్ పోస్ట్ చేయండి 📲"
+                      : "Post Job for ₹49 🚀"}
                   </button>
                 </div>
               </div>
@@ -579,7 +919,8 @@ export function AdminWhatsappOffersClient() {
             </p>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Mode 2: General Festival & Marketing Promos */}
       {mode === "GENERAL_PROMO" && (

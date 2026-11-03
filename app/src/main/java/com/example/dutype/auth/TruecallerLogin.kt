@@ -229,6 +229,10 @@ fun TruecallerLoginButton(
     val clientId = remember(context) { runCatching { context.getString(R.string.truecaller_client_id) }.getOrNull().orEmpty() }
     if (clientId.isBlank()) return
 
+    val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
+    val truecallerBlue = Color(0xFF0087FF)
+    val buttonBg = if (isDark) Color(0xFF1E293B) else Color.White
+
     Button(
         onClick = {
             if (!usable) {
@@ -271,42 +275,36 @@ fun TruecallerLoginButton(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.2.dp, truecallerBlue),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF0087FF),
-            contentColor = Color.White,
-            disabledContainerColor = Color(0xFF66B7FF),
-            disabledContentColor = Color.White.copy(alpha = 0.7f)
+            containerColor = buttonBg,
+            contentColor = truecallerBlue,
+            disabledContainerColor = buttonBg,
+            disabledContentColor = truecallerBlue.copy(alpha = 0.5f)
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 2.dp)
     ) {
         if (busy) {
-            ButtonThreeDotsLoader(dotColor = Color.White)
+            ButtonThreeDotsLoader(dotColor = truecallerBlue)
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_truecaller),
-                        contentDescription = "Truecaller",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    painter = painterResource(R.drawable.ic_truecaller),
+                    contentDescription = "Truecaller",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(22.dp)
+                )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.auth_continue_with_truecaller),
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 15.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = truecallerBlue
                     )
                 )
             }

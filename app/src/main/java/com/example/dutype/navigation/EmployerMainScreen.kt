@@ -71,14 +71,19 @@ fun EmployerMainScreen(
     val navController = rememberNavController()
     val scrollStateManager = rememberScrollStateManager()
 
-    // BUG #1 FIX: Drain any inner-route handoff queued by the outer graph
-    // (e.g. when the user finishes employer profile setup with
-    // `returnRoute = employer_post_job`). Runs once after this NavHost mounts
-    // so the desired destination is pushed onto the inner controller.
-    androidx.compose.runtime.LaunchedEffect(navController) {
-        EmployerInnerNavQueue.consume()?.let { pending ->
-            navController.navigate(pending) {
-                launchSingleTop = true
+    // Drain any inner-route handoff queued by the outer graph (Deep link, push notification, or profile setup)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        EmployerInnerNavQueue.events.collect { pending ->
+            if (pending.isNotBlank()) {
+                EmployerInnerNavQueue.consume()
+                timber.log.Timber.i("EmployerMainScreen - Draining deep link/queued route to inner controller: $pending")
+                runCatching {
+                    navController.navigate(pending) {
+                        launchSingleTop = true
+                    }
+                }.onFailure { err ->
+                    timber.log.Timber.e(err, "EmployerMainScreen - Failed inner navigation to $pending")
+                }
             }
         }
     }
@@ -137,6 +142,8 @@ fun EmployerMainScreen(
         Routes.ABOUT_US,
         Routes.EMPLOYER_ABOUT,
         Routes.EMPLOYER_SUBSCRIPTION,
+        Routes.SERVICE_WALLET,
+        "service_wallet",
         Routes.EMPLOYER_HELP,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_HISTORY,
@@ -424,11 +431,19 @@ fun EmployerMainScreen(
                             startListening = backStackEntry.arguments?.getBoolean("listen") == true
                         )
                     }
-                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
-                        com.example.dutype.employer.screens.EmployerSubscriptionScreen(
-                            navController = navController
+                    composable(Routes.SERVICE_WALLET) {
+                        com.example.dutype.homeservices.ServiceWalletScreen(
+                            navController = navController,
+                            rootNavController = rootNavController
                         )
                     }
+                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
+                        com.example.dutype.employer.screens.EmployerSubscriptionScreen(
+                            navController = navController,
+                            rootNavController = rootNavController
+                        )
+                    }
+
                     composable(Routes.EMPLOYER_MY_JOBS) {
                         com.example.dutype.employer.screens.EmployerHistoryScreen(
                             navController = navController,

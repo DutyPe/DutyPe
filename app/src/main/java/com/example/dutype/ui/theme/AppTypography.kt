@@ -9,29 +9,16 @@ import androidx.compose.ui.unit.sp
 import com.dutype.app.R
 
 // ============================================
-// IBM PLEX SANS - Body / UI text (matches web app)
+// AIRBNB CEREAL VF - Airbnb Android Typography
+// Co-designed with Dalton Maag, scales consistently across operating systems.
+// System Fallback: Roboto or sans-serif
 // ============================================
 
-val IBMPlexSansFamily = FontFamily(
-    Font(R.font.ibm_plex_sans_regular, FontWeight.Normal),
-    Font(R.font.ibm_plex_sans_medium, FontWeight.Medium),
-    Font(R.font.ibm_plex_sans_semibold, FontWeight.SemiBold),
-    Font(R.font.ibm_plex_sans_bold, FontWeight.Bold)
-)
+val AirbnbCerealFontFamily = FontFamily.SansSerif
 
-// ============================================
-// SORA - Display / headings (matches web app)
-// ============================================
-
-val SoraFamily = FontFamily(
-    Font(R.font.sora_regular, FontWeight.Normal),
-    Font(R.font.sora_medium, FontWeight.Medium),
-    Font(R.font.sora_semibold, FontWeight.SemiBold),
-    Font(R.font.sora_bold, FontWeight.Bold)
-)
-
-// Keep legacy alias for any remaining references
-val MeeshoFontFamily = IBMPlexSansFamily
+val IBMPlexSansFamily = AirbnbCerealFontFamily
+val SoraFamily = AirbnbCerealFontFamily
+val MeeshoFontFamily = AirbnbCerealFontFamily
 
 // ============================================
 // MATERIAL 3 TYPOGRAPHY (for Theme.kt)

@@ -335,6 +335,7 @@ fun EmployerReferEarnScreen(
                 showWalletTopupSheet = false
                 viewModel.loadReferralData()
             },
+            navController = navController,
             viewModel = homeServicesViewModel
         )
     }

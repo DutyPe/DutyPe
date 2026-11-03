@@ -314,15 +314,14 @@ export const deleteInstantRequest = onCallSecured({}, async (raw: unknown, conte
   const snap = await requestRef(id).get();
   if (!snap.exists) return { ok: true };
   if (snap.get(InstantRequests.EMPLOYER_ID) !== uid) fail("permission-denied", "Not your urgent need");
-  const status = String(snap.get(InstantRequests.STATUS));
-  const young = Date.now() - millis(snap.get(InstantRequests.CREATED_AT)) < DELETE_WINDOW_MS;
-  if ((status === ST.OPEN || status === ST.FILLED) && !young) {
-    fail("failed-precondition", "Cancel the urgent need first");
-  }
-  await db.recursiveDelete(snap.ref);
+  // Soft-delete so employer retains the urgent request in history, while workers never see it
+  await snap.ref.update({
+    [InstantRequests.STATUS]: "deleted",
+    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
   return { ok: true };
 });
-
 export const getInstantWorkerContact = onCallSecured({}, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);

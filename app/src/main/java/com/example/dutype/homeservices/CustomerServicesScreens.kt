@@ -110,6 +110,7 @@ import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -221,7 +222,7 @@ internal val SvcRed = Color(0xFFDC2626)
 internal val SvcMuted = Color(0xFF64748B)
 internal val SvcInk = Color(0xFF0F172A)
 internal val SvcLine = Color(0xFFE2E8F0)
-internal val SvcPage = Color(0xFFFFFFFF)
+internal val SvcPage = Color(0xFFFAFFFF)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
     "CLEANING",
@@ -551,7 +552,7 @@ fun HomeServicesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, SvcLine.bg())
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -763,7 +764,7 @@ internal fun ServiceScopeCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -1045,7 +1046,7 @@ fun PostBookingRatingModal(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White,
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -1789,7 +1790,7 @@ private fun NewAndNoteworthySection(
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { onBookService(service.id) },
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
@@ -1872,7 +1873,7 @@ private fun MostBookedServicesSection(
                         .height(262.dp)
                         .clip(RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
@@ -1885,7 +1886,7 @@ private fun MostBookedServicesSection(
                                 .fillMaxWidth()
                                 .height(118.dp)
                                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                                .background(Color(0xFFF8FAFC)),
+                                .background(Color(0xFFF7F7F7)),
                             contentAlignment = Alignment.Center
                         ) {
                             ServiceClayImage(
@@ -2016,10 +2017,10 @@ fun CategoryServicesScreen(
                         Text(stringResource(R.string.svc_my_bookings), fontSize = 12.sp)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White.bg())
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White)
             )
         },
-        containerColor = Color(0xFFF8FAFC).bg()
+        containerColor = Color(0xFFF7F7F7).bg()
     ) { padding ->
         if (c == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
@@ -2044,7 +2045,7 @@ fun CategoryServicesScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                         elevation = CardDefaults.cardElevation(0.dp)
                     ) {
@@ -2270,7 +2271,7 @@ fun ServicesHomeShimmer() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC).bg())
+            .background(Color(0xFFFAFFFF).bg())
             .verticalScroll(rememberScrollState())
     ) {
         // Sleek Header Placeholder
@@ -2584,7 +2585,7 @@ fun ServicesHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC).bg())
+            .background(Color(0xFFFAFFFF).bg())
     ) {
         LazyColumn(
             state = listState,
@@ -2652,8 +2653,66 @@ fun ServicesHomeScreen(
                     ServicesSearchBar(
                         query = searchQuery,
                         onQueryChange = { searchQuery = it },
-                        containerColor = if (isScrolled) Color(0xFFF8FAFC) else Color.White
+                        containerColor = if (isScrolled) Color(0xFFF7F7F7) else Color.White
                     )
+                }
+            }
+
+            // Feature Banner: Name Your Own Price (Custom Offer)
+            item(key = "custom_pricing_feature_teaser") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFEFF6FF).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE).bd())
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF2563EB),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("₹", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = if (lang == "te") "మీ స్వంత ధరను సూచించండి" else "Name Your Own Price",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E3A8A).fg()
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFDBEAFE).bg()
+                                ) {
+                                    Text(
+                                        text = "NEW",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1D4ED8).fg(),
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = if (lang == "te") "మీ బడ్జెట్‌కు అనుగుణంగా ఏదైనా సేవకు ధరను ఇవ్వవచ్చు (కనిష్టంగా ₹49). లేదా మా ప్రామాణిక రేటును ఎంచుకోవచ్చు!"
+                                else "Propose your own price for any service (min ₹49), or keep our standard rate!",
+                                fontSize = 12.sp,
+                                color = Color(0xFF1E40AF).fg(),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
                 }
             }
 
@@ -2669,7 +2728,7 @@ fun ServicesHomeScreen(
                                     listOf(
                                         animatedStartColor,
                                         animatedStartColor.copy(alpha = 0.85f),
-                                        Color(0xFFF8FAFC).bg()
+                                        Color(0xFFF7F7F7).bg()
                                     )
                                 )
                             )
@@ -3048,6 +3107,7 @@ fun ServicesHomeScreen(
                 requiredFeeRupees = 9,
                 onDismiss = { showWalletTopupSheet = false },
                 onTopupSuccess = { showWalletTopupSheet = false },
+                navController = nav,
                 viewModel = viewModel
             )
         }
@@ -3252,7 +3312,7 @@ private fun LocalityPickerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -3548,7 +3608,7 @@ private fun ServiceRow(
             .fillMaxWidth()
             .clickable(onClick = { onCardClick?.invoke() ?: onBook() }),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, SvcLine.bg())
     ) {
         Row(
@@ -3749,7 +3809,7 @@ fun VariantSelectorBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -3932,7 +3992,7 @@ fun ServiceDetailsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -3975,7 +4035,7 @@ fun ServiceDetailsBottomSheet(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xFFF8FAFC))
+                        .background(Color(0xFFF7F7F7))
                         .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -4287,15 +4347,31 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
         }
     }
 
+    // Custom Pricing state (Offer your own price: min ₹49, cannot be 00)
+    var isCustomPriceEnabled by remember { mutableStateOf(false) }
+    var customPriceInput by remember { mutableStateOf("") }
+    val parsedCustomPrice = customPriceInput.toIntOrNull()
+    val customPriceError = remember(isCustomPriceEnabled, customPriceInput, parsedCustomPrice) {
+        if (!isCustomPriceEnabled) null
+        else if (customPriceInput.isBlank()) "Please enter your proposed price"
+        else if (parsedCustomPrice == null || parsedCustomPrice == 0) "Price cannot be ₹00"
+        else if (parsedCustomPrice < 49) "Price cannot be less than ₹49"
+        else null
+    }
+
     // Offers: the server prices the booking (first-booking offer, coupon), the screen only shows it.
     var couponInput by remember { mutableStateOf("") }
     var appliedCode by remember { mutableStateOf("") }
     var couponErrorText by remember { mutableStateOf<String?>(null) }
     var quote by remember { mutableStateOf<ServiceQuote?>(null) }
     var quoting by remember { mutableStateOf(false) }
-    LaunchedEffect(serviceId, appliedCode, catalog) {
+    LaunchedEffect(serviceId, appliedCode, catalog, isCustomPriceEnabled, parsedCustomPrice) {
         quoting = true
-        val curPrice = catalog?.services?.firstOrNull { it.id == serviceId }?.price
+        val curPrice = if (isCustomPriceEnabled && parsedCustomPrice != null && parsedCustomPrice >= 49) {
+            parsedCustomPrice
+        } else {
+            catalog?.services?.firstOrNull { it.id == serviceId }?.price
+        }
         viewModel.quote(serviceId, appliedCode, curPrice)
             .onSuccess { q ->
                 quote = q
@@ -4356,7 +4432,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     val fee = if (c != null && service != null) c.feeFor(service) else 0
     val q = quote
     val discount = q?.discount ?: 0
-    val total = if (service != null) (service.price - discount).coerceAtLeast(0) else 0
+    val effectiveBasePrice = if (isCustomPriceEnabled && parsedCustomPrice != null && parsedCustomPrice >= 49) parsedCustomPrice else (service?.price ?: 0)
+    val total = if (service != null) (effectiveBasePrice - discount).coerceAtLeast(0) else 0
     val distanceToKhammamKm = remember(lat, lng) {
         if (lat != null && lng != null) {
             val results = FloatArray(1)
@@ -4396,9 +4473,16 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                     longitude = finalLng
                 )
             }
+            if (isCustomPriceEnabled && customPriceError != null) {
+                Toast.makeText(context, customPriceError, Toast.LENGTH_SHORT).show()
+                submitting = false
+                return@launch
+            }
+            val chosenCustomPrice = if (isCustomPriceEnabled && parsedCustomPrice != null && parsedCustomPrice >= 49) parsedCustomPrice else null
             viewModel.book(
                 service, address.trim(), area.trim(), finalLat, finalLng, note.trim(),
-                if (scheduled) slot else null, q?.couponCode.orEmpty()
+                if (scheduled) slot else null, q?.couponCode.orEmpty(),
+                customPrice = chosenCustomPrice
             )
                 .onSuccess { id ->
                     context.findActivity()?.let { act ->
@@ -4424,7 +4508,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         bottomBar = {
             if (c != null && service != null) {
                 Surface(
@@ -4560,7 +4644,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                 .fillMaxWidth()
                                 .height(240.dp),
                             error = {
-                                Box(Modifier.fillMaxSize().background(Color(0xFFF8FAFC)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.fillMaxSize().background(Color(0xFFFAFFFF).bg()), contentAlignment = Alignment.Center) {
                                     ServiceClayImage(
                                         service = service,
                                         modifier = Modifier.size(130.dp),
@@ -4571,7 +4655,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             }
                         )
                     } else {
-                        Box(Modifier.fillMaxSize().background(Color(0xFFF8FAFC)), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize().background(Color(0xFFFAFFFF).bg()), contentAlignment = Alignment.Center) {
                             ServiceClayImage(
                                 service = service,
                                 modifier = Modifier.size(130.dp),
@@ -4839,7 +4923,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             .weight(1f)
                             .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (instantSelected) Color(0xFFF8FAFC).bg()
+                                if (instantSelected) Color(0xFFF7F7F7).bg()
                                 else Color.White.bg()
                             )
                             .border(
@@ -4887,7 +4971,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(if (schedSelected) Color(0xFFF8FAFC).bg() else Color.White.bg())
+                            .background(if (schedSelected) Color(0xFFF7F7F7).bg() else Color.White.bg())
                             .border(
                                 width = if (schedSelected) 1.5.dp else 1.dp,
                                 color = if (schedSelected) Color(0xFF0F172A).bg() else SvcLine.bg(),
@@ -4973,7 +5057,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         .fillMaxWidth()
                         .clickable { showAddAddressSheet = true },
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC).bg()),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7).bg()),
                     border = BorderStroke(1.dp, SvcLine.bg())
                 ) {
                     Row(
@@ -5118,7 +5202,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFF8FAFC).bg())
+                            .background(Color(0xFFFAFFFF).bg())
                             .border(1.dp, SvcLine.bg(), RoundedCornerShape(14.dp))
                             .clickable { showCouponSheet = true }
                             .padding(14.dp),
@@ -5341,6 +5425,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 showWalletTopupSheet = false
                 doBook()
             },
+            navController = navController,
             viewModel = viewModel
         )
     }
@@ -5353,33 +5438,27 @@ fun MicroWalletTopupSheet(
     requiredFeeRupees: Int = 9,
     onDismiss: () -> Unit,
     onTopupSuccess: () -> Unit,
+    navController: NavController? = null,
     viewModel: HomeServicesViewModel
 ) {
     val context = LocalContext.current
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
-    var amountInput by remember { mutableStateOf("50") }
+    var amountInput by remember { mutableStateOf("100") }
     val enteredAmount = amountInput.toIntOrNull() ?: 0
     val isAmountValid = enteredAmount >= 50
-    var utrInput by remember { mutableStateOf("") }
-    var isSubmitting by remember { mutableStateOf(false) }
-    var showManualUtr by remember { mutableStateOf(false) }
-
-    val upiId = "dutypein@ybl"
-    val upiName = "Banoth Vamsi"
-    val currentDepositAmount = if (isAmountValid) enteredAmount else 50
+    val currentDepositAmount = if (isAmountValid) enteredAmount else 100
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 22.dp, vertical = 14.dp)
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header
             Row(
@@ -5390,7 +5469,7 @@ fun MicroWalletTopupSheet(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFEFF6FF)),
                         contentAlignment = Alignment.Center
@@ -5399,7 +5478,7 @@ fun MicroWalletTopupSheet(
                             Icons.Filled.AccountBalanceWallet,
                             contentDescription = null,
                             tint = Color(0xFF2563EB),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
@@ -5407,11 +5486,12 @@ fun MicroWalletTopupSheet(
                             "DutyPe Service Wallet",
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = Color(0xFF0F172A)
+                            color = Color(0xFF0F172A),
+                            fontFamily = com.example.dutype.ui.theme.MeeshoFontFamily
                         )
                         Text(
-                            "Fast 1-click home service bookings",
-                            fontSize = 11.5.sp,
+                            "Fast 1-click home service checkout",
+                            fontSize = 12.sp,
                             color = Color(0xFF64748B)
                         )
                     }
@@ -5421,21 +5501,27 @@ fun MicroWalletTopupSheet(
                 }
             }
 
-            // Minimal Balance Card
+            // Current Balance Card
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF8FAFC),
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFFF7F7F7),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(14.dp),
+                    modifier = Modifier.padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text("Current Balance", fontSize = 12.sp, color = Color(0xFF64748B))
-                        Text("₹$currentBalanceRupees", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color(0xFF0F172A))
+                        Text(
+                            "₹$currentBalanceRupees",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 22.sp,
+                            color = Color(0xFF0F172A),
+                            fontFamily = com.example.dutype.ui.theme.MeeshoFontFamily
+                        )
                     }
                     Surface(
                         shape = RoundedCornerShape(20.dp),
@@ -5444,7 +5530,7 @@ fun MicroWalletTopupSheet(
                     ) {
                         Text(
                             "Booking Fee: ₹$requiredFeeRupees",
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF166534),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -5454,13 +5540,13 @@ fun MicroWalletTopupSheet(
             }
 
             // Quick Selection Chips & Amount
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Select Recharge Amount", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFF334155))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Select Recharge Amount", fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, color = Color(0xFF334155))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf(50, 100, 200).forEach { amt ->
+                    listOf(50, 100, 200, 500).forEach { amt ->
                         val isSelected = enteredAmount == amt
                         Surface(
                             modifier = Modifier
@@ -5468,7 +5554,7 @@ fun MicroWalletTopupSheet(
                                 .clickable { amountInput = amt.toString() },
                             shape = RoundedCornerShape(10.dp),
                             color = if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, if (isSelected) Color(0xFF0F172A) else Color(0xFFE2E8F0))
+                            border = BorderStroke(1.5.dp, if (isSelected) Color(0xFF0F172A) else Color(0xFFE2E8F0))
                         ) {
                             Text(
                                 text = "₹$amt",
@@ -5476,14 +5562,14 @@ fun MicroWalletTopupSheet(
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) Color.White else Color(0xFF334155),
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 10.dp)
+                                modifier = Modifier.padding(vertical = 11.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Verified Payee Assurance Banner (Banoth Vamsi)
+            // Verified Payee Assurance Banner
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = Color(0xFFEFF6FF),
@@ -5496,135 +5582,44 @@ fun MicroWalletTopupSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        Icons.Filled.Check,
+                        Icons.Filled.Lock,
                         contentDescription = null,
                         tint = Color(0xFF2563EB),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        "Payee: BANOTH VAMSI (dutypein@ybl) • Official DutyPe",
-                        fontSize = 11.5.sp,
+                        "DutyPe Official Wallet • 100% Secured by Razorpay",
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF1E40AF)
                     )
                 }
             }
 
-            // 1-Click Pay with UPI button (Instant Launch, Zero Friction)
+            // Razorpay Checkout Button
             Button(
                 onClick = {
-                    val refCode = "WL${System.currentTimeMillis() % 10000000}"
-                    val uri = Uri.parse(
-                        "upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=$currentDepositAmount&cu=INR&tn=${Uri.encode("DutyPe Wallet Load ₹$currentDepositAmount")}&tr=$refCode"
-                    )
-                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                        Toast.makeText(context, "No UPI app found. Please pay to $upiId directly.", Toast.LENGTH_LONG).show()
-                    }
-                    // Auto-record deposit request so user doesn't need to manually type UTR!
-                    scope.launch {
-                        viewModel.depositWalletFunds(currentDepositAmount, refCode)
-                            .onSuccess {
-                                Toast.makeText(context, "Wallet deposit of ₹$currentDepositAmount initiated. Will be credited shortly!", Toast.LENGTH_LONG).show()
-                                onTopupSuccess()
-                                onDismiss()
-                            }
-                            .onFailure {
-                                Toast.makeText(context, it.message ?: "Failed to record deposit", Toast.LENGTH_SHORT).show()
-                            }
+                    onDismiss()
+                    if (navController != null) {
+                        try {
+                            navController.navigate(com.example.dutype.navigation.Routes.SERVICE_WALLET)
+                        } catch (e: Exception) {
+                            timber.log.Timber.e(e, "MicroWalletTopupSheet: failed to navigate to service wallet")
+                        }
+                    } else {
+                        android.widget.Toast.makeText(context, "Opening Services Wallet...", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = isAmountValid,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
             ) {
-                Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color(0xFFFACC15), modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFFFACC15), modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Pay ₹$currentDepositAmount via UPI (GPay / PhonePe)", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
-            }
-
-            // Copy UPI ID row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("UPI ID: $upiId", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
-                Text(
-                    "Copy UPI",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2563EB),
-                    modifier = Modifier
-                        .clickable {
-                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(upiId))
-                            Toast.makeText(context, "UPI ID copied: $upiId", Toast.LENGTH_SHORT).show()
-                        }
-                        .padding(4.dp)
-                )
-            }
-
-            // Optional Manual UTR Toggle
-            Text(
-                text = if (showManualUtr) "▲ Hide manual UTR" else "▼ Enter UTR manually (Optional)",
-                fontSize = 11.5.sp,
-                color = Color(0xFF94A3B8),
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showManualUtr = !showManualUtr }
-                    .padding(vertical = 2.dp)
-            )
-
-            if (showManualUtr) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = utrInput,
-                        onValueChange = { if (it.length <= 16) utrInput = it.filter { c -> c.isLetterOrDigit() } },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("12-digit UTR", fontSize = 12.sp) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    Button(
-                        onClick = {
-                            if (utrInput.length < 6) {
-                                Toast.makeText(context, "Please enter valid UTR", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            isSubmitting = true
-                            scope.launch {
-                                viewModel.depositWalletFunds(currentDepositAmount, utrInput)
-                                    .onSuccess {
-                                        Toast.makeText(context, "Deposit submitted with UTR $utrInput", Toast.LENGTH_SHORT).show()
-                                        isSubmitting = false
-                                        onTopupSuccess()
-                                        onDismiss()
-                                    }
-                                    .onFailure {
-                                        Toast.makeText(context, it.message ?: "Failed", Toast.LENGTH_SHORT).show()
-                                        isSubmitting = false
-                                    }
-                            }
-                        },
-                        enabled = !isSubmitting && utrInput.length >= 6,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
-                    ) {
-                        Text("Submit", fontSize = 12.sp)
-                    }
-                }
+                Text("Proceed to Pay ₹$currentDepositAmount via Razorpay ➔", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
             }
         }
     }
@@ -5651,7 +5646,7 @@ fun ServiceLaunchFeedbackBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -5729,7 +5724,7 @@ fun ServiceLaunchFeedbackBottomSheet(
                 // Service Badge
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF8FAFC).bg(),
+                    color = Color(0xFFF7F7F7).bg(),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -5855,7 +5850,7 @@ private fun AddAddressBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -5963,7 +5958,7 @@ private fun AddAddressBottomSheet(
             // Quick Use Current Location Strip
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF8FAFC),
+                color = Color(0xFFF7F7F7),
                 border = BorderStroke(1.dp, SvcLine.bg()),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -6072,7 +6067,7 @@ private fun CouponsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -6322,7 +6317,7 @@ fun MyBookingsScreen(navController: NavController, viewModel: HomeServicesViewMo
             val active = load.list.filter { it.isOpen }
             val past = load.list.filterNot { it.isOpen }
             LaunchedEffect(load.loaded) { if (load.loaded && active.isEmpty() && past.isNotEmpty()) tab = 1 }
-            TabRow(selectedTabIndex = tab, containerColor = Color.White.bg()) {
+            TabRow(selectedTabIndex = tab, containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.svc_tab_active) + if (active.isNotEmpty()) " (${active.size})" else "") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.svc_tab_past) + if (past.isNotEmpty()) " (${past.size})" else "") })
             }
@@ -6443,7 +6438,7 @@ private fun ModernBookingStepper(b: ServiceBooking) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, SvcLine.bg())
     ) {
         Row(
@@ -6564,7 +6559,7 @@ private fun SearchingPartnerUnifiedCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bg())
     ) {
         Column(
@@ -6867,7 +6862,7 @@ private fun AssignedPartnerCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, SvcLine.bg())
     ) {
         Column(
@@ -6997,7 +6992,7 @@ private fun AssignedPartnerCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFF8FAFC).bg())
+                    .background(Color(0xFFFAFFFF).bg())
                     .border(1.dp, SvcLine.bg(), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
@@ -7528,7 +7523,7 @@ private fun CancellationCompensationBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -7700,7 +7695,7 @@ private fun PaymentPendingCard(
     onSubmitUtr: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val upiId = "dutypein@ybl"
+    val upiId = ""
     val upiName = catalog?.upiName?.ifBlank { "DutyPe" } ?: "DutyPe"
     var utrInput by remember { mutableStateOf("") }
     var editUtr by remember { mutableStateOf(false) }
@@ -8010,7 +8005,7 @@ fun ServicesAreaTeaserCard(
                 .clip(RoundedCornerShape(20.dp))
                 .clickable(onClick = onOpenServices),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
@@ -8095,7 +8090,7 @@ fun ServicesAreaTeaserCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFF8FAFC).bg())
+                                .background(Color(0xFFFAFFFF).bg())
                                 .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
                                 .clickable(onClick = onOpenServices)
                                 .padding(vertical = 10.dp, horizontal = 4.dp),

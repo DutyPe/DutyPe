@@ -21,6 +21,7 @@ data class JobQuery(
     val urgentOnly: Boolean = false,
     val maxRadiusKm: Double? = null,
     val keyword: String? = null,
+    val state: String? = null,
     val matches: (JobListingSummary) -> Boolean = { true }
 )
 
@@ -80,9 +81,9 @@ class JobFeedPager internal constructor(
         FeedSection.BANDS.filter { it.maxKm!! <= cap }.ifEmpty { listOf(FeedSection.KM_5) }
     }
     private val stages: List<FeedSection> = when {
-        !hasLocation -> listOf(FeedSection.ANYWHERE)
+        !hasLocation -> listOf(FeedSection.STATE)
         query.maxRadiusKm != null -> bands
-        else -> bands + listOf(FeedSection.DISTRICT, FeedSection.STATE, FeedSection.ANYWHERE)
+        else -> bands + listOf(FeedSection.DISTRICT, FeedSection.STATE)
     }
     private var stageIndex = -1
     private var section: FeedSection? = null
@@ -121,7 +122,7 @@ class JobFeedPager internal constructor(
         if (stageIndex >= stages.lastIndex) return false
         val next = stages[stageIndex + 1]
         // Resolve the worker's district / state before committing, safely handling network or function errors.
-        if ((next == FeedSection.DISTRICT || next == FeedSection.STATE) && place == null) {
+        if (place == null && hasLocation) {
             place = runCatching { places.placeFor(lat!!, lng!!) }.getOrNull()
         }
         stageIndex++
@@ -148,11 +149,11 @@ class JobFeedPager internal constructor(
             }
             FeedSection.STATE -> {
                 val id = place?.stateId
-                val name = place?.state
-                release { (id != null && it.state.isNotBlank() && it.state == name) || (name != null && it.state.equals(name, ignoreCase = true)) }
+                val name = place?.state?.takeIf { it.isNotBlank() } ?: query.state ?: "Telangana"
+                release { (id != null && it.state.isNotBlank() && it.state == name) || (name.isNotBlank() && it.state.equals(name, ignoreCase = true)) }
                 if (id != null) {
                     sources.add(Source(null, Jobs.STATE_ID, id))
-                } else if (!name.isNullOrBlank()) {
+                } else if (name.isNotBlank()) {
                     sources.add(Source(null, Jobs.STATE, name))
                 }
             }
@@ -178,10 +179,15 @@ class JobFeedPager internal constructor(
         val current = section ?: return
         val radius = current.maxKm
         val batch = ArrayList<JobListingSummary>(docs.size)
+        val userState = place?.state?.takeIf { it.isNotBlank() } ?: query.state ?: "Telangana"
         docs.forEach { doc ->
             if (!seen.add(doc.id)) return@forEach
             val job = doc.data?.toJobListingSummary(doc.id) ?: return@forEach
             if (job.expiresAt in 1 until now || !query.matches(job)) return@forEach
+            // Strict filter: outside-state jobs should never show in the worker feed
+            if (job.state.isNotBlank() && !job.state.equals(userState, ignoreCase = true)) {
+                return@forEach
+            }
             if (query.keyword != null && (
                     (query.category != null && job.category != query.category) ||
                         (query.urgentOnly && !job.isUrgent))

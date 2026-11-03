@@ -97,7 +97,7 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 import androidx.compose.ui.res.stringResource
 
 
-private val NotifBg = Color(0xFFF8FAFC)
+private val NotifBg = Color(0xFFFAFFFF)
 private val NotifInk = Color(0xFF0F0F0F)
 private val NotifMuted = Color(0xFF64748B)
 private val NotifFaint = Color(0xFF94A3B8)

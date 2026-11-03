@@ -1225,7 +1225,7 @@ private fun JobDetailsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFF8FAFC).bg())
+                            .background(Color(0xFFF7F7F7).bg())
                             .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(14.dp))
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
@@ -1719,7 +1719,7 @@ fun ContactEmployerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White,
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -1759,7 +1759,7 @@ fun ContactEmployerBottomSheet(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFFF8FAFC),
+                color = Color(0xFFF7F7F7),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Row(

@@ -42,7 +42,7 @@ export const DEFAULT_PLANS: PlanRow[] = [
   { id: "premium_299", pricePaise: 29_900, jobs: 12, instantUnlocks: 40, validityDays: 45, ai: true, aiPerDay: 300, legacy: true },
 ];
 
-async function planById(planId: string): Promise<PlanRow | null> {
+export async function planById(planId: string): Promise<PlanRow | null> {
   const doc = await db.collection(AppConfig.COLLECTION).doc(AppConfig.DOC_SUBSCRIPTION_PLANS).get();
   const configured = (doc.get("plans") as PlanRow[] | undefined) || [];
   return configured.find((p) => p.id === planId) || DEFAULT_PLANS.find((p) => p.id === planId) || null;

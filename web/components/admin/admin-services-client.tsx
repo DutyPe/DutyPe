@@ -1772,7 +1772,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
       const d = (snap.data() || {}) as Partial<Settings>;
       setRaw((snap.data() || {}) as Record<string, unknown>);
       setS({
-        upiId: d.upiId?.trim() ? d.upiId : "dutypein@ybl",
+        upiId: d.upiId?.trim() ? d.upiId : "",
         upiName: d.upiName || "DutyPe",
         bookingFee: d.bookingFee ?? 19,
         inspectionFee: d.inspectionFee ?? 49,
@@ -1872,7 +1872,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
       <p>Partners pay their credit top-ups to this UPI ID. Fees apply to new bookings.</p>
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 10, alignItems: "center", maxWidth: 640 }}>
         <label>UPI ID for top-ups</label>
-        <input value={s.upiId} onChange={(e) => setS({ ...s, upiId: e.target.value.trim() })} placeholder="dutypein@ybl" />
+        <input value={s.upiId} onChange={(e) => setS({ ...s, upiId: e.target.value.trim() })} placeholder="Razorpay Live Gateway" />
         <label>UPI name</label>
         <input value={s.upiName} onChange={(e) => setS({ ...s, upiName: e.target.value })} />
         <label>Customer booking fee (₹)</label>{num("bookingFee")}

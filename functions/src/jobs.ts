@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Jobs — the only writers of jobmetadata (card), job_details (details) and job_contacts (phone).
  *
  *   postJob          create card + details + contact atomically, charge the employer
@@ -431,33 +431,30 @@ export const renewJob = onCallSecured({}, async (raw: unknown, context) => {
 
 export const deleteJob = onCallSecured({}, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
-  if (!await isCallerAdmin(context)) {
-    fail("failed-precondition", "Jobs cannot be deleted once posted. You can pause or close the job instead.");
-  }
   const jobId = str(obj(raw), "jobId", { max: 64 });
   await db.runTransaction(async (tx) => {
     const { ref, snap } = await ownedJob(tx, uid, jobId);
-    const createdAtMs = (snap.get(Jobs.CREATED_AT) as admin.firestore.Timestamp | undefined)?.toMillis() ?? 0;
-    if (Date.now() - createdAtMs > DELETE_WINDOW_MS) {
-      fail("failed-precondition", "Jobs can only be deleted within 30 minutes of posting. Close it instead.");
-    }
     const chargeSnap = await tx.get(chargeRef(jobId));
-    const paid = obj(chargeSnap.get(Idempotency.RESULT));
-    if (paid.charge === "credit") {
-      const S = EmployerProfiles.Subscription;
-      tx.update(db.collection(EmployerProfiles.COLLECTION).doc(uid),
-        `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(1));
+    if (chargeSnap.exists) {
+      const paid = obj(chargeSnap.get(Idempotency.RESULT));
+      if (paid.charge === "credit") {
+        const S = EmployerProfiles.Subscription;
+        tx.update(db.collection(EmployerProfiles.COLLECTION).doc(uid),
+          `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(1));
+      }
+      if (paid.charge === "referral") refundReferralPost(tx, db.collection(EmployerProfiles.COLLECTION).doc(uid));
+      if (paid.charge === "free") {
+        tx.update(db.collection(EmployerProfiles.COLLECTION).doc(uid), {
+          [EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(-1),
+        });
+      }
     }
-    if (paid.charge === "referral") refundReferralPost(tx, db.collection(EmployerProfiles.COLLECTION).doc(uid));
-    if (paid.charge === "free") {
-      tx.update(db.collection(EmployerProfiles.COLLECTION).doc(uid), {
-        [EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(-1),
-      });
-    }
-    tx.delete(ref);
-    tx.delete(db.collection(JobDetails.COLLECTION).doc(jobId));
-    tx.delete(contactRef(jobId));
-    tx.delete(chargeRef(jobId));
+    // Soft-delete so employer retains the job in history, while worker feed excludes it
+    tx.update(ref, {
+      [Jobs.STATUS]: "deleted",
+      deletedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   });
   return { jobId };
 });

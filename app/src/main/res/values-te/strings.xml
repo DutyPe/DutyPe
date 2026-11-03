@@ -188,7 +188,7 @@
     <string name="bottom_nav_profile">ప్రొఫైల్</string>
     <string name="bottom_nav_chat">చాట్</string>
     <string name="bottom_nav_categories">వర్గాలు</string>
-    <string name="bottom_nav_account">ఖాతా</string>
+    <string name="bottom_nav_account">ప్రొఫైల్</string>
     <string name="bottom_nav_services">సర్వీసులు</string>
     <string name="onboarding_title_1">మీ దరిదాపుల్లోనే పనులు</string>
     <string name="onboarding_desc_1">10 కి.మీ పరిధిలో పనులను వెతుక్కొని వేగంగా సంపాదన ప్రారంభించండి.</string>
@@ -2934,4 +2934,27 @@
     <string name="partner_read_rules">పార్ట్‌నర్ నియమాలు &amp; ప్రవర్తనా నియమావళి చదవండి →</string>
     <string name="partner_submit_btn">దరఖాస్తు సమర్పించండి</string>
     <string name="partner_fill_required">సమర్పించడానికి అవసరమైన వివరాలు నింపండి</string>
+    <!-- Hiring Room Calling & Custom Price Additions -->
+    <string name="job_closed_cannot_call">ఈ ఉద్యోగం భర్తీ చేయబడింది లేదా మూసివేయబడింది. కాల్ చేయడం సాధ్యం కాదు.</string>
+    <string name="job_closed_calls_disabled">ఉద్యోగం భర్తీ చేయబడింది. వర్కర్ కాలింగ్ నిలిపివేయబడింది.</string>
+    <string name="name_your_own_price">మీ స్వంత ధరను సూచించండి</string>
+    <string name="offer_your_price_title">మీ స్వంత ధరను సూచించండి</string>
+    <string name="offer_your_price_desc">మీ బడ్జెట్‌కు అనుగుణంగా ఏదైనా సేవకు ధరను ఇవ్వవచ్చు (కనిష్టంగా ₹49), లేదా మా ప్రామాణిక రేటును ఎంచుకోవచ్చు!</string>
+    <string name="min_price_rule">కనిష్టంగా ₹49 • ₹00 ఉండకూడదు</string>
+
+    <string name="auth_code_sent_sms">ధృవీకరణ కోడ్ SMS ద్వారా పంపబడింది.</string>
+    <string name="bottom_nav_map">మ్యాప్</string>
+    <string name="duration_per_day">రోజుకు</string>
+    <string name="duration_per_hour">గంటకు</string>
+    <string name="duration_per_task">టాస్క్‌కు</string>
+    <string name="refer_code_label">మీ రిఫరల్ కోడ్</string>
+    <string name="refer_copy_code">కోడ్ కాపీ చేయండి</string>
+    <string name="refer_hero_subtitle">వారు వారి మొదటి ప్రొఫైల్‌ను పూర్తి చేసినప్పుడు నగదు పొందండి</string>
+    <string name="refer_hero_title">స్నేహితులను ఆహ్వానించండి &amp; సంపాదించండి</string>
+    <string name="refer_invited_earned">ఆహ్వానించబడ్డారు &amp; సంపాదించారు</string>
+    <string name="refer_more_to_milestone">మరింత మైలురాయిని చేరుకోవడానికి రిఫర్ చేయండి</string>
+    <string name="refer_share_whatsapp">వాట్సాప్‌లో షేర్ చేయండి</string>
+    <string name="refer_step_each">ప్రతి విజయవంతమైన రిఫరల్‌కు</string>
+    <string name="refer_step_joins">మీ స్నేహితుడు DutyPe లో చేరినప్పుడు</string>
+    <string name="refer_step_share">మీ లింక్ లేదా కోడ్‌ను షేర్ చేయండి</string>
 </resources>

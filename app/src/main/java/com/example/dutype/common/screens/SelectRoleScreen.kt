@@ -76,7 +76,7 @@ import timber.log.Timber
 import com.example.dutype.utils.LocaleHelper
 
 // ── Palette ───────────────────────────────────────────────────────────────
-private val ScreenBg = Color(0xFFFFFFFF)
+private val ScreenBg = Color(0xFFFAFFFF)
 private val InkColor = Color(0xFF0F0F0F)
 private val SubtitleGray = Color(0xFF64748B)
 private val BorderNeutral = Color(0xFFE2E8F0)
@@ -134,9 +134,11 @@ fun SelectRoleScreen(
                     com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic(topic)
                 }
             }
-            if (onRoleSelected != null) {
+            if (!asGuest) {
+                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$role")
+            } else if (onRoleSelected != null) {
                 onRoleSelected.invoke(role)
-            } else if (asGuest) {
+            } else {
                 val dest = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER)
                     Routes.EMPLOYER_HOME
                 else
@@ -145,8 +147,6 @@ fun SelectRoleScreen(
                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
-            } else {
-                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$role")
             }
         }
 

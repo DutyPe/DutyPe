@@ -396,6 +396,11 @@ fun EmployerApplicationManagementScreen(
             matchedError = matchedWorkersState.error,
             onRefreshMatched = { viewModel.loadMatchedWorkers(jobId, force = true) },
             onCallMatchedWorker = { worker ->
+            val isCurrentJobClosed = isJobClosedOverride || isJobFilled || !isJobLive || (currentJob?.status in listOf("filled", "closed", "expired", "deleted", "cancelled"))
+            if (isCurrentJobClosed) {
+                Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+                return@HiringRoomReplicatedLayout
+            }
                 val phone = worker.phone
                 if (phone.isNotBlank()) {
                     dialWorkerPhone(context, phone)
@@ -418,6 +423,11 @@ fun EmployerApplicationManagementScreen(
                 }
             },
             onWhatsAppMatchedWorker = { worker ->
+            val isCurrentJobClosed = isJobClosedOverride || isJobFilled || !isJobLive || (currentJob?.status in listOf("filled", "closed", "expired", "deleted", "cancelled"))
+            if (isCurrentJobClosed) {
+                Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+                return@HiringRoomReplicatedLayout
+            }
                 val phone = worker.phone
                 val jobTitleMsg = jobTitleForActions.ifBlank { "DutyPe" }
                 if (phone.isNotBlank()) {
@@ -446,6 +456,11 @@ fun EmployerApplicationManagementScreen(
             onRefreshApplications = { viewModel.loadJobApplications(jobId) },
             onApplicationClick = onApplicationClick,
             onCallApplicant = { application ->
+            val isCurrentJobClosed = isJobClosedOverride || isJobFilled || !isJobLive || (currentJob?.status in listOf("filled", "closed", "expired", "deleted", "cancelled"))
+            if (isCurrentJobClosed) {
+                Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+                return@HiringRoomReplicatedLayout
+            }
                 val phone = application.workerPhone.trim()
                 if (phone.isNotBlank()) {
                     dialWorkerPhone(context, phone)
@@ -467,6 +482,11 @@ fun EmployerApplicationManagementScreen(
                 }
             },
             onWhatsAppApplicant = { application ->
+            val isCurrentJobClosed = isJobClosedOverride || isJobFilled || !isJobLive || (currentJob?.status in listOf("filled", "closed", "expired", "deleted", "cancelled"))
+            if (isCurrentJobClosed) {
+                Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+                return@HiringRoomReplicatedLayout
+            }
                 val phone = application.workerPhone.trim()
                 val displayName = application.workerName.ifBlank { "there" }
                 val defaultWaMsg = context.getString(R.string.whatsapp_msg_application, displayName)
@@ -640,7 +660,7 @@ private fun HiringRoomReplicatedLayout(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
+            .background(Color(0xFFFAFFFF).bg())
     ) {
         // 1. YELLOW HERO WITH TITLE RIGHT OF BACK ARROW, LIVE PILL & 4 METRIC CHIPS
         HiringRoomYellowHero(
@@ -736,6 +756,7 @@ private fun HiringRoomReplicatedLayout(
                             MatchedWorkerCardMockup(
                                 worker = worker,
                                 defaultJobTitle = jobTitle,
+                                isJobClosed = !isJobLive || isJobFilled,
                                 onClick = { onWorkerClick(worker.workerId) },
                                 onCall = { onCallMatchedWorker(worker) },
                                 onWhatsApp = { onWhatsAppMatchedWorker(worker) }
@@ -767,6 +788,7 @@ private fun HiringRoomReplicatedLayout(
                             AppliedCandidateCardMockup(
                                 application = app,
                                 defaultJobTitle = jobTitle,
+                                isJobClosed = !isJobLive || isJobFilled,
                                 hasAlreadyRated = app.id in ratedApplicationIds,
                                 onClick = { onApplicationClick(app) },
                                 onCall = { onCallApplicant(app) },
@@ -1188,6 +1210,7 @@ private fun HiringRoomPillTabs(
 private fun MatchedWorkerCardMockup(
     worker: MatchedWorker,
     defaultJobTitle: String,
+    isJobClosed: Boolean = false,
     onClick: () -> Unit = {},
     onCall: () -> Unit,
     onWhatsApp: () -> Unit
@@ -1298,73 +1321,102 @@ private fun MatchedWorkerCardMockup(
                 )
             }
 
-            // Dual Action Buttons: Yellow [Call] and Cream [WhatsApp] with Lock Icon when not unlocked
-            val isUnlocked = worker.phone.isNotBlank()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onCall,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFBBF24),
-                        contentColor = Color(0xFF1E293B)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+            if (isJobClosed) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF1F5F9).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = if (isUnlocked) Icons.Filled.Call else Icons.Default.Lock,
-                            contentDescription = if (isUnlocked) "Call" else "Unlock & Call",
-                            tint = Color(0xFF1E293B),
-                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Call",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            text = "Position Closed · Calling Disabled",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF64748B).fg()
                         )
                     }
                 }
-
-                Button(
-                    onClick = onWhatsApp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFEF3C7),
-                        contentColor = Color(0xFF78350F)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+            } else {
+                // Dual Action Buttons: Yellow [Call] and Cream [WhatsApp] with Lock Icon when not unlocked
+                val isUnlocked = worker.phone.isNotBlank()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Button(
+                        onClick = onCall,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFBBF24),
+                            contentColor = Color(0xFF1E293B)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isUnlocked) Icons.Outlined.ChatBubbleOutline else Icons.Default.Lock,
-                            contentDescription = if (isUnlocked) "WhatsApp" else "Unlock & WhatsApp",
-                            tint = Color(0xFF78350F),
-                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "WhatsApp",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF78350F)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isUnlocked) Icons.Filled.Call else Icons.Default.Lock,
+                                contentDescription = if (isUnlocked) "Call" else "Unlock & Call",
+                                tint = Color(0xFF1E293B),
+                                modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Call",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onWhatsApp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFEF3C7),
+                            contentColor = Color(0xFF78350F)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isUnlocked) Icons.Outlined.ChatBubbleOutline else Icons.Default.Lock,
+                                contentDescription = if (isUnlocked) "WhatsApp" else "Unlock & WhatsApp",
+                                tint = Color(0xFF78350F),
+                                modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "WhatsApp",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF78350F)
+                            )
+                        }
                     }
                 }
             }
@@ -1376,6 +1428,7 @@ private fun MatchedWorkerCardMockup(
 private fun AppliedCandidateCardMockup(
     application: JobApplication,
     defaultJobTitle: String,
+    isJobClosed: Boolean = false,
     hasAlreadyRated: Boolean,
     onClick: () -> Unit,
     onCall: () -> Unit,
@@ -1528,73 +1581,102 @@ private fun AppliedCandidateCardMockup(
                 )
             }
 
-            // Action Buttons: Call & WhatsApp with Lock Icon when not unlocked
-            val isUnlocked = application.workerPhone.isNotBlank()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onCall,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFBBF24),
-                        contentColor = Color(0xFF1E293B)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+            if (isJobClosed || isHired || isCompleted) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isHired) Color(0xFFDCFCE7).bg() else Color(0xFFF1F5F9).bg(),
+                    border = BorderStroke(1.dp, if (isHired) Color(0xFF86EFAC).bd() else Color(0xFFE2E8F0).bd()),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = if (isUnlocked) Icons.Filled.Call else Icons.Default.Lock,
-                            contentDescription = if (isUnlocked) "Call" else "Unlock & Call",
-                            tint = Color(0xFF1E293B),
-                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
+                            imageVector = if (isHired) Icons.Default.CheckCircle else Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (isHired) Color(0xFF16A34A) else Color(0xFF64748B),
+                            modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Call",
-                            fontSize = 14.sp,
+                            text = if (isHired) "Worker Hired · Position Filled" else "Position Closed · Calling Disabled",
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            color = if (isHired) Color(0xFF15803D).fg() else Color(0xFF64748B).fg()
                         )
                     }
                 }
-
-                Button(
-                    onClick = onWhatsApp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFEF3C7),
-                        contentColor = Color(0xFF78350F)
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+            } else {
+                // Action Buttons: Call & WhatsApp with Lock Icon when not unlocked
+                val isUnlocked = application.workerPhone.isNotBlank()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Button(
+                        onClick = onCall,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFBBF24),
+                            contentColor = Color(0xFF1E293B)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isUnlocked) Icons.Outlined.ChatBubbleOutline else Icons.Default.Lock,
-                            contentDescription = if (isUnlocked) "WhatsApp" else "Unlock & WhatsApp",
-                            tint = Color(0xFF78350F),
-                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "WhatsApp",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF78350F)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isUnlocked) Icons.Filled.Call else Icons.Default.Lock,
+                                contentDescription = if (isUnlocked) "Call" else "Unlock & Call",
+                                tint = Color(0xFF1E293B),
+                                modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Call",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onWhatsApp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFEF3C7),
+                            contentColor = Color(0xFF78350F)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isUnlocked) Icons.Outlined.ChatBubbleOutline else Icons.Default.Lock,
+                                contentDescription = if (isUnlocked) "WhatsApp" else "Unlock & WhatsApp",
+                                tint = Color(0xFF78350F),
+                                modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "WhatsApp",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF78350F)
+                            )
+                        }
                     }
                 }
             }
@@ -2588,7 +2670,7 @@ private fun JobReportSummaryCard(
 
 // ==================== HIRING ROOM (flat design) ====================
 
-private val HrBackground = Color(0xFFF8FAFC)
+private val HrBackground = Color(0xFFFAFFFF)
 private val HrInk = Color(0xFF0F172A)
 private val HrName = Color(0xFF0F0F0F)
 private val HrMuted = Color(0xFF64748B)
@@ -3569,7 +3651,7 @@ private fun NeedSubscriptionDialog(
                 )
             }
         },
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(24.dp)
     )
 }

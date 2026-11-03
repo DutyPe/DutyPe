@@ -91,7 +91,7 @@ class SubscriptionViewModel @Inject constructor(
         referenceId: String,
         employerName: String = "",
         employerPhone: String = "",
-        upiIdUsed: String = "dutypein@ybl"
+        upiIdUsed: String = "RAZORPAY_GATEWAY"
     ) {
         if (_submitState.value == SubmitState.Loading) return
         viewModelScope.launch {
@@ -112,6 +112,58 @@ class SubscriptionViewModel @Inject constructor(
 
     fun resetSubmitState() {
         _submitState.value = SubmitState.Idle
+    }
+
+    fun createRazorpayOrder(
+        planId: String? = null,
+        type: String = "SUBSCRIPTION",
+        amountRupees: Int? = null,
+        onReady: (com.example.dutype.repositories.RazorpayOrderResult) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _submitState.value = SubmitState.Loading
+            subscriptionRepository.createRazorpayOrder(planId = planId, type = type, amountRupees = amountRupees)
+                .onSuccess { order ->
+                    _submitState.value = SubmitState.Idle
+                    onReady(order)
+                }
+                .onFailure { err ->
+                    val msg = err.message ?: "Failed to initiate Razorpay order"
+                    _submitState.value = SubmitState.Error(msg)
+                    onError(msg)
+                }
+        }
+    }
+
+    fun verifyRazorpayPayment(
+        orderId: String,
+        paymentId: String,
+        signature: String,
+        planId: String? = null,
+        type: String = "SUBSCRIPTION",
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _submitState.value = SubmitState.Loading
+            subscriptionRepository.verifyRazorpayPayment(
+                orderId = orderId,
+                paymentId = paymentId,
+                signature = signature,
+                planId = planId,
+                type = type
+            )
+                .onSuccess {
+                    _submitState.value = SubmitState.Success
+                    onSuccess()
+                }
+                .onFailure { err ->
+                    val msg = err.message ?: "Payment verification failed"
+                    _submitState.value = SubmitState.Error(msg)
+                    onError(msg)
+                }
+        }
     }
 }
 

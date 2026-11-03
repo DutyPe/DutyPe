@@ -114,18 +114,40 @@ data class Plan(
         }
 
     companion object {
-        fun fromMap(id: String, map: Map<String, Any?>): Plan = Plan(
-            id = id,
-            name = map["name"] as? String ?: "",
-            pricePaise = (map["pricePaise"] as? Number)?.toLong() ?: 0L,
-            jobs = (map["jobs"] as? Number)?.toInt() ?: 0,
-            instantUnlocks = (map["instantUnlocks"] as? Number)?.toInt() ?: 0,
-            validityDays = (map["validityDays"] as? Number)?.toInt() ?: 30,
-            description = map["description"] as? String ?: "",
-            tag = map["tag"] as? String ?: "",
-            ai = map["ai"] == true,
-            aiPerDay = (map["aiPerDay"] as? Number)?.toInt() ?: 0,
-            legacy = map["legacy"] == true
-        )
+        fun fromMap(id: String, map: Map<String, Any?>): Plan {
+            val defaultName = when (id) {
+                "single_job_49" -> "Single Job"
+                "basic_99" -> "Starter Basic"
+                "launch_pass_199" -> "Launch Pass"
+                "business_pro_499" -> "Business Pro"
+                else -> id.replace("_", " ").split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            }
+            val defaultTag = when (id) {
+                "single_job_49" -> "Instant Hire"
+                "basic_99" -> "Value Pack"
+                "launch_pass_199" -> "Most Popular"
+                "business_pro_499" -> "Best Value"
+                else -> ""
+            }
+            return Plan(
+                id = id,
+                name = (map["name"] as? String)?.takeIf { it.isNotBlank() } ?: defaultName,
+                pricePaise = (map["pricePaise"] as? Number)?.toLong() ?: 0L,
+                jobs = (map["jobs"] as? Number)?.toInt() ?: 0,
+                instantUnlocks = (map["instantUnlocks"] as? Number)?.toInt() ?: 0,
+                validityDays = (map["validityDays"] as? Number)?.toInt() ?: 30,
+                description = map["description"] as? String ?: "",
+                tag = (map["tag"] as? String)?.takeIf { it.isNotBlank() } ?: defaultTag,
+                ai = map["ai"] == true || id in setOf("single_job_49", "basic_99", "launch_pass_199", "business_pro_499"),
+                aiPerDay = (map["aiPerDay"] as? Number)?.toInt() ?: when (id) {
+                    "single_job_49" -> 10
+                    "basic_99" -> 25
+                    "launch_pass_199" -> 50
+                    "business_pro_499" -> 500
+                    else -> 0
+                },
+                legacy = map["legacy"] == true
+            )
+        }
     }
 }

@@ -207,6 +207,13 @@ class LocationPreferences(context: Context) {
     fun isManualLocationLocked(): Boolean {
         val isManual = prefs.getString(KEY_LOCATION_MODE, LOCATION_MODE_AUTO) == LOCATION_MODE_MANUAL
         if (!isManual) return false
+        val savedAddr = prefs.getString(KEY_ADDRESS, "").orEmpty()
+        val savedArea = prefs.getString(KEY_AREA, "").orEmpty()
+        if (savedAddr.contains("VDO", ignoreCase = true) || savedArea.contains("VDO", ignoreCase = true)) {
+            // Never lock to dummy VDO Colony fallback
+            setLocationModeAuto()
+            return false
+        }
         val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0L)
         val ageMs = System.currentTimeMillis() - lastUpdated
         if (lastUpdated > 0L && ageMs > 2 * 60 * 60 * 1000L) {
@@ -232,6 +239,17 @@ class LocationPreferences(context: Context) {
      */
     fun wasPermissionGranted(): Boolean {
         return prefs.getBoolean(KEY_PERMISSION_GRANTED, false)
+    }
+
+    /**
+     * Check if first-time location prompt has already been shown on Worker Home
+     */
+    fun hasPromptedFirstTimeLocation(): Boolean {
+        return prefs.getBoolean("has_prompted_first_location", false)
+    }
+
+    fun setPromptedFirstTimeLocation(prompted: Boolean) {
+        prefs.edit().putBoolean("has_prompted_first_location", prompted).apply()
     }
 
     /**
@@ -271,6 +289,8 @@ class LocationPreferences(context: Context) {
      */
     fun getSavedLocationIfFresh(maxAgeMs: Long = 15 * 60 * 1000L): LocationData? {
         val location = getSavedLocation() ?: return null
+        val isDummy = location.address.contains("VDO", ignoreCase = true) || (location.area?.contains("VDO", ignoreCase = true) == true)
+        if (isDummy) return null
         val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0L)
         val ageMs = System.currentTimeMillis() - lastUpdated
         val hasFreshTimestamp = ageMs in 0 until maxAgeMs

@@ -1,4 +1,5 @@
 package com.example.dutype.homeservices
+import com.example.dutype.ui.theme.bg
 
 import android.Manifest
 import android.content.ClipData
@@ -156,7 +157,7 @@ fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
     ) {
@@ -242,7 +243,7 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
             when (p.status) {
                 PartnerStatus.PENDING -> {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                         border = BorderStroke(1.dp, Color(0xFFFED7AA)),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -357,7 +358,7 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                     }
 
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
@@ -474,7 +475,7 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
 
 @Composable
 private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp)) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White), elevation = CardDefaults.cardElevation(1.dp)) {
         Column(Modifier.padding(14.dp)) {
             Text(value, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(label, color = SvcMuted, fontSize = 12.sp)
@@ -535,7 +536,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, StitchBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -654,7 +655,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, StitchBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -733,7 +734,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                                             }
                                         },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (isSelected) Color(0xFFECFDF5) else Color(0xFFF8FAFC),
+                                    color = if (isSelected) Color(0xFFECFDF5) else Color.White,
                                     border = BorderStroke(
                                         if (isSelected) 1.5.dp else 1.dp,
                                         if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
@@ -816,8 +817,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF00B159),
                             unfocusedBorderColor = Color(0xFFCBD5E1),
-                            focusedContainerColor = Color(0xFFF8FAFC),
-                            unfocusedContainerColor = Color(0xFFF8FAFC)
+                            focusedContainerColor = Color(0xFFF7F7F7),
+                            unfocusedContainerColor = Color(0xFFF7F7F7)
                         )
                     )
                     Button(
@@ -883,7 +884,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                                         }
                                     },
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) Color(0xFFECFDF5) else Color(0xFFF8FAFC),
+                                color = if (isSelected) Color(0xFFECFDF5) else Color.White,
                                 border = BorderStroke(
                                     if (isSelected) 1.5.dp else 1.dp,
                                     if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
@@ -932,7 +933,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, StitchBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -982,8 +983,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF00B159),
                         unfocusedBorderColor = Color(0xFFCBD5E1),
-                        focusedContainerColor = Color(0xFFF8FAFC),
-                        unfocusedContainerColor = Color(0xFFF8FAFC),
+                        focusedContainerColor = Color(0xFFF7F7F7),
+                        unfocusedContainerColor = Color(0xFFF7F7F7),
                         errorBorderColor = Color(0xFFEF4444)
                     )
                 )
@@ -1008,8 +1009,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF00B159),
                             unfocusedBorderColor = Color(0xFFCBD5E1),
-                            focusedContainerColor = Color(0xFFF8FAFC),
-                            unfocusedContainerColor = Color(0xFFF8FAFC)
+                            focusedContainerColor = Color(0xFFF7F7F7),
+                            unfocusedContainerColor = Color(0xFFF7F7F7)
                         )
                     )
                 }
@@ -1035,8 +1036,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF00B159),
                         unfocusedBorderColor = Color(0xFFCBD5E1),
-                        focusedContainerColor = Color(0xFFF8FAFC),
-                        unfocusedContainerColor = Color(0xFFF8FAFC)
+                        focusedContainerColor = Color(0xFFF7F7F7),
+                        unfocusedContainerColor = Color(0xFFF7F7F7)
                     )
                 )
             }
@@ -1047,7 +1048,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, StitchBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -1183,8 +1184,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = if (aadhaarValidation.isValid) Color(0xFF00B159) else Color(0xFF00B159),
                             unfocusedBorderColor = if (aadhaarValidation.isValid) Color(0xFF00B159) else Color(0xFFCBD5E1),
-                            focusedContainerColor = Color(0xFFF8FAFC),
-                            unfocusedContainerColor = Color(0xFFF8FAFC)
+                            focusedContainerColor = Color(0xFFF7F7F7),
+                            unfocusedContainerColor = Color(0xFFF7F7F7)
                         )
                     )
 
@@ -1257,8 +1258,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF00B159),
                         unfocusedBorderColor = Color(0xFFCBD5E1),
-                        focusedContainerColor = Color(0xFFF8FAFC),
-                        unfocusedContainerColor = Color(0xFFF8FAFC)
+                        focusedContainerColor = Color(0xFFF7F7F7),
+                        unfocusedContainerColor = Color(0xFFF7F7F7)
                     )
                 )
             }
@@ -1269,7 +1270,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF8FAFC))
+                    .background(Color(0xFFF7F7F7))
                     .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
                     .clickable { hasVehicleAndTools = !hasVehicleAndTools }
                     .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -1296,7 +1297,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, StitchBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -1331,7 +1332,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     .clickable { showConductRulesSheet = true },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (acceptedConductRules) Color(0xFFECFDF5) else Color(0xFFF8FAFC)
+                    containerColor = if (acceptedConductRules) Color(0xFFECFDF5) else Color.White
                 ),
                 border = BorderStroke(
                     1.dp,
@@ -1536,7 +1537,7 @@ private fun PartnerConductAndRulesBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White,
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -1588,7 +1589,7 @@ private fun PartnerConductAndRulesBottomSheet(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
                     border = BorderStroke(1.dp, StitchBorder)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1613,7 +1614,7 @@ private fun PartnerConductAndRulesBottomSheet(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
                     border = BorderStroke(1.dp, StitchBorder)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1638,7 +1639,7 @@ private fun PartnerConductAndRulesBottomSheet(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
                     border = BorderStroke(1.dp, StitchBorder)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1750,7 +1751,7 @@ private fun PartnerVisualGuideBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White,
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -1939,7 +1940,7 @@ private fun PartnerVisualGuideBottomSheet(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
                         border = BorderStroke(1.dp, StitchBorder)
                     ) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {

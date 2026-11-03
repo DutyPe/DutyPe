@@ -147,7 +147,7 @@ fun OnboardingScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         contentWindowInsets = WindowInsets.systemBars
     ) { paddingValues ->
         Column(

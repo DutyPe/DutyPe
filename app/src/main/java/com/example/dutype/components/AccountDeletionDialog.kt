@@ -60,7 +60,7 @@ fun AccountDeletionDialog(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
             scrimColor = Color.Black.copy(alpha = 0.45f),
-            containerColor = Color.White.bg(),
+            containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFAFFFF),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             sheetMaxWidth = Dp.Unspecified
         ) {

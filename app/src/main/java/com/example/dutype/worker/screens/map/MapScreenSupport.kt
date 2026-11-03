@@ -34,7 +34,7 @@ internal fun rememberMapColors(): MapColors {
             MapColors(
                 surface = Color(0xFF171717),
                 border = Color(0xFF2E2E2E),
-                ink = Color(0xFFF5F5F5),
+                ink = Color(0xFFF7F7F7),
                 onInk = Color(0xFF0F0F0F),
                 muted = Color(0xFF94A3B8),
                 tile = Color(0xFF262626),

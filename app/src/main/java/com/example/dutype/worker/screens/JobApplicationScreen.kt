@@ -445,7 +445,7 @@ private fun WorkerWorkTipsSection() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
             border = BorderStroke(1.dp, Color(0xFFE5E7EB).bd()),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {

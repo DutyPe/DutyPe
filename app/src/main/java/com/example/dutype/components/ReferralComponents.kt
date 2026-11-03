@@ -269,7 +269,7 @@ fun ProfileSetupReferralCard(
                     } else {
                         // Applied Confirmation State
                         Surface(
-                            color = Color(0xFFF8FAFC).bg(),
+                            color = Color(0xFFF7F7F7).bg(),
                             shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                             modifier = Modifier.fillMaxWidth()
@@ -341,7 +341,7 @@ fun ReferAndEarnRedemptionCard(
             .fillMaxWidth()
             .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -590,7 +590,7 @@ fun ReferralConnectionHandshakeCard(
             .fillMaxWidth()
             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7)),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(

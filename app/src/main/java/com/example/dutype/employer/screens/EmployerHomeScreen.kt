@@ -480,7 +480,7 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC).bg())
+            .background(Color(0xFFFAFFFF).bg())
     ) {
         Column(
             modifier = Modifier
@@ -521,7 +521,7 @@ fun EmployerHomeScreen(
                     state = pullToRefreshState,
                     isRefreshing = isRefreshingActive,
                     modifier = Modifier.align(Alignment.TopCenter),
-                    containerColor = Color.White.bg(),
+                    containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
                     color = com.example.dutype.ui.theme.EmployerColors.Primary.fg()
                 )
             }
@@ -1341,7 +1341,7 @@ fun EmployerExecutiveInstantHelpCard(
             .clip(RoundedCornerShape(18.dp))
             .clickable { onPostUrgent() },
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -1419,7 +1419,7 @@ fun EmployerExecutiveStatsBar(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -1661,7 +1661,7 @@ fun DashboardContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8FAFC).bg())
+                .background(Color(0xFFFAFFFF).bg())
         ) {
             EmployerHomeHeader(
                 companyName = companyName,
@@ -1745,6 +1745,7 @@ fun DashboardContent(
                         trialExpiresAt = trialExp,
                         freeJobPostsUsed = freeUsed,
                         hasActiveSubscription = subscription.isActive,
+                        isGuest = isGuestEmployer,
                         onPostJobClick = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
                         onUpgradeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
                         modifier = Modifier.padding(bottom = 16.dp)

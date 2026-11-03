@@ -294,7 +294,7 @@ private fun ScratchRevealPanel(
                     .graphicsLayer { alpha = coverAlpha }
                     .background(
                         Brush.linearGradient(
-                            listOf(Color(0xFFE5E7EB), Color(0xFFF8FAFC), Color(0xFFCBD5E1))
+                            listOf(Color(0xFFE5E7EB), Color(0xFFF7F7F7), Color(0xFFCBD5E1))
                         )
                     )
                     .pointerInput(revealed) {

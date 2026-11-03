@@ -27,3 +27,4 @@ export * from "./whatsapp-messages";
 export { submitFieldLead } from "./field-leads";
 export * from "./whatsapp-webhook";
 export * from "./aadhaar-vault";
+export * from "./razorpay";

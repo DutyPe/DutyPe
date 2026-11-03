@@ -6,6 +6,26 @@
 
 ---
 
+## Active Production Marketing Template: dutype_employer_quick_hire
+**Meta Approved Name**: `dutype_employer_quick_hire`  
+**Category**: MARKETING  
+**Variables**: `{{1}}` = Employer/Owner Name, `{{2}}` = Town/City (e.g., Khammam, Hyderabad, Warangal)  
+**CTA Button Type**: QUICK_REPLY / URL BUTTON  
+
+### Telugu (te)
+```text
+నమస్తే {{1}} 💼, {{2}} లో ఖరీదైన ఏజెన్సీలకు వేల రూపాయలు చెల్లించకండి! సేల్స్ స్టాఫ్, క్యాషియర్లు, వంటవారు, డ్రైవర్లు, ఆఫీస్ వర్కర్లను డైరెక్ట్గా నియమించుకోండి — 0% ఏజెన్సీ ఫీజు. కేవలం ₹49 తో లేదా 48 గంటల ఉచిత ట్రయల్ తో 2 నిమిషాల్లో పోస్ట్ చేయండి 👇
+```
+**CTA Button**: `[ ఇప్పుడే జాబ్ పోస్ట్ చేయండి 📲 ]`
+
+### English (en)
+```text
+Hello {{1}} 💼, Skip expensive hiring agencies in {{2}}! Hire verified sales executives, cashiers, cooks, drivers, & office staff directly on phone — Zero middleman fee. Post your vacancy in 2 mins for just ₹49 (or test risk-free with 48-Hr Free Trial) 👇
+```
+**CTA Button**: `[ Post Job for ₹49 🚀 ]`
+
+---
+
 ## Worker — welcome (Utility, Telugu)
 
 ```

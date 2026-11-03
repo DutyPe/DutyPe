@@ -43,7 +43,7 @@ import com.example.dutype.models.QuickUrgentNeedInput
 
 private val VoicePrimaryNavy = Color(0xFF0F172A)
 private val VoiceEmerald = Color(0xFF10B981)
-private val VoiceSurfaceBg = Color(0xFFF8FAFC)
+private val VoiceSurfaceBg = Color(0xFFFAFFFF)
 private val VoiceBorder = Color(0xFFE2E8F0)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,7 +111,7 @@ fun VoiceJobPostingBottomSheet(
             onDismiss()
         },
         sheetState = sheetState,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
             Box(
@@ -693,7 +693,7 @@ fun VoiceJobTriggerCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, VoiceBorder.bd()),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -778,7 +778,7 @@ fun VoiceLanguagePickerBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
             Box(
@@ -843,7 +843,7 @@ fun VoiceLanguagePickerBottomSheet(
                         onDismiss()
                     },
                     shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFF8FAFC).bg(),
+                    color = Color(0xFFF7F7F7).bg(),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     modifier = Modifier
                         .fillMaxWidth()

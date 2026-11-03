@@ -66,7 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
 // Employer Support design palette
-private val SupportBg = Color(0xFFF8FAFC)
+private val SupportBg = Color(0xFFFAFFFF)
 private val SupportBorder = Color(0xFFE2E8F0)
 private val SupportDivider = Color(0xFFF1F5F9)
 private val SupportBlue = Color(0xFF2563EB)

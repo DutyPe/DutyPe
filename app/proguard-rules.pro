@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # DutyPe Production R8 / ProGuard Configuration
 # =============================================================================
 # Follows Google Android Developer Best Practices for Code Shrinking:
@@ -277,3 +277,16 @@
 -dontwarn org.openjsse.**
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn java.beans.**
+
+
+# -----------------------------------------------------------------------------
+# Razorpay Checkout SDK
+# -----------------------------------------------------------------------------
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepattributes JavascriptInterface
+-keep class com.razorpay.** { *; }
+-keepclassmembers class com.razorpay.** { *; }
+-dontwarn com.razorpay.**
+-keep class com.example.dutype.payment.** { *; }

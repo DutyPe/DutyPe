@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifySubscriptionPayment = exports.DEFAULT_PLANS = void 0;
+exports.planById = planById;
 /**
  * Employer subscriptions. The employer pays by UPI and uploads proof
  * (subscription_payment_requests, client-created as PENDING); an admin verifies it here and the

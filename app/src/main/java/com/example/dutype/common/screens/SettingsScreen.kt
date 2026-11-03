@@ -246,23 +246,7 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
             }
-            // Section 1: Account
-            AirbnbSectionHeader(title = stringResource(R.string.settings_account))
-            AirbnbActionRow(
-                iconRes = R.drawable.ic_profile_person,
-                title = stringResource(R.string.edit_profile),
-                onClick = openEditProfile
-            )
-            AirbnbHairlineDivider()
-            AirbnbInfoRow(
-                iconRes = R.drawable.ic_profile_person,
-                title = stringResource(R.string.phone_number),
-                value = if (phoneNumber.isBlank()) "—" else phoneNumber,
-                onClick = openEditProfile
-            )
-
-            // Section 2: Preferences
-            AirbnbSectionHeader(title = stringResource(R.string.settings_preferences))
+            // Preferences
             val themeViewModel: ThemeModeViewModel = hiltViewModel()
             val themeMode = LocalThemeMode.current
             val systemDark = isSystemInDarkTheme()
@@ -276,11 +260,12 @@ fun SettingsScreen(
                     themeViewModel.setMode(if (on) ThemeMode.DARK else ThemeMode.LIGHT)
                 }
             )
-            AirbnbHairlineDivider()
             AirbnbLanguageRow()
 
-            // Section 3: Notifications
-            AirbnbSectionHeader(title = stringResource(R.string.notifications))
+            // Divider between sections
+            AirbnbHairlineDivider()
+
+            // Notifications
             var pushEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_PUSH_ENABLED)) }
             var whatsappEnabled by remember { mutableStateOf(false) }
             var whatsappBusy by remember { mutableStateOf(false) }
@@ -300,7 +285,6 @@ fun SettingsScreen(
                     writeSettingsFlag(context, KEY_PUSH_ENABLED, on)
                 }
             )
-            AirbnbHairlineDivider()
             AirbnbSwitchRow(
                 iconRes = R.drawable.ic_profile_message,
                 title = stringResource(R.string.whatsapp_alerts),
@@ -321,29 +305,37 @@ fun SettingsScreen(
                 }
             )
 
-            // Section 4: Legal & Policies
-            AirbnbSectionHeader(title = stringResource(R.string.settings_legal))
+            // Divider between sections
+            AirbnbHairlineDivider()
+
+            // Legal & Policies
             AirbnbActionRow(
                 iconRes = R.drawable.ic_profile_hand_privacy,
                 title = stringResource(R.string.privacy_policy),
                 onClick = { navController.navigate(Routes.PRIVACY_POLICY) }
             )
-            AirbnbHairlineDivider()
             AirbnbActionRow(
                 iconRes = R.drawable.ic_profile_legal_book,
                 title = stringResource(R.string.terms_of_service),
                 onClick = { navController.navigate(Routes.TERMS_OF_SERVICE) }
             )
+            AirbnbActionRow(
+                iconRes = R.drawable.ic_profile_help,
+                title = stringResource(R.string.guide_entry),
+                onClick = {
+                    val roleStr = if (userRoleStr == "EMPLOYER") com.example.dutype.guidelines.GuidelineRole.EMPLOYER else com.example.dutype.guidelines.GuidelineRole.WORKER
+                    navController.navigate(Routes.guidelinesRoute(roleStr))
+                }
+            )
 
-            // Section 5: Account Actions (Logout & Delete)
+            // Account Actions (Logout & Delete)
             if (currentUser != null) {
-                AirbnbSectionHeader(title = "Account Management")
+                AirbnbHairlineDivider()
                 AirbnbActionRow(
                     iconRes = R.drawable.ic_profile_logout_door,
                     title = stringResource(R.string.log_out),
                     onClick = { showLogoutDialog = true }
                 )
-                AirbnbHairlineDivider()
                 AirbnbActionRow(
                     iconRes = R.drawable.ic_profile_logout_door,
                     title = stringResource(R.string.delete_account),
@@ -457,7 +449,7 @@ private fun AirbnbSectionHeader(title: String) {
 @Composable
 private fun AirbnbHairlineDivider() {
     HorizontalDivider(
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp),
+        modifier = Modifier.padding(horizontal = 20.5.dp, vertical = 12.dp),
         thickness = 0.8.dp,
         color = AirbnbDividerColor.bd()
     )
@@ -479,23 +471,23 @@ private fun AirbnbActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (iconRes != null) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg(),
-                modifier = Modifier.size(26.dp)
+                tint = if (isDestructive) AirbnbDangerColor.fg() else Color(0xFF2B2B2B).fg(),
+                modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg(),
-                modifier = Modifier.size(26.dp)
+                tint = if (isDestructive) AirbnbDangerColor.fg() else Color(0xFF2B2B2B).fg(),
+                modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
         }
@@ -504,7 +496,7 @@ private fun AirbnbActionRow(
             Text(
                 text = title,
                 style = TextStyle(
-                    fontSize = 16.sp,
+                    fontSize = 15.5.sp,
                     fontWeight = FontWeight.Normal,
                     color = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg()
                 )
@@ -527,7 +519,7 @@ private fun AirbnbActionRow(
             painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
             contentDescription = null,
             tint = Color(0xFF717171).fg(),
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(18.5.dp)
         )
     }
 }
@@ -546,14 +538,14 @@ private fun AirbnbInfoRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = AirbnbTitleColor.fg(),
-            modifier = Modifier.size(26.dp)
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
@@ -598,14 +590,14 @@ private fun AirbnbSwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = AirbnbTitleColor.fg(),
-            modifier = Modifier.size(26.dp)
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -708,7 +700,7 @@ private fun AirbnbLanguageRow() {
             painter = painterResource(id = R.drawable.translate_indic_24),
             contentDescription = null,
             tint = AirbnbTitleColor.fg(),
-            modifier = Modifier.size(26.dp)
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
@@ -740,7 +732,7 @@ private fun AirbnbLanguageChip(label: String, active: Boolean, onClick: () -> Un
         modifier = Modifier
             .height(30.dp)
             .clip(RoundedCornerShape(15.dp))
-            .background(if (active) AirbnbTitleColor.bg() else Color(0xFFF7F7F7).bg())
+            .background(if (active) AirbnbTitleColor.bg() else Color.White.bg())
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center

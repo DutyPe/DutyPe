@@ -4,6 +4,7 @@ import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Lock
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -508,7 +509,7 @@ internal fun EmployerUrgentNeedDetailContent(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF8FAFC))
+                    .background(Color(0xFFF7F7F7).bg())
             ) {
                 // 1. YELLOW HERO WITH TITLE, BACK ARROW, LIVE PILL & 4 METRIC CHIPS
                 InstantHiringYellowHero(
@@ -685,8 +686,10 @@ internal fun EmployerUrgentNeedDetailContent(
                             }
                         } else {
                             itemsIndexed(matchedWorkersState.workers, key = { index, w -> "matched_${w.workerId}_$index" }) { _, worker ->
+                                val isRequestClosed = !isLive || !request.status.equals("open", ignoreCase = true)
                                 UrgentMatchedWorkerCard(
                                     isHired = worker.workerId in request.selectedWorkerIds,
+                                    isClosed = isRequestClosed,
                                     isHiring = updatingResponseId == worker.workerId,
                                     onHireWorker = { onHireMatchedWorker?.invoke(worker) },
                                     worker = worker,
@@ -742,6 +745,7 @@ internal fun EmployerUrgentNeedDetailContent(
 internal fun UrgentMatchedWorkerCard(
     worker: MatchedWorker,
     isHired: Boolean = false,
+    isClosed: Boolean = false,
     isHiring: Boolean = false,
     onHireWorker: (() -> Unit)? = null,
     onCallWorker: () -> Unit,
@@ -898,7 +902,7 @@ internal fun UrgentMatchedWorkerCard(
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF8FAFC).bg()
+                    color = Color(0xFFF7F7F7).bg().bg()
                 ) {
                     Row(
                         modifier = Modifier.padding(8.dp),
@@ -941,68 +945,81 @@ internal fun UrgentMatchedWorkerCard(
                 }
             }
 
-            if (isHired) {
+            if (isHired || isClosed) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().height(44.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFDCFCE7)
+                    color = if (isHired) Color(0xFFDCFCE7).bg() else Color(0xFFF1F5F9).bg(),
+                    border = BorderStroke(1.dp, if (isHired) Color(0xFF86EFAC).bd() else Color(0xFFCBD5E1).bd())
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(18.dp))
+                        Icon(
+                            imageVector = if (isHired) Icons.Default.CheckCircle else Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (isHired) Color(0xFF16A34A) else Color(0xFF64748B),
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Worker Hired / Assigned", fontWeight = FontWeight.Bold, color = Color(0xFF16A34A), fontSize = 13.sp)
+                        Text(
+                            text = if (isHired) "Worker Hired · Calling Disabled" else "Position Closed · Calling Disabled",
+                            fontWeight = FontWeight.Bold,
+                            color = if (isHired) Color(0xFF15803D).fg() else Color(0xFF64748B).fg(),
+                            fontSize = 13.sp
+                        )
                     }
                 }
-            } else if (onHireWorker != null) {
-                Button(
-                    onClick = onHireWorker,
-                    enabled = !isHiring,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFBBF24)),
-                    elevation = ButtonDefaults.buttonElevation(0.dp)
-                ) {
-                    if (isHiring) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFF1E293B))
-                    } else {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E293B))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.hire_worker_btn), fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), fontSize = 13.sp)
-                    }
-                }
-            }
-
-            // Action: call or chat with the worker
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onCallWorker,
-                    modifier = Modifier.weight(1f).height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    elevation = ButtonDefaults.buttonElevation(0.dp)
-                ) {
-                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.call_worker), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
-                }
-                if (onChatWorker != null) {
+            } else {
+                if (onHireWorker != null) {
                     Button(
-                        onClick = onChatWorker,
-                        modifier = Modifier.weight(1f).height(44.dp),
+                        onClick = onHireWorker,
+                        enabled = !isHiring,
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFBBF24)),
                         elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
-                        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        if (isHiring) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFF1E293B))
+                        } else {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E293B))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.hire_worker_btn), fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), fontSize = 13.sp)
+                        }
+                    }
+                }
+
+                // Action: call or chat with the worker
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onCallWorker,
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.chat), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(stringResource(R.string.call_worker), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                    }
+                    if (onChatWorker != null) {
+                        Button(
+                            onClick = onChatWorker,
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                            elevation = ButtonDefaults.buttonElevation(0.dp)
+                        ) {
+                            Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.chat), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
                     }
                 }
             }
@@ -1170,7 +1187,7 @@ private fun EmployerUrgentNeedCard(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF8FAFC).bg()
+                        color = Color(0xFFF7F7F7).bg().bg()
                     ) {
                         Text(
                             text = stringResource(R.string.urgent_no_worker_responses),

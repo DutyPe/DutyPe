@@ -46,7 +46,7 @@ $$\text{Platform Fee} = \begin{cases} ₹9 & \text{for bookings } \le ₹149 \te
 
 * **Frictionless Conversion**: ₹9–₹19 is perceived as negligible (less than a cup of tea or auto fare) by homeowners, eliminating checkout drop-off.
 * **Volume Math**: 300 completed bookings daily in Khammam = 9,000 monthly bookings $\times$ ₹15 avg fee = **₹1,35,000 / month** at 98%+ gross margin.
-* **Standardized UPI Rail**: Standardized to `dutypein@ybl` across all payment gateways and QR displays.
+* **Standardized Payment Rail**: Official Razorpay Payment Gateway (UPI, Cards, Netbanking).
 
 ---
 

@@ -260,7 +260,7 @@ fun PostUrgentNeedContent(
                         )
                     }
                 }
-                Toast.makeText(context, context.getString(R.string.location_updated), Toast.LENGTH_SHORT).show()
+                // Location updated silently without toast
                 true
             }
         } catch (_: Exception) {
@@ -288,7 +288,7 @@ fun PostUrgentNeedContent(
         val hasSavedLocation = refreshEmployerLocationState()
         if (locationService.hasLocationPermission()) {
             autoPickEmployerLocation()
-        } else if (!hasSavedLocation) {
+        } else if (!hasSavedLocation || addressText.contains("VDO", ignoreCase = true)) {
             locationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -1084,7 +1084,7 @@ private fun UrgentLocationDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White.bg(),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         title = {
             Text(
                 text = stringResource(R.string.urgent_need_worksite_location),

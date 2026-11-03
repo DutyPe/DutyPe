@@ -78,7 +78,7 @@ private val StitchTrack = Color(0xFFF1F5F9)
 private val StitchBorder = Color(0xFFE2E8F0)
 private val StitchBlue = Color(0xFF2563EB)
 private val StitchLabel = Color(0xFF64748B)
-private val StitchDisabledBg = Color(0xFFF8FAFC)
+private val StitchDisabledBg = Color(0xFFF7F7F7)
 private val StitchFieldValue = Color(0xFF0F172A)
 
 /**
@@ -593,7 +593,7 @@ fun MandatoryEmployerProfileSetupScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = LocalRoleColors.current.screenBackground,
         topBar = {
             if (currentStep == 1) {
                 Column(
@@ -782,7 +782,7 @@ fun MandatoryEmployerProfileSetupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(LocalRoleColors.current.screenBackground)
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp),
@@ -851,7 +851,7 @@ fun MandatoryEmployerProfileSetupScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
-                            .background(Color(0xFFF8FAFC), RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF7F7F7), RoundedCornerShape(14.dp))
                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,

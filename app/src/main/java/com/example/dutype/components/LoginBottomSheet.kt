@@ -32,6 +32,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -81,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.auth.TruecallerLoginButton
 import com.example.dutype.auth.rememberPhoneNumberHintRequester
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -170,10 +175,79 @@ fun LoginBottomSheet(
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var isCheckingProfile by remember { mutableStateOf(false) }
+    var isTruecallerBusy by remember { mutableStateOf(false) }
     val selectedCountryCode = "+91"
 
-    val effectiveTitle = if (title == "Login Required") {
-        if (isTelugu) "లాగిన్ అవసరం" else title
+    val handleTruecallerAuthorized: (String, String) -> Unit = { code, codeVerifier ->
+        isTruecallerBusy = true
+        scope.launch {
+            try {
+                val result = otpViewModel.truecallerExchange(
+                    authorizationCode = code,
+                    codeVerifier = codeVerifier,
+                    role = role.name,
+                    mode = "unified"
+                )
+                result.fold(
+                    onSuccess = { tcResult ->
+                        if (tcResult.allowed && !tcResult.token.isNullOrBlank()) {
+                            profileCompletionViewModel.savePhoneNumber(tcResult.phone)
+                            val resolvedName = tcResult.name.trim().takeIf { it.isNotBlank() && !it.equals("User", ignoreCase = true) } ?: ""
+                            if (resolvedName.isNotBlank()) {
+                                profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                    email = tcResult.email,
+                                    name = resolvedName,
+                                    role = role
+                                )
+                            }
+                            otpViewModel.signInWithTruecaller(tcResult)
+                            isTruecallerBusy = false
+                        } else {
+                            isTruecallerBusy = false
+                            if (tcResult.roleConflict) {
+                                val existingRoleLabel = if (tcResult.existingRole?.contains("EMPLOYER", ignoreCase = true) == true) {
+                                    if (isTelugu) "ఎంప్లాయర్" else "employer"
+                                } else {
+                                    if (isTelugu) "వర్కర్" else "worker"
+                                }
+                                Toast.makeText(
+                                    context,
+                                    if (isTelugu)
+                                        "ఈ నంబర్ ${existingRoleLabel}గా నమోదైంది. దయచేసి ${existingRoleLabel}గా లాగిన్ అవ్వండి."
+                                    else
+                                        "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    if (isTelugu) "ట్రూకాలర్ లాగిన్ విఫలమైంది. దయచేసి OTP తో లాగిన్ అవ్వండి." else "Truecaller login failed. Please use OTP.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    onFailure = { err ->
+                        isTruecallerBusy = false
+                        Timber.e(err, "Truecaller exchange failed")
+                        Toast.makeText(
+                            context,
+                            err.message ?: (if (isTelugu) "ట్రూకాలర్ లాగిన్ విఫలమైంది." else "Truecaller login failed."),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                )
+            } catch (e: Exception) {
+                isTruecallerBusy = false
+                Timber.e(e, "Truecaller login bottom sheet exception")
+                Toast.makeText(context, e.message ?: "Truecaller login failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val defaultAirbnbTitle = if (isTelugu) "లాగిన్ లేదా సైన్ అప్" else "Log in or sign up"
+    val effectiveTitle = if (title.isBlank() || title == "Login Required" || title == "Sign In / Register") {
+        defaultAirbnbTitle
     } else {
         title
     }
@@ -322,16 +396,21 @@ fun LoginBottomSheet(
         },
         sheetState = sheetState,
         dragHandle = null,
-        scrimColor = Color.Black.copy(alpha = 0.32f),
-        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        scrimColor = Color.Black.copy(alpha = 0.45f),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFAFFFF),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         sheetMaxWidth = Dp.Unspecified
     ) {
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val sheetHeight = configuration.screenHeightDp.dp * 0.50f
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-                .padding(bottom = 12.dp),
+                .height(sheetHeight)
+                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -355,7 +434,13 @@ fun LoginBottomSheet(
                 }
             }
 
-            AnimatedContent<Boolean>(
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                AnimatedContent<Boolean>(
                 targetState = !otpState.otpSent,
                 transitionSpec = {
                     slideInHorizontally(
@@ -380,6 +465,11 @@ fun LoginBottomSheet(
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
+                        isTruecallerBusy = isTruecallerBusy,
+                        onTruecallerAuthorized = handleTruecallerAuthorized,
+                        onTruecallerFailed = {
+                            isTruecallerBusy = false
+                        },
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             scope.launch {
@@ -445,6 +535,7 @@ fun LoginBottomSheet(
                     )
                 }
             }
+            }
         }
     }
 }
@@ -459,219 +550,214 @@ private fun PhoneInputContent(
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
+    isTruecallerBusy: Boolean,
+    onTruecallerAuthorized: (String, String) -> Unit,
+    onTruecallerFailed: () -> Unit,
     onContinueClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
-    val policyLinkColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
     val scope = rememberCoroutineScope()
     var hasInteracted by remember { mutableStateOf(false) }
-    var hasRequestedPhoneHint by remember { mutableStateOf(false) }
-    val requestPhoneNumberHint = rememberPhoneNumberHintRequester(
-        onPhoneNumberReceived = { selectedPhoneNumber ->
-            hasInteracted = true
-            onPhoneNumberChange(selectedPhoneNumber)
-        },
-        onUnavailable = { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        }
-    )
+    var isInputFocused by remember { mutableStateOf(false) }
+    val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
 
     val phoneValidationError = remember(phoneNumber, hasInteracted) {
         if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) null
         else ValidationUtils.getPhoneError(phoneNumber, true)
     }
 
+    val isButtonBusy = isCheckingPhone || otpState.isLoading
+
+    val borderColor = when {
+        phoneValidationError != null -> WorkerColors.Error
+        isInputFocused -> if (isDark) Color(0xFF94A3B8) else Color(0xFF222222)
+        else -> if (isDark) Color(0xFF334155) else Color(0xFFD1D5DB)
+    }
+    val inputBg = if (isDark) Color(0xFF1E293B) else Color.White
+    val textPrimaryColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF222222)
+    val placeholderColor = if (isDark) Color(0xFF64748B) else Color(0xFF9CA3AF)
+
+    // Button always active with solid black styling (white in dark mode)
+    val continueBtnContainer = if (isDark) Color.White else Color(0xFF222222)
+    val continueBtnContent = if (isDark) Color(0xFF0F172A) else Color.White
+
+    val handleContinueClick: () -> Unit = {
+        val trimmed = phoneNumber.trim()
+        if (trimmed.isEmpty()) {
+            val msg = if (isTelugu) "దయచేసి ఫోన్ నంబర్ నమోదు చేయండి" else "Please enter phone number"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        } else if (trimmed.length < 10 || !ValidationUtils.isValidIndianPhoneNumber(trimmed)) {
+            val msg = if (isTelugu) "దయచేసి సరైన 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి" else "Please enter a valid 10-digit mobile number"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        } else {
+            onContinueClick()
+        }
+    }
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.Start
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Title with enhanced styling
+        // Centered Airbnb Title
         Text(
-            text = title,
-            style = AppTypography.pageTitle.copy(
+            text = if (title.isNotBlank()) title else (if (isTelugu) "లాగిన్ లేదా సైన్ అప్" else "Log in or sign up"),
+            style = AppTypography.displayTitle.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                letterSpacing = (-0.5).sp
+                fontSize = 22.sp,
+                letterSpacing = (-0.3).sp
             ),
-            color = WorkerColors.TextPrimary
+            color = WorkerColors.TextPrimary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Subtitle with better readability
-        Text(
-            text = subtitle,
-            style = AppTypography.bodyMedium.copy(
-                color = WorkerColors.TextSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Phone input with enhanced visual design
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Country code button - no elevation, clean design
-            Button(
-                onClick = { },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                modifier = Modifier.width(65.dp).height(54.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    contentColor = WorkerColors.TextPrimary
-                ),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, WorkerColors.Border),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 0.dp,
-                    hoveredElevation = 0.dp,
-                    focusedElevation = 0.dp
-                )
-            ) {
-                Text(text = "🇮🇳", fontSize = 20.sp, fontFamily = MeeshoFontFamily)
-            }
-
-            OutlinedTextField(
-                value = phoneNumber,
-                onValueChange = { newValue ->
-                    val filtered = newValue.filter { it.isDigit() }.take(10)
-                    hasInteracted = true
-                    onPhoneNumberChange(filtered)
-                },
-                placeholder = {
-                    Text(
-                        "9876543210",
-                        style = AppTypography.bodyLarge.copy(
-                            color = WorkerColors.TextTertiary,
-                            fontSize = 16.sp
-                        )
-                    )
-                },
-                leadingIcon = {
-                    Text(
-                        selectedCountryCode,
-                        style = AppTypography.bodyLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp
-                        )
-                    )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(56.dp)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused && !hasRequestedPhoneHint && phoneNumber.isBlank()) {
-                            hasRequestedPhoneHint = true
-                            requestPhoneNumberHint()
-                        }
-                    },
-                singleLine = true,
-                isError = phoneValidationError != null,
-                shape = RoundedCornerShape(8.dp),  // Slightly more rounded
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Info,  // Purple when focused
-                    unfocusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Border,
-                    cursorColor = WorkerColors.Info,  // Purple cursor
-                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,  // Pure white when focused
-                    unfocusedContainerColor = WorkerColors.CardBackground
-                ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                textStyle = AppTypography.bodyLarge.copy(fontSize = 16.sp)  // Larger text
-            )
-        }
-
-        if (phoneValidationError != null) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
+        // Clean Phone Input Field with refined 1.dp border (not thick/shocking)
+        // No popup bottom sheet - keyboard displays phone number suggestions natively
+        BasicTextField(
+            value = phoneNumber,
+            onValueChange = { newValue ->
+                val filtered = newValue.filter { it.isDigit() }.take(10)
+                hasInteracted = true
+                onPhoneNumberChange(filtered)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .onFocusChanged { focusState ->
+                    isInputFocused = focusState.isFocused
+                },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Phone,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    handleContinueClick()
+                }
+            ),
+            textStyle = AppTypography.bodyLarge.copy(
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                color = textPrimaryColor
+            ),
+            cursorBrush = SolidColor(if (isDark) Color.White else Color(0xFF222222)),
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(inputBg, RoundedCornerShape(12.dp))
+                        .border(
+                            width = 1.dp,
+                            color = borderColor,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (phoneNumber.isEmpty()) {
+                        Text(
+                            text = if (isTelugu) "ఫోన్ నంబర్" else "Phone number",
+                            style = AppTypography.bodyLarge.copy(
+                                color = placeholderColor,
+                                fontSize = 16.sp
+                            )
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
 
+        if (phoneValidationError != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = phoneValidationError,
+                color = WorkerColors.Error,
+                style = AppTypography.caption,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // DutyPe Consistent Black Continue Button - Always active, informs user if tapped empty
         Button(
-            onClick = onContinueClick,
+            onClick = handleContinueClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (buttonEnabled) WorkerColors.Primary else WorkerColors.ChipBackground,
-                contentColor = if (buttonEnabled) Color.White else WorkerColors.TextTertiary,
-                disabledContainerColor = WorkerColors.ChipBackground,
-                disabledContentColor = WorkerColors.TextTertiary
+                containerColor = continueBtnContainer,
+                contentColor = continueBtnContent,
+                disabledContainerColor = continueBtnContainer,
+                disabledContentColor = continueBtnContent
             ),
             shape = RoundedCornerShape(12.dp),
-            enabled = buttonEnabled,
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 0.dp,
-                pressedElevation = 2.dp,
-                disabledElevation = 0.dp
-            )
+            enabled = !isButtonBusy,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
-            if (isCheckingPhone || otpState.isLoading) {
-                ButtonThreeDotsLoader(dotColor = if (buttonEnabled) Color.White else WorkerColors.TextTertiary)
+            if (isButtonBusy) {
+                ButtonThreeDotsLoader(dotColor = continueBtnContent)
             } else {
-                Text(if (isTelugu) "కొనసాగించండి" else "Continue", style = AppTypography.buttonLarge)
+                Text(
+                    text = if (isTelugu) "కొనసాగించండి" else "Continue",
+                    style = AppTypography.buttonLarge.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = continueBtnContent
+                    )
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Terms and Privacy Policy with clickable links (18+ disclaimer)
-        val termsUrl = com.example.dutype.utils.AppConstants.TERMS_URL
-        val privacyUrl = com.example.dutype.utils.AppConstants.PRIVACY_URL
+        // Highlighted Bottom Section: 'or' Divider + Truecaller 1-Tap Login
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(0.8.dp)
+                    .background(if (isDark) Color(0xFF334155) else Color(0xFFE5E7EB))
+            )
+            Text(
+                text = if (isTelugu) "లేదా" else "or",
+                style = AppTypography.caption.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF717171)
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(0.8.dp)
+                    .background(if (isDark) Color(0xFF334155) else Color(0xFFE5E7EB))
+            )
+        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = if (isTelugu) "కొనసాగించడం ద్వారా, మీరు 18+ సంవత్సరాల వయస్సు కలిగి ఉన్నారని మరియు మా " else "By continuing, you confirm that you are 18+ years of age, and agree to our ",
-                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = if (isTelugu) "సేవా నిబంధనలు" else "Terms",
-                style = AppTypography.caption.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = policyLinkColor
-                ),
-                modifier = Modifier.clickable {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(termsUrl))
-                    context.startActivity(intent)
-                }
-            )
-            Text(
-                text = if (isTelugu) " మరియు " else " and ",
-                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
-            )
-            Text(
-                text = if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy",
-                style = AppTypography.caption.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = policyLinkColor
-                ),
-                modifier = Modifier.clickable {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl))
-                    context.startActivity(intent)
-                }
-            )
-        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Truecaller 1-Tap Login Secondary Button (White button with blue border)
+        TruecallerLoginButton(
+            busy = isTruecallerBusy,
+            onAuthorized = onTruecallerAuthorized,
+            onFailed = onTruecallerFailed,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         AnimatedVisibility(
             visible = otpState.error != null,

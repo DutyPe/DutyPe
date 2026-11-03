@@ -78,10 +78,10 @@ fun employerRoleColors(): RoleColorScheme = RoleColorScheme(
  * publish a dark-mode-aware scheme.
  */
 private val FallbackWorkerRoleColors = RoleColorScheme(
-    screenBackground = Color(0xFFFFFFFF),
+    screenBackground = Color(0xFFFAFFFF),
     cardBackground = Color(0xFFFFFFFF),
-    secondaryBackground = Color(0xFFFFFFFF),
-    statusBar = Color(0xFFFFFFFF),
+    secondaryBackground = Color(0xFFFAFFFF),
+    statusBar = Color(0xFFFAFFFF),
     navigationBar = Color(0xFFFFFFFF),
     primary = Color(0xFF570DF8),
     onPrimary = Color.White,

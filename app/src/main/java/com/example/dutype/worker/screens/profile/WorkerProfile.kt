@@ -286,7 +286,7 @@ fun WorkerProfileScreen(
 
     // Status bar color - White for profile screen
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color(0xFFF8FAFC))
+        onStatusBarColorChange(Color.White)
         delay(200)
         isVisible = true
     }
@@ -432,7 +432,7 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 // Flat, fully white page (no cards) — also behind the status bar.
-                .background(Color.White.bg())
+                .background(Color(0xFFFAFFFF).bg())
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             // Offline banner at the very top
@@ -480,19 +480,19 @@ fun WorkerProfileScreen(
                 }
             }
 
-            // Top bar: Account title matching Employer profile header (Language & WhatsApp icons removed)
+            // Top bar matching Airbnb Profile Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 20.5.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 androidx.compose.material3.Text(
-                    text = androidx.compose.ui.res.stringResource(R.string.emp_profile_account),
-                    color = androidx.compose.ui.graphics.Color(0xFF0F172A).fg(),
-                    fontSize = 20.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    text = androidx.compose.ui.res.stringResource(R.string.profile),
+                    color = Color(0xFF222222).fg(),
+                    fontSize = 32.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    letterSpacing = (-0.5).sp
                 )
             }
 
@@ -513,10 +513,13 @@ fun WorkerProfileScreen(
                             .cascadeEnter(index = 0)
                             .bouncyClickable {
                                 if (isLoggedIn) openProfileDetails()
-                                else rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                else {
+                                    pendingMenuAction = "profile"
+                                    showLoginBottomSheet = true
+                                }
                             },
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -1079,53 +1082,71 @@ private fun profileTextStyle(size: TextUnit, weight: FontWeight, color: Color) =
 private fun ProfileListRow(
     title: String,
     onClick: () -> Unit,
-    icon: ImageVector? = null,
     iconRes: Int? = null,
-    showStars: Boolean = false
+    icon: ImageVector? = null,
+    showStars: Boolean = false,
+    pill: String? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
-            .bouncyClickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (iconRes != null) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(23.dp)
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF2B2B2B),
+                modifier = Modifier.size(24.dp)
             )
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(23.dp)
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF2B2B2B),
+                modifier = Modifier.size(24.dp)
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(
+                15.5.sp,
+                FontWeight.Normal,
+                if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)
+            ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
         if (showStars) {
             Text(
-                text = "\u2605\u2605\u2605\u2605\u2605",
-                style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFFF59E0B).fg())
+                text = "★★★★★",
+                style = profileTextStyle(12.sp, FontWeight.Normal, Color(0xFFF59E0B).fg())
             )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        if (!pill.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFFEF3C7).bg())
+                    .padding(horizontal = 9.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = pill,
+                    style = profileTextStyle(12.sp, FontWeight.Bold, Color(0xFFD97706).fg())
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
         }
         Icon(
             painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
             contentDescription = null,
-            tint = Color(0xFF717171),
-            modifier = Modifier.size(18.dp)
+            tint = Color(0xFF717171).fg(),
+            modifier = Modifier.size(18.5.dp)
         )
     }
 }
@@ -1194,112 +1215,59 @@ private fun ProfileSettingsCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 0.dp)
     ) {
-        // Section 1: Work & Earnings
-        Text(
-            text = "Work & Earnings",
-            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
+        // Section 1: Work & Earnings (No section title, no row dividers)
         ProfileListRow(
             title = stringResource(R.string.work_history),
             onClick = onWorkHistory,
             iconRes = R.drawable.ic_profile_history
         )
-        ProfileRowDivider()
         ProfileListRow(
             title = stringResource(R.string.my_earnings),
             onClick = onEarnings,
             iconRes = R.drawable.ic_profile_wallet
         )
-        ProfileRowDivider()
         ProfileListRow(
             title = stringResource(R.string.emp_profile_help_desk),
             onClick = onHelp,
             iconRes = R.drawable.ic_profile_help
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Section 2: Referral
-        Text(
-            text = "Referral",
-            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
-            modifier = Modifier.padding(bottom = 8.dp)
+        // Section Divider
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 20.5.dp, vertical = 12.dp),
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd()
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .bouncyClickable(onClick = onReferEarn)
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_profile_gift),
-                contentDescription = null,
-                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(23.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = stringResource(R.string.refer_earn),
-                style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
-                modifier = Modifier.weight(1f)
-            )
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFFEF3C7).bg())
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Text(
-                    text = "₹100",
-                    style = profileTextStyle(11.sp, FontWeight.Bold, Color(0xFFD97706).fg())
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
-                contentDescription = null,
-                tint = Color(0xFF717171),
-                modifier = Modifier.size(18.dp)
-            )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Section 3: Settings & About
-        Text(
-            text = "Settings & About",
-            style = profileTextStyle(14.sp, FontWeight.SemiBold, Color(0xFF475569).fg()),
-            modifier = Modifier.padding(bottom = 8.dp)
+        // Section 2: Referral (No section title, no row dividers)
+        ProfileListRow(
+            title = stringResource(R.string.refer_earn),
+            onClick = onReferEarn,
+            iconRes = R.drawable.ic_profile_gift,
+            pill = "₹100"
         )
+
+        // Section Divider
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 20.5.dp, vertical = 12.dp),
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd()
+        )
+
+        // Section 3: Settings & Feedback (No section title, no row dividers, Safety & rules removed)
         ProfileListRow(
             title = stringResource(R.string.settings),
             onClick = onSettings,
             iconRes = R.drawable.ic_profile_settings
         )
-        ProfileRowDivider()
-        ProfileListRow(
-            title = stringResource(R.string.guide_entry),
-            onClick = onGuidelines,
-            iconRes = R.drawable.ic_profile_help
-        )
-        ProfileRowDivider()
         ProfileListRow(
             title = stringResource(R.string.about_nav_rate_playstore),
             onClick = onRateApp,
             iconRes = R.drawable.ic_profile_star,
             showStars = true
         )
-        ProfileRowDivider()
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

@@ -1,13 +1,17 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.navigation.Routes
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import androidx.compose.runtime.LaunchedEffect
 import com.example.dutype.models.formatPaise
 import com.dutype.app.R
+import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
+import com.example.dutype.payment.RazorpayPaymentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -46,6 +50,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -96,7 +102,7 @@ private val Ink400 = Color(0xFF94A3B8)
 private val Hairline = Color(0xFFE2E8F0)
 private val SurfaceMuted = Color(0xFFFFFFFF)
 private val Danger = Color(0xFFEF4444)
-private val ScreenBg = Color(0xFFFFFFFF)
+private val ScreenBg = Color(0xFFFAFFFF)
 private val BlueAccent = Color(0xFF2563EB)
 private val BlueSoft = Color(0xFFEFF6FF)
 private val RingTrack = Color(0xFF1E293B)
@@ -191,6 +197,7 @@ private fun planButtonLabel(plan: Plan, isCurrent: Boolean): String = when {
 @Composable
 fun EmployerSubscriptionScreen(
     navController: NavController,
+    rootNavController: NavController? = null,
     isExtension: Boolean = false,
     viewModel: SubscriptionViewModel = hiltViewModel()
 ) {
@@ -208,28 +215,52 @@ fun EmployerSubscriptionScreen(
     val dateTimeFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
-    var selectedPlan by remember { mutableStateOf<com.example.dutype.models.Plan?>(null) }
-    var showPaymentSheet by remember { mutableStateOf(false) }
+    var isProcessingPayment by remember { mutableStateOf(false) }
+    var paymentProcessingMessage by remember { mutableStateOf("Connecting to Razorpay...") }
+    var successfulSubscription by remember { mutableStateOf<Triple<String, String, Long>?>(null) } // (planName, paymentId, amountRupees)
 
-    var utrNumber by remember { mutableStateOf("") }
-    var screenshotUrl by remember { mutableStateOf("") }
-    var isUploadingScreenshot by remember { mutableStateOf(false) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val razorpayLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val paymentId = data?.getStringExtra(RazorpayPaymentActivity.EXTRA_PAYMENT_ID).orEmpty()
+            val orderId = data?.getStringExtra(RazorpayPaymentActivity.EXTRA_ORDER_ID_RES).orEmpty()
+            val signature = data?.getStringExtra(RazorpayPaymentActivity.EXTRA_SIGNATURE).orEmpty()
 
-    val screenshotPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            selectedImageUri = uri
-        }
-    }
+            if (paymentId.isNotBlank() && orderId.isNotBlank() && signature.isNotBlank()) {
+                isProcessingPayment = true
+                paymentProcessingMessage = "Verifying payment with bank & activating plan..."
 
-    LaunchedEffect(submitState) {
-        if (submitState is SubmitState.Success) {
-            utrNumber = ""
-            screenshotUrl = ""
-            selectedImageUri = null
-            showPaymentSheet = false
+                viewModel.verifyRazorpayPayment(
+                    orderId = orderId,
+                    paymentId = paymentId,
+                    signature = signature,
+                    type = "SUBSCRIPTION",
+                    onSuccess = {
+                        isProcessingPayment = false
+                        viewModel.loadPurchaseData()
+                        viewModel.loadPlans()
+                        val currentSub = viewModel.activeSubscription.value
+                        val activePlan = plans.find { it.id == currentSub.planId }
+                        successfulSubscription = Triple(activePlan?.name ?: "Subscription Plan", paymentId, activePlan?.priceRupees ?: 0L)
+                    },
+                    onError = { err ->
+                        isProcessingPayment = false
+                        Toast.makeText(context, "Verification failed: $err", Toast.LENGTH_LONG).show()
+                    }
+                )
+            } else {
+                isProcessingPayment = false
+                Toast.makeText(context, "Payment details missing from gateway response", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            isProcessingPayment = false
+            val data = result.data
+            val err = data?.getStringExtra(RazorpayPaymentActivity.EXTRA_ERROR_MESSAGE)
+                ?: "Payment was cancelled"
+            timber.log.Timber.w("Razorpay payment cancelled or dismissed: $err")
+            Toast.makeText(context, "Payment cancelled. No amount was deducted.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -282,9 +313,37 @@ fun EmployerSubscriptionScreen(
                     currentPlanId = subState.planId,
                     hasActiveSub = hasActiveSub,
                     onProceed = { plan ->
-                        selectedPlan = plan
-                        viewModel.resetSubmitState()
-                        showPaymentSheet = true
+                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (currentUser == null) {
+                            Toast.makeText(context, "Please login first to subscribe", Toast.LENGTH_SHORT).show()
+                        } else {
+                            isProcessingPayment = true
+                            paymentProcessingMessage = "Creating secure Razorpay order..."
+
+                            viewModel.createRazorpayOrder(
+                                planId = plan.id,
+                                type = "SUBSCRIPTION",
+                                amountRupees = plan.priceRupees.toInt(),
+                                onReady = { order ->
+                                    paymentProcessingMessage = "Opening Razorpay payment gateway..."
+                                    val intent = RazorpayPaymentActivity.createIntent(
+                                        context = context,
+                                        orderId = order.orderId,
+                                        amountPaise = order.amountPaise,
+                                        planName = plan.name,
+                                        userPhone = currentUser.phoneNumber.orEmpty(),
+                                        userEmail = currentUser.email.orEmpty(),
+                                        keyId = order.keyId
+                                    )
+                                    razorpayLauncher.launch(intent)
+                                    isProcessingPayment = false
+                                },
+                                onError = { err ->
+                                    isProcessingPayment = false
+                                    Toast.makeText(context, "Order creation failed: $err", Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
                     },
                     onTalkToSales = { openSalesContact(context) }
                 )
@@ -339,337 +398,136 @@ fun EmployerSubscriptionScreen(
         }
     }
 
-    // Professional UPI Payment Gateway Bottom Sheet
-    if (showPaymentSheet && selectedPlan != null) {
-        val plan = selectedPlan!!
-        val currentPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
-        val employerProfile = viewModel.employer.value
-        val employerDisplayName = employerProfile?.businessName?.ifBlank { employerProfile.ownerName }.orEmpty()
-
-        ModalBottomSheet(
-            onDismissRequest = { showPaymentSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            scrimColor = Color.Black.copy(alpha = 0.45f),
-            dragHandle = null,
-            containerColor = Color.White
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
-                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+    // Processing Dialog
+    if (isProcessingPayment) {
+        Dialog(onDismissRequest = {}) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(8.dp)
             ) {
-                // Header: DutyPe Secure Checkout
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    CircularProgressIndicator(
+                        color = Color(0xFF0A66C2),
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 3.dp
+                    )
+                    Text(
+                        text = paymentProcessingMessage,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+            }
+        }
+    }
+
+    // Success Celebration Dialog
+    if (successfulSubscription != null) {
+        val (planTitle, paymentId, amount) = successfulSubscription!!
+        AlertDialog(
+            onDismissRequest = { successfulSubscription = null },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White,
+            title = null,
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDCFCE7)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFF1F5F9)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF0F172A),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "DutyPe Secure Checkout",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = "Instant UPI Payment Rail",
-                                fontSize = 11.5.sp,
-                                color = Color(0xFF64748B)
-                            )
-                        }
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(38.dp)
+                        )
                     }
-                    IconButton(onClick = { showPaymentSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+
+                    Text(
+                        text = "Payment Successful! 🎉",
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        fontFamily = MeeshoFontFamily
+                    )
+
+                    Text(
+                        text = "₹$amount paid successfully via Razorpay",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF15803D)
+                    )
+
+                    Text(
+                        text = "Your $planTitle is active immediately! You now have full access to candidate contact unlocks and priority job posts.",
+                        fontSize = 12.5.sp,
+                        color = Color(0xFF475569),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFF1F5F9),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Payment ID: $paymentId",
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(6.dp)
+                        )
                     }
                 }
-
-                // 1. Order Summary Card
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = plan.name,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A)
-                                )
-                                Text(
-                                    text = "${plan.jobs} Job Posts • ${plan.instantUnlocks} Contact Unlocks • ${plan.validityDays} Days",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF64748B)
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = "₹${plan.priceRupees}",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF0F172A)
-                                )
-                                Text(
-                                    text = "All inclusive",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF16A34A),
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 2. Official Payee Assurance Banner (Payee: Banoth Vamsi)
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFEFF6FF),
-                    border = BorderStroke(1.dp, Color(0xFFBFDBFE))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF2563EB)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Payee: ",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF1E40AF)
-                                )
-                                Text(
-                                    text = "BANOTH VAMSI",
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1E3A8A)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "• Official Account",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF2563EB),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Text(
-                                text = "Your UPI app will show 'Banoth Vamsi'. Please complete payment without worry.",
-                                fontSize = 11.sp,
-                                color = Color(0xFF3B82F6),
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
-                }
-
-                // 3. 1-Click Pay via Any UPI App (Direct Intent, Zero Friction)
+            },
+            confirmButton = {
                 Button(
                     onClick = {
-                        val refCode = "DP${(System.currentTimeMillis() % 1000000)}"
-                        val upiUri = Uri.parse(
-                            "upi://pay?pa=dutypein@ybl&pn=${Uri.encode("Banoth Vamsi")}&am=${plan.priceRupees}&cu=INR&tn=${Uri.encode("DutyPe Plan ₹${plan.priceRupees} - $currentPhone")}&tr=$refCode"
-                        )
-                        val upiIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, upiUri)
+                        successfulSubscription = null
                         try {
-                            context.startActivity(upiIntent)
-                        } catch (_: Exception) {
-                            Toast.makeText(context, "No UPI app found. Please pay to dutypein@ybl", Toast.LENGTH_LONG).show()
+                            navController.navigate(Routes.EMPLOYER_POST_JOB) {
+                                popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        } catch (e: Exception) {
+                            navController.popBackStack()
                         }
-                        // Automatically record the payment initiation with employer details! Zero UTR/Screenshot friction!
-                        viewModel.recordUpiPaymentInitiated(
-                            plan = plan,
-                            referenceId = refCode,
-                            employerName = employerDisplayName,
-                            employerPhone = currentPhone
-                        )
-                        showPaymentSheet = false
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
                 ) {
-                    Text(
-                        text = "⚡ Pay ₹${plan.priceRupees} via UPI (GPay / PhonePe / Paytm)",
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    Text("🚀 Post Vacancy Now", fontWeight = FontWeight.Bold, color = Color.White)
                 }
-
-                // 4. Copy UPI ID and Security Trust Strip
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFF8FAFC), RoundedCornerShape(10.dp))
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { successfulSubscription = null },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = "UPI ID: dutypein@ybl",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            color = Color(0xFF334155)
-                        )
-                    }
-                    Text(
-                        text = "Copy",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color(0xFF2563EB),
-                        modifier = Modifier
-                            .clickable {
-                                clipboardManager.setText(AnnotatedString("dutypein@ybl"))
-                                Toast.makeText(context, "UPI ID copied: dutypein@ybl", Toast.LENGTH_SHORT).show()
-                            }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-
-                // Optional Manual UTR Toggle
-                var showManualUtr by remember { mutableStateOf(false) }
-                Text(
-                    text = if (showManualUtr) "▲ Hide manual UTR" else "▼ Enter UTR manually (Optional)",
-                    fontSize = 12.sp,
-                    color = Color(0xFF64748B),
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showManualUtr = !showManualUtr }
-                        .padding(vertical = 4.dp)
-                )
-
-                if (showManualUtr) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = utrNumber,
-                            onValueChange = { if (it.length <= 12 && it.all { c -> c.isDigit() }) utrNumber = it },
-                            placeholder = { Text("12-digit UTR", fontSize = 12.sp) },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        Button(
-                            onClick = {
-                                if (utrNumber.length == 12) {
-                                    viewModel.submitPayment(plan, utrNumber, "")
-                                    showPaymentSheet = false
-                                } else {
-                                    Toast.makeText(context, "Please enter 12-digit UTR", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
-                        ) {
-                            Text("Submit", fontSize = 12.sp)
-                        }
-                    }
+                    Text("View Active Subscription", color = Color(0xFF475569))
                 }
             }
-        }
+        )
     }
 
-    if (submitState is SubmitState.Success) {
-        Dialog(onDismissRequest = { viewModel.resetSubmitState() }) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Success",
-                        tint = Success.fg(),
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text(
-                        text = "Payment Initiated Successfully!",
-                        style = AppTypography.displayTitle.copy(fontWeight = FontWeight.Bold, color = Ink900.fg()),
-                        textAlign = TextAlign.Center,
-                        fontFamily = MeeshoFontFamily
-                    )
-                    Text(
-                        text = "Your payment to Banoth Vamsi (DutyPe) has been recorded. Our team will verify and activate your credits within 2-5 minutes!",
-                        style = AppTypography.bodySmall.copy(color = Ink500.fg()),
-                        textAlign = TextAlign.Center
-                    )
-                    Button(
-                        onClick = {
-                            viewModel.resetSubmitState()
-                            navController.popBackStack()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
-                    ) {
-                        Text("Go to Dashboard", fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
 }
 
 // =============================================================================
@@ -844,14 +702,21 @@ private fun CurrentPlanCard(
     val contactLimit = maxOf(plan?.instantUnlocks ?: 0, remainingContacts)
     val contactUsed = (contactLimit - remainingContacts).coerceAtLeast(0)
 
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .background(Color.White, RoundedCornerShape(20.dp))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp))
-            .padding(20.dp)
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = BorderStroke(1.2.dp, Color(0xFF86EFAC)),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF0FDF4))))
+                .padding(20.dp)
+        ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -903,41 +768,57 @@ private fun CurrentPlanCard(
             }
         }
     }
+    }
 }
 
 @Composable
 private fun NoPlanCard(aiStatus: String) {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .background(Color.White, RoundedCornerShape(20.dp))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp))
-            .padding(20.dp)
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF7F7F7))))
+                .padding(20.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.sub_no_active_plan),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = stringResource(R.string.sub_choose_plan_desc),
-                    fontSize = 12.5.sp,
-                    color = Color(0xFF64748B),
-                    lineHeight = 17.sp
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.sub_no_active_plan),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        fontFamily = MeeshoFontFamily
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = stringResource(R.string.sub_choose_plan_desc),
+                        fontSize = 12.5.sp,
+                        color = Color(0xFF64748B),
+                        lineHeight = 17.sp
+                    )
+                }
+
             }
+
         }
+
     }
+
 }
+
+
 
 private fun carouselStartPage(plans: List<Plan>, currentPlanId: String, hasActiveSub: Boolean): Int {
     if (hasActiveSub) {
@@ -1009,14 +890,172 @@ private fun PagerDots(total: Int, current: Int) {
     }
 }
 
+private data class PlanStyle(
+    val cardGradient: Brush,
+    val borderBrush: Brush,
+    val borderWidth: Dp,
+    val badgeBg: Color,
+    val badgeBorder: Color,
+    val badgeText: Color,
+    val checkColor: Color,
+    val checkBgColor: Color,
+    val buttonBrush: Brush,
+    val buttonTextColor: Color,
+    val elevation: Dp
+)
+
+private fun getPlanStyle(plan: Plan, isRecommended: Boolean): PlanStyle {
+    val price = plan.priceRupees
+    return when {
+        isRecommended || plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || price in 100..250 -> {
+            // Hero / Launch Pass: Radiant Blue-Indigo Glassmorphism with Glowing Border
+            PlanStyle(
+                cardGradient = Brush.verticalGradient(
+                    listOf(
+                        Color(0xFFFFFFFF),
+                        Color(0xFFF0F7FF),
+                        Color(0xFFE2EFFF)
+                    )
+                ),
+                borderBrush = Brush.linearGradient(
+                    listOf(
+                        Color(0xFF2563EB),
+                        Color(0xFF6366F1),
+                        Color(0xFF38BDF8)
+                    )
+                ),
+                borderWidth = 2.dp,
+                badgeBg = Color(0xFFFEF3C7),
+                badgeBorder = Color(0xFFF59E0B),
+                badgeText = Color(0xFFB45309),
+                checkColor = Color(0xFF2563EB),
+                checkBgColor = Color(0xFFDBEAFE),
+                buttonBrush = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF1D4ED8),
+                        Color(0xFF2563EB)
+                    )
+                ),
+                buttonTextColor = Color.White,
+                elevation = 6.dp
+            )
+        }
+        price in 50..99 || plan.id.contains("basic", ignoreCase = true) -> {
+            // Value Pack / Starter Basic: Clean Emerald Fintech
+            PlanStyle(
+                cardGradient = Brush.verticalGradient(
+                    listOf(
+                        Color(0xFFFFFFFF),
+                        Color(0xFFF0FDF4),
+                        Color(0xFFDCFCE7)
+                    )
+                ),
+                borderBrush = Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF86EFAC),
+                        Color(0xFF4ADE80)
+                    )
+                ),
+                borderWidth = 1.5.dp,
+                badgeBg = Color(0xFFDCFCE7),
+                badgeBorder = Color(0xFF86EFAC),
+                badgeText = Color(0xFF15803D),
+                checkColor = Color(0xFF16A34A),
+                checkBgColor = Color(0xFFDCFCE7),
+                buttonBrush = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF0F172A),
+                        Color(0xFF1E293B)
+                    )
+                ),
+                buttonTextColor = Color.White,
+                elevation = 3.dp
+            )
+        }
+        price > 250 || plan.id.contains("pro", ignoreCase = true) -> {
+            // Business Pro / Unlimited: Royal Amethyst Glass
+            PlanStyle(
+                cardGradient = Brush.verticalGradient(
+                    listOf(
+                        Color(0xFFFFFFFF),
+                        Color(0xFFFAF5FF),
+                        Color(0xFFF3E8FF)
+                    )
+                ),
+                borderBrush = Brush.linearGradient(
+                    listOf(
+                        Color(0xFFC084FC),
+                        Color(0xFF8B5CF6)
+                    )
+                ),
+                borderWidth = 1.5.dp,
+                badgeBg = Color(0xFFF3E8FF),
+                badgeBorder = Color(0xFFD8B4FE),
+                badgeText = Color(0xFF7E22CE),
+                checkColor = Color(0xFF7C3AED),
+                checkBgColor = Color(0xFFF3E8FF),
+                buttonBrush = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF4338CA),
+                        Color(0xFF6366F1)
+                    )
+                ),
+                buttonTextColor = Color.White,
+                elevation = 4.dp
+            )
+        }
+        else -> {
+            // Single Job: Minimalist Modern Slate Glass
+            PlanStyle(
+                cardGradient = Brush.verticalGradient(
+                    listOf(
+                        Color(0xFFFFFFFF),
+                        Color(0xFFF7F7F7),
+                        Color(0xFFF1F5F9)
+                    )
+                ),
+                borderBrush = Brush.verticalGradient(
+                    listOf(
+                        Color(0xFFCBD5E1),
+                        Color(0xFF94A3B8)
+                    )
+                ),
+                borderWidth = 1.2.dp,
+                badgeBg = Color(0xFFEFF6FF),
+                badgeBorder = Color(0xFFBFDBFE),
+                badgeText = Color(0xFF2563EB),
+                checkColor = Color(0xFF2563EB),
+                checkBgColor = Color(0xFFEFF6FF),
+                buttonBrush = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF0F172A),
+                        Color(0xFF1E293B)
+                    )
+                ),
+                buttonTextColor = Color.White,
+                elevation = 2.dp
+            )
+        }
+    }
+}
+
 @Composable
-private fun PlanBadgePill(tag: String) {
-    val (bgColor, borderColor, textColor) = when (tag) {
+private fun PlanBadgePill(
+    tag: String,
+    customBg: Color? = null,
+    customBorder: Color? = null,
+    customText: Color? = null
+) {
+    val (defaultBg, defaultBorder, defaultText) = when (tag) {
         "Most Popular", "RECOMMENDED" -> Triple(Color(0xFFFEF3C7), Color(0xFFFCD34D), Color(0xFFD97706))
         "Instant Hire" -> Triple(Color(0xFFEFF6FF), Color(0xFFBFDBFE), Color(0xFF2563EB))
         "Value Pack" -> Triple(Color(0xFFECFDF5), Color(0xFFA7F3D0), Color(0xFF059669))
         else -> Triple(Color(0xFFF5F3FF), Color(0xFFDDD6FE), Color(0xFF7C3AED))
     }
+    val bgColor = customBg ?: defaultBg
+    val borderColor = customBorder ?: defaultBorder
+    val textColor = customText ?: defaultText
+
     Box(
         modifier = Modifier
             .background(bgColor, RoundedCornerShape(50))
@@ -1039,18 +1078,38 @@ private fun PopularPill() {
 }
 
 @Composable
-private fun PlanBullets(benefits: List<AnnotatedString>, checkColor: Color) {
+private fun PlanBullets(
+    benefits: List<AnnotatedString>,
+    checkColor: Color,
+    checkBgColor: Color = checkColor.copy(alpha = 0.12f)
+) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         benefits.forEach { benefit ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = checkColor,
-                    modifier = Modifier.size(16.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(checkBgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = checkColor,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+                Text(
+                    text = benefit,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1E293B),
+                    lineHeight = 17.sp
                 )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(text = benefit, fontSize = 13.5.sp, color = Ink900.fg())
             }
         }
     }
@@ -1065,192 +1124,247 @@ private fun PlanPageCard(
 ) {
     val isFree = plan.pricePaise <= 0L
     val benefits = planBenefits(plan)
-    val cardShape = RoundedCornerShape(16.dp)
-    Column(
+    val style = getPlanStyle(plan, isRecommended)
+    val cardShape = RoundedCornerShape(22.dp)
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(520.dp)
-            .background(Color.White.bg(), cardShape)
-            .border(
-                if (isRecommended) 2.dp else 1.dp,
-                if (isRecommended) Ink900.bd() else Hairline.bd(),
-                cardShape
-            )
-            .padding(20.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .height(525.dp),
+        shape = cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = style.elevation),
+        border = BorderStroke(style.borderWidth, style.borderBrush),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Column {
-            val badgeText = when {
-                plan.tag.isNotBlank() -> plan.tag
-                isRecommended || plan.priceRupees in 100..250 -> "Most Popular"
-                plan.priceRupees <= 49 -> "Instant Hire"
-                plan.priceRupees <= 99 -> "Value Pack"
-                else -> "Best Value"
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = plan.name.uppercase(),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlanTitleInk.fg()
-                )
-                PlanBadgePill(badgeText)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = planTagline(plan),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Ink700.fg()
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = planSummary(plan),
-                fontSize = 11.5.sp,
-                color = Ink500.fg(),
-                lineHeight = 15.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlanTitleInk.fg()
-                )
-                if (!isFree && plan.originalPriceRupees > plan.priceRupees) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(style.cardGradient)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                val badgeText = when {
+                    plan.tag.isNotBlank() -> plan.tag
+                    isRecommended || plan.priceRupees in 100..250 -> "Most Popular"
+                    plan.priceRupees <= 49 -> "Instant Hire"
+                    plan.priceRupees <= 99 -> "Value Pack"
+                    else -> "Best Value"
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "\u20B9${plan.originalPriceRupees}",
-                        fontSize = 15.sp,
-                        color = Ink400.fg(),
-                        style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                        text = plan.name.uppercase(),
+                        fontSize = 17.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        fontFamily = MeeshoFontFamily
                     )
-                    Surface(
-                        color = Color(0xFFDCFCE7),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
+                    PlanBadgePill(
+                        tag = badgeText,
+                        customBg = style.badgeBg,
+                        customBorder = style.badgeBorder,
+                        customText = style.badgeText
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = planTagline(plan),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = planSummary(plan),
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 15.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        fontFamily = MeeshoFontFamily
+                    )
+                    if (!isFree && plan.originalPriceRupees > plan.priceRupees) {
                         Text(
-                            text = "${plan.discountPercentage}% OFF",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D),
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            text = "\u20B9${plan.originalPriceRupees}",
+                            fontSize = 15.sp,
+                            color = Color(0xFF94A3B8),
+                            style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                        )
+                        Surface(
+                            color = Color(0xFFDCFCE7),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(0.5.dp, Color(0xFF86EFAC))
+                        ) {
+                            Text(
+                                text = "${plan.discountPercentage}% OFF",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    if (!isFree) {
+                        Text(
+                            text = "/ ${plan.validityDays}d",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B),
+                            modifier = Modifier.padding(start = 2.dp)
                         )
                     }
                 }
-                if (!isFree) {
-                    Text(
-                        text = "/ ${plan.validityDays}d",
-                        fontSize = 12.sp,
-                        color = Ink500.fg(),
-                        modifier = Modifier.padding(start = 2.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            PlanBullets(benefits = benefits, checkColor = if (isFree) Ink400.fg() else BlueAccent.fg())
-        }
-        if (!isFree) {
-            Button(
-                onClick = onProceed,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Ink900.bg(), contentColor = Color.White),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-            ) {
-                Text(
-                    text = planButtonLabel(plan, isCurrent),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                Spacer(modifier = Modifier.height(14.dp))
+                PlanBullets(
+                    benefits = benefits,
+                    checkColor = style.checkColor,
+                    checkBgColor = style.checkBgColor
                 )
             }
-        } else {
-            Spacer(modifier = Modifier.height(1.dp))
+            if (!isFree) {
+                Surface(
+                    onClick = onProceed,
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(style.buttonBrush),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = planButtonLabel(plan, isCurrent),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = style.buttonTextColor
+                        )
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(1.dp))
+            }
         }
     }
 }
 
 @Composable
 private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
-    val cardShape = RoundedCornerShape(16.dp)
-    Column(
+    val cardShape = RoundedCornerShape(22.dp)
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(490.dp)
-            .background(Color.White.bg(), cardShape)
-            .border(1.dp, Hairline.bd(), cardShape)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .height(525.dp),
+        shape = cardShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.2.dp, Brush.verticalGradient(listOf(Color(0xFFCBD5E1), Color(0xFF94A3B8)))),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.enterprise_plan_title),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlanTitleInk.fg()
-                )
-                Box(
-                    modifier = Modifier
-                        .background(Color(0xFFF1F5F9).bg(), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF7F7F7), Color(0xFFF1F5F9))))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "CUSTOM",
-                        fontSize = 10.sp,
+                        text = stringResource(R.string.enterprise_plan_title),
+                        fontSize = 17.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        fontFamily = MeeshoFontFamily
+                    )
+                    PlanBadgePill(
+                        tag = "Custom Pack",
+                        customBg = Color(0xFFF1F5F9),
+                        customBorder = Color(0xFFCBD5E1),
+                        customText = Color(0xFF475569)
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Ideal for: Multi-city chains, staffing firms & large teams",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Custom requirements? Dedicated account manager & SLA",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 15.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = stringResource(R.string.custom_pricing),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A),
+                        fontFamily = MeeshoFontFamily
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                val enterpriseBullets = listOf(
+                    AnnotatedString("Unlimited Job Postings across all states"),
+                    AnnotatedString("Unlimited Direct Candidate Unlocks"),
+                    AnnotatedString("Dedicated Key Account Manager"),
+                    AnnotatedString("Custom GST Invoicing & Corporate Agreement"),
+                    AnnotatedString("Priority 24/7 Phone & WhatsApp Support")
+                )
+                PlanBullets(
+                    benefits = enterpriseBullets,
+                    checkColor = Color(0xFF0A66C2),
+                    checkBgColor = Color(0xFFE8F1FC)
+                )
+            }
+            Surface(
+                onClick = onTalkToSales,
+                shape = RoundedCornerShape(14.dp),
+                color = Color.Transparent,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(14.dp))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.horizontalGradient(listOf(Color(0xFF0F172A), Color(0xFF334155)))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.talk_to_sales),
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Ink700.fg()
+                        color = Color.White
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = stringResource(R.string.custom_pricing),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlanTitleInk.fg()
-                )
-            }
-            Spacer(modifier = Modifier.height(18.dp))
-            val enterpriseBullets = listOf(
-                AnnotatedString("Unlimited Job Postings"),
-                AnnotatedString("Unlimited Direct Candidate Unlocks"),
-                AnnotatedString("Dedicated Key Account Manager"),
-                AnnotatedString("Custom GST Invoicing & Corporate Agreement"),
-                AnnotatedString("Priority 24/7 Phone & WhatsApp Support")
-            )
-            PlanBullets(benefits = enterpriseBullets, checkColor = Color(0xFF10B981).fg())
-        }
-        OutlinedButton(
-            onClick = onTalkToSales,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(26.dp),
-            border = BorderStroke(1.5.dp, Ink900.bd()),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900.fg())
-        ) {
-            Text(
-                text = stringResource(R.string.talk_to_sales),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Ink900.fg()
-            )
         }
     }
 }
@@ -1281,7 +1395,7 @@ private fun TransactionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Hairline.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

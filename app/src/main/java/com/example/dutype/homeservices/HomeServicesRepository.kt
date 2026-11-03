@@ -402,7 +402,7 @@ class HomeServicesRepository @Inject constructor(
         }
         val raw = disk ?: DefaultServicesCatalog.get()
         val result = raw.copy(
-            upiId = if (raw.upiId.isBlank() || raw.upiId.contains("icici", ignoreCase = true) || raw.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else raw.upiId,
+            upiId = if (raw.upiId.isBlank() || raw.upiId.contains("icici", ignoreCase = true) || raw.upiId.contains("dutype@", ignoreCase = true) || raw.upiId.contains("dutypein@", ignoreCase = true)) "" else raw.upiId,
             commissionPct = 0
         )
         cachedCatalog = System.currentTimeMillis() to result
@@ -611,7 +611,7 @@ class HomeServicesRepository @Inject constructor(
             }
         }
         val rawUpi = d.str("upiId")
-        val sanitizedUpi = if (rawUpi.isBlank() || rawUpi.contains("icici", ignoreCase = true) || rawUpi.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else rawUpi
+        val sanitizedUpi = if (rawUpi.isBlank() || rawUpi.contains("icici", ignoreCase = true) || rawUpi.contains("dutype@", ignoreCase = true) || rawUpi.contains("dutypein@", ignoreCase = true)) "" else rawUpi
         val catalog = ServicesCatalog(
             city = d.str("city").ifBlank { "Khammam" },
             bookingFee = d.int("bookingFee"),
@@ -684,7 +684,7 @@ class HomeServicesRepository @Inject constructor(
             current
         }
         val updated = safeCurrent.copy(
-            upiId = if (safeCurrent.upiId.isBlank() || safeCurrent.upiId.contains("icici", ignoreCase = true) || safeCurrent.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else safeCurrent.upiId,
+            upiId = if (safeCurrent.upiId.isBlank() || safeCurrent.upiId.contains("icici", ignoreCase = true) || safeCurrent.upiId.contains("dutype@", ignoreCase = true) || safeCurrent.upiId.contains("dutypein@", ignoreCase = true)) "" else safeCurrent.upiId,
             commissionPct = 0,
             promoBanners = banners,
             offers = offers,

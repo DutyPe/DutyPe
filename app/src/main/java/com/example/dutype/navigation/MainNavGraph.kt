@@ -120,7 +120,6 @@ fun MainNavGraph(
     // destination (home, role-select, profile-setup, onboarding), persist it.
     LaunchedEffect(navController) {
         val stableEntryPoints = setOf(
-            Routes.ONBOARDING,
             Routes.SELECT_ROLE,
             Routes.WORKER_HOME,
             Routes.EMPLOYER_HOME,
@@ -131,7 +130,7 @@ fun MainNavGraph(
             val route = entry.destination.route ?: return@collect
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (route in stableEntryPoints) {
-                if (currentUser == null && route != Routes.ONBOARDING && route != Routes.SELECT_ROLE && route != Routes.WORKER_HOME && route != Routes.EMPLOYER_HOME) {
+                if (currentUser == null && route != Routes.SELECT_ROLE && route != Routes.WORKER_HOME && route != Routes.EMPLOYER_HOME) {
                     runCatching { StartDestinationCache.save(context, Routes.SELECT_ROLE) }
                 } else {
                     runCatching { StartDestinationCache.save(context, route) }
@@ -149,7 +148,7 @@ fun MainNavGraph(
     var startDestination by remember {
         mutableStateOf(
             (startupState as? com.example.dutype.viewmodels.StartupState.Resolved)?.startDestination
-                ?: Routes.ONBOARDING
+                ?: Routes.SELECT_ROLE
         )
     }
     var navigationDetermined by remember {
@@ -429,7 +428,12 @@ fun MainNavGraph(
             }
         ) {
         composable(Routes.ONBOARDING) {
-            OnboardingScreen(navController)
+            LaunchedEffect(Unit) {
+                navController.navigate(Routes.SELECT_ROLE) {
+                    popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
         }
         composable(
             route = "${Routes.ENHANCED_LOGIN}?role={role}",
@@ -667,9 +671,16 @@ fun MainNavGraph(
         composable(Routes.EMPLOYER_COMPANY_DETAILS) {
             EmployerCompanyDetailsScreen(navController = navController)
         }
+        composable(Routes.SERVICE_WALLET) {
+            com.example.dutype.homeservices.ServiceWalletScreen(
+                navController = navController,
+                rootNavController = navController
+            )
+        }
         composable(Routes.EMPLOYER_SUBSCRIPTION) {
             EmployerSubscriptionScreen(navController = navController)
         }
+
         composable(Routes.WORKER_PROFILE_DETAILS) {
             val context = LocalContext.current
             val dataStore = remember { com.example.dutype.data.ApplicationFormDataStore(context) }
@@ -802,6 +813,7 @@ fun RoleSelectionWithNavigation(
     navController: NavHostController,
     profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel
 ) {
+    val scope = rememberCoroutineScope()
     var selectedRole by remember { mutableStateOf<String?>(null) }
 
     // Auto-redirect already authenticated users so they never get trapped on Role Selection
@@ -953,11 +965,13 @@ fun RoleSelectionWithNavigation(
                     }
                 }
             } else {
-                // Navigate to Login screen with selected role (Guest mode removed)
-                val loginRoute = "${Routes.ENHANCED_LOGIN}?role=$role"
-                Timber.i("Unauthenticated user selected $role -> navigating to $loginRoute")
-                navController.navigate(loginRoute) {
-                    popUpTo(Routes.SELECT_ROLE) { inclusive = false }
+                // Navigate directly to Home screen based on selected role in guest mode
+                val targetRole = if (role.equals("EMPLOYER", ignoreCase = true)) UserRole.EMPLOYER else UserRole.WORKER
+                profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+                val homeRoute = if (targetRole == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+                Timber.i("Unauthenticated user selected $role -> navigating directly to $homeRoute")
+                navController.navigate(homeRoute) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
             }
@@ -971,13 +985,17 @@ fun RoleSelectionWithNavigation(
     SelectRoleScreen(
         navController = navController,
         onRoleSelected = { role ->
+            val targetRole = if (role.equals("EMPLOYER", ignoreCase = true)) UserRole.EMPLOYER else UserRole.WORKER
+            scope.launch {
+                profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+            }
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser == null) {
-                // Guest mode removed: navigate directly to Login screen
-                val loginRoute = "${Routes.ENHANCED_LOGIN}?role=$role"
-                Timber.i("Unauthenticated user selected $role -> routing to $loginRoute")
-                navController.navigate(loginRoute) {
-                    popUpTo(Routes.SELECT_ROLE) { inclusive = false }
+                // Navigate directly to Home screen based on selected role (Guest mode)
+                val homeRoute = if (targetRole == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+                Timber.i("Guest user selected $role -> routing directly to $homeRoute")
+                navController.navigate(homeRoute) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
             } else {

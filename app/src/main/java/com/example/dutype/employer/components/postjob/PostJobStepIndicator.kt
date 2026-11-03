@@ -64,7 +64,7 @@ fun PostJobStepIndicator(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFF8FAFC).bg())
+                .background(Color(0xFFF7F7F7).bg())
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween

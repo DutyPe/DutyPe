@@ -43,9 +43,8 @@ class AppStartupViewModel @Inject constructor(
             // Unauthenticated/guest users can stay on cached WORKER_HOME or EMPLOYER_HOME
             if (cached == Routes.WORKER_HOME || cached == Routes.EMPLOYER_HOME) {
                 cached
-            } else if (cached == Routes.ONBOARDING || cached == null) {
-                Routes.ONBOARDING
             } else {
+                // Fresh install / new user lands directly on SELECT_ROLE (no onboarding)
                 Routes.SELECT_ROLE
             }
         } else {
@@ -54,7 +53,7 @@ class AppStartupViewModel @Inject constructor(
             if (isAuthGated) {
                 Routes.SELECT_ROLE
             } else {
-                cached ?: Routes.ONBOARDING
+                cached ?: Routes.SELECT_ROLE
             }
         }
     }
@@ -73,15 +72,8 @@ class AppStartupViewModel @Inject constructor(
             try {
                 Timber.d("🚀 AppStartupViewModel - Starting resolution...")
 
-                // 1. Check Onboarding
-                val hasCompletedOnboarding = profileSetupStateManager.hasOnboardingBeenCompleted()
-                if (!hasCompletedOnboarding) {
-                    Timber.d("🚀 AppStartupViewModel -> ONBOARDING")
-                    updateDestination(Routes.ONBOARDING)
-                    return@launch
-                }
-
-                // 2. Check Role & Auth (Guest Mode supported)
+                // Direct to SELECT_ROLE or Homescreen on install (Zero onboarding)
+                // 1. Check Role & Auth (Guest Mode supported)
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 val dataStoreRole = profileSetupStateManager.getUserRole()
 

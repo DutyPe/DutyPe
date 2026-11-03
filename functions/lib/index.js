@@ -45,4 +45,5 @@ var field_leads_1 = require("./field-leads");
 Object.defineProperty(exports, "submitFieldLead", { enumerable: true, get: function () { return field_leads_1.submitFieldLead; } });
 __exportStar(require("./whatsapp-webhook"), exports);
 __exportStar(require("./aadhaar-vault"), exports);
+__exportStar(require("./razorpay"), exports);
 //# sourceMappingURL=index.js.map

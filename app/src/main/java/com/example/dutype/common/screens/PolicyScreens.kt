@@ -295,7 +295,7 @@ private fun PolicyMainContainer(
         // Policy Toggle Tabs - Black styled titles
         TabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.White.bg(),
+            containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
             contentColor = Ink900.fg(),
             indicator = { tabPositions ->
                 if (selectedTab < tabPositions.size) {
@@ -575,7 +575,7 @@ private fun PolicySectionItem(
 
 private val PvBorder = Color(0xFFE2E8F0)
 private val PvDivider = Color(0xFFF1F5F9)
-private val PvCircleBg = Color(0xFFF8FAFC)
+private val PvCircleBg = Color(0xFFF7F7F7)
 private val PvLabel = Color(0xFF0F0F0F)
 private val PvMuted = Color(0xFF64748B)
 

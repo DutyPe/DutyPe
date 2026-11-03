@@ -513,9 +513,9 @@ private class PostJobController(
     suspend fun fetchWorkLocationFast() {
         val cachedLocation = locationRepository.lastKnownLocationIfFresh(10 * 60 * 1000L)
             ?: locationRepository.lastKnownLocation()
-        if (cachedLocation != null) {
+        if (cachedLocation != null && !cachedLocation.address.contains("VDO", ignoreCase = true)) {
             val addr = cachedLocation.getFullAddress().ifBlank { cachedLocation.address }
-            if (addr.isNotBlank()) location = addr
+            if (addr.isNotBlank() && !addr.contains("VDO", ignoreCase = true)) location = addr
             locationLatitude = cachedLocation.latitude
             locationLongitude = cachedLocation.longitude
             Timber.d("LOCATION DEBUG: Using recent cached location immediately")
@@ -537,7 +537,7 @@ private class PostJobController(
             locationLatitude = refinedLocation.latitude
             locationLongitude = refinedLocation.longitude
             locationError = null
-            Toast.makeText(context, context.getString(R.string.location_updated), Toast.LENGTH_SHORT).show()
+            // Location updated silently without toast
             Timber.d("LOCATION DEBUG: Refined location fetched (${refinedLocation.accuracy}m)")
         } else if (cachedLocation == null) {
             Timber.w("LOCATION DEBUG: No cached or refined location available")
@@ -1548,7 +1548,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
             c.navController.popBackStack()
         },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White.bg()
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White
     ) {
         Column(
             modifier = Modifier

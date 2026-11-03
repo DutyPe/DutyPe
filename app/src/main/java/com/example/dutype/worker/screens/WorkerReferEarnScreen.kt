@@ -585,7 +585,7 @@ private fun ReferEarnTopSections(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {

@@ -286,7 +286,7 @@ fun JobImageUploadSection(
                         .fillMaxWidth()
                         .height(140.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF9FAFB).bg())
+                        .background(Color(0xFFF7F7F7).bg())
                         .border(
                             width = 2.dp,
                             color = Color(0xFFE5E7EB).fg(),

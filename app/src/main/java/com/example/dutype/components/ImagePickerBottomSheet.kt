@@ -1,4 +1,5 @@
 package com.example.dutype.components
+import com.example.dutype.ui.theme.bg
 
 import android.Manifest
 import android.content.Context
@@ -135,7 +136,7 @@ fun ImagePickerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFAFFFF),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = null
     ) {
@@ -281,7 +282,7 @@ private fun ImagePickerGridCard(
             .clip(RoundedCornerShape(16.dp))
             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        color = Color(0xFFF8FAFC)
+        color = Color(0xFFF7F7F7)
     ) {
         Column(
             modifier = Modifier

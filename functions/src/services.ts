@@ -433,8 +433,11 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     fail("not-found", "This service is currently paused or not available in Khammam");
   }
   const clientPrice = Number(data.clientPrice || data.servicePrice);
-  if (Number.isFinite(clientPrice) && clientPrice > 0 && Math.abs(clientPrice - service.price) <= 100) {
-    service.price = clientPrice;
+  if (Number.isFinite(clientPrice)) {
+    if (clientPrice < 49) {
+      fail("invalid-argument", "Custom price cannot be less than ₹49");
+    }
+    service.price = Math.round(clientPrice);
   }
   const { lat, lng } = latLng(data);
   const isTestingMode = Boolean(
@@ -631,8 +634,11 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10, enforceAp
   const service = findService(config, str(data, "serviceId", { max: 60 }));
   if (!service) fail("not-found", "This service is not available");
   const clientPrice = Number(data.clientPrice || data.servicePrice);
-  if (Number.isFinite(clientPrice) && clientPrice > 0 && Math.abs(clientPrice - service.price) <= 100) {
-    service.price = clientPrice;
+  if (Number.isFinite(clientPrice)) {
+    if (clientPrice < 49) {
+      fail("invalid-argument", "Custom price cannot be less than ₹49");
+    }
+    service.price = Math.round(clientPrice);
   }
   const now = Date.now();
   const first = await isFirstBooking(context.auth!.uid);

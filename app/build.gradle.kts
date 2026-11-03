@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 862
-        versionName = "8.2"
+        versionCode = 868
+        versionName = "8.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -366,6 +366,9 @@ dependencies {
     // Truecaller one-tap login (official SDK). 3.2.1 is built for Kotlin 1.9/2.0 metadata; 3.3.0 requires Kotlin 2.1+.
     implementation("com.truecaller.android.sdk:truecaller-sdk:3.2.1")
     implementation("androidx.fragment:fragment-ktx:1.8.5")
+
+    // Razorpay Standard Payment Gateway SDK
+    implementation("com.razorpay:checkout:1.6.40")
 
     // P1 FIX: Image loading with WebP support (30% smaller images)
     implementation("io.coil-kt:coil-compose:2.4.0")

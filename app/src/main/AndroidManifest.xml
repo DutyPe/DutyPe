@@ -7,10 +7,21 @@
     <!-- Audio permission for Voice Job Posting ("Bol kar post karein") -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Package Visibility Queries for Google Play Services and Play Store (Android 11+) -->
+    <!-- Package Visibility Queries for Google Play Services, Play Store and UPI payment apps (Android 11+) -->
     <queries>
         <package android:name="com.google.android.gms" />
         <package android:name="com.android.vending" />
+        <!-- Popular UPI apps for Razorpay standard checkout -->
+        <package android:name="com.google.android.apps.nbu.paisa.user" />
+        <package android:name="com.phonepe.app" />
+        <package android:name="net.one97.paytm" />
+        <package android:name="in.org.npci.upiapp" />
+        <package android:name="com.dreamplug.androidapp" />
+        <package android:name="in.amazon.mShop.android.shopping" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
     </queries>
     
     <!-- Location Permissions - Runtime request with clear explanation -->
@@ -93,6 +104,11 @@
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="31">
         
+        <!-- Razorpay Payment Gateway API Key -->
+        <meta-data
+            android:name="com.razorpay.ApiKey"
+            android:value="rzp_test_Tuw8VzuHNLVm1y" />
+
         <!-- Truecaller one-tap login: client ID from res/values/truecaller.xml (empty = off) -->
         <meta-data
             android:name="com.truecaller.android.sdk.ClientId"
@@ -260,6 +276,12 @@
             android:name="com.example.dutype.auth.TruecallerActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Razorpay Payment Gateway Activity -->
+        <activity
+            android:name="com.example.dutype.payment.RazorpayPaymentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DutyPe" />
 </application>
 
 </manifest>

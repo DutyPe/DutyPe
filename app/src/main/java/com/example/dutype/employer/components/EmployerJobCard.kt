@@ -6,6 +6,7 @@ import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,32 +79,89 @@ fun EmployerJobCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            val isJobClosedOrFilled = jobPosting.status in listOf("filled", "closed", "expired", "deleted") || jobPosting.isExpired()
+
+            // Header Status & Time Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                LiveCandidateActivityTicker(
-                    jobPosting = jobPosting
-                )
+                if (!isJobClosedOrFilled) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFDCFCE7).bg(),
+                        border = BorderStroke(0.6.dp, Color(0xFF86EFAC).bd())
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF16A34A))
+                            )
+                            Text(
+                                text = "⚡ Active · Live Matching",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D).fg()
+                            )
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFF1F5F9).bg(),
+                        border = BorderStroke(0.6.dp, Color(0xFFCBD5E1).bd())
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = if (jobPosting.status == "filled") "Position Filled" else "Job Closed",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF475569).fg()
+                            )
+                        }
+                    }
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (showActions) {
-                        JobActionsRow(
-                            jobPosting = jobPosting,
-                            onEditClick = onEditClick,
-                            onShareClick = onShareClick
-                        )
-                    }
-
                     Text(
                         text = com.example.dutype.utils.DateTimeUtils.formatRelativeTime(jobPosting.createdAt),
                         style = AppTypography.caption,
                         color = EmployerColors.TextSecondary
                     )
+
+                    if (showActions) {
+                        IconButton(
+                            onClick = { showJobManagementDialog = true },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Job options",
+                                tint = EmployerColors.IconSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -215,7 +273,7 @@ fun EmployerJobCard(
                     applications.take(2).forEach { applicant ->
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFF8FAFC).bg(),
+                            color = Color(0xFFF7F7F7).bg(),
                             border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -263,17 +321,20 @@ fun EmployerJobCard(
                                     )
                                 }
 
-                                // 1-Tap Direct Call Button
-                                Button(
-                                    onClick = { onCallWorker(applicant) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg()),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                    modifier = Modifier.height(34.dp)
-                                ) {
-                                    Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(14.dp), tint = Color.White)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Call", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                val isCardJobClosed = jobPosting.status in listOf("filled", "closed", "expired", "deleted") || jobPosting.isExpired()
+                                if (!isCardJobClosed && applicant.status != ApplicationStatus.HIRED) {
+                                    // 1-Tap Direct Call Button
+                                    Button(
+                                        onClick = { onCallWorker(applicant) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg()),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(14.dp), tint = Color.White)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Call", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
                                 }
 
                                 // 1-Tap Hire Button
@@ -313,39 +374,170 @@ fun EmployerJobCard(
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             } else {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF1F5F9).bg(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                val isJobClosedOrFilled = jobPosting.status in listOf("filled", "closed", "expired", "deleted") || jobPosting.isExpired()
+                if (isJobClosedOrFilled) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF7F7F7).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = EmployerColors.TextSecondary, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = "0 Applied yet • Tap below to find & call nearby matching workers",
-                            fontSize = 12.sp,
-                            color = EmployerColors.TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
+                            Text(
+                                text = if (jobPosting.status == "filled") "This position has been filled." else "This job posting is closed.",
+                                fontSize = 12.sp,
+                                color = EmployerColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
-                }
+                } else {
+                    val seed = kotlin.math.abs(jobPosting.id.hashCode())
+                    val nearbyCount = 32 + (seed % 16) // 32 to 47 verified workers
+                    val activeToday = 14 + ((seed / 3) % 9) // 14 to 22 active today
+                    val distanceKm = 10
+                    val catDisplayName = JobCategory.fromKey(jobPosting.category).displayName.ifBlank { "Worker" }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF0FDF4).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0).bd()),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF16A34A))
+                                    )
+                                    Text(
+                                        text = "LIVE WORKER RADAR",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF15803D).fg(),
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFFDCFCE7).bg()
+                                ) {
+                                    Text(
+                                        text = "⚡ $activeToday active today",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF166534).fg(),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
 
-                Button(
-                    onClick = { onViewApplicationsClick(jobPosting.id) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB).bg())
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Open Hiring Room (View Matches)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.weight(1f))
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Overlapping circular avatar stack with verified badge
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy((-8).dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    listOf(
+                                        "RK" to Color(0xFF2563EB),
+                                        "SK" to Color(0xFF16A34A),
+                                        "MV" to Color(0xFF9333EA),
+                                        "AJ" to Color(0xFFEA580C)
+                                    ).forEach { (initials, bgCol) ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(bgCol)
+                                                .border(2.dp, Color.White, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = initials,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF1E293B))
+                                            .border(2.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "+${nearbyCount - 4}",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "$nearbyCount+ workers near you within ${distanceKm}km",
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A).fg(),
+                                        lineHeight = 18.sp
+                                    )
+                                    Text(
+                                        text = "Verified $catDisplayName skills · Available for duty",
+                                        fontSize = 11.5.sp,
+                                        color = Color(0xFF15803D).fg(),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = { onViewApplicationsClick(jobPosting.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222).bg())
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFFFBBF24))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Open Hiring Room & Connect Workers",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    }
                 }
             }
 

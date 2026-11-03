@@ -377,8 +377,8 @@ object DutyPeAiShortcut {
 
 
 // ──────────────────────────── DutyPe AI light theme colour palette ────────────────────────────
-private val AiBg         = Color.White
-private val AiSurface    = Color(0xFFF8FAFC)
+private val AiBg         = Color(0xFFFAFFFF)
+private val AiSurface    = Color(0xFFF7F7F7)
 private val AiSurfaceAlt = Color(0xFFF1F5F9)
 private val AiAccent     = Color(0xFF7C3AED)          // vivid violet
 private val AiAccentAlt  = Color(0xFF4F46E5)          // indigo
@@ -396,7 +396,7 @@ private val Muted      = Color(0xFF64748B)
 private val Line       = Color(0xFFE5E7EB)
 
 private val AiGradient      = Brush.linearGradient(listOf(AiAccent, AiAccentAlt))
-private val AiScreenGradient = Brush.verticalGradient(listOf(Color.White, Color(0xFFF8FAFC), Color.White))
+private val AiScreenGradient = Brush.verticalGradient(listOf(Color.White, Color(0xFFF7F7F7), Color.White))
 private val AiMicRingGradient = Brush.sweepGradient(
     listOf(
         Color(0xFFFFD700), Color(0xFF00E5FF), Color(0xFFFFFFFF),
@@ -1007,7 +1007,7 @@ private fun AiDarkStatsStrip(stats: AiStats) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8FAFC))
+            .background(Color(0xFFF7F7F7))
             .drawBehind {
                 drawLine(
                     color = Color(0xFFE2E8F0),
@@ -1256,7 +1256,7 @@ private fun ActionCard(action: AiAction, onYes: () -> Unit, onNo: () -> Unit) {
             .fillMaxWidth()
             .padding(start = 34.dp)
             .border(1.dp, Color(0xFFE2E8F0), shape)
-            .background(Color(0xFFF8FAFC), shape)
+            .background(Color(0xFFF7F7F7), shape)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

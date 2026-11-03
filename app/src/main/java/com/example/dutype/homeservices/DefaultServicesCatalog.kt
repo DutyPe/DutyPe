@@ -971,7 +971,7 @@ object DefaultServicesCatalog {
             bookingFee = 19,
             inspectionFee = 19,
             commissionPct = 0,
-            upiId = "dutypein@ybl",
+            upiId = "",
             upiName = "DutyPe Services",
             minTopup = 100,
             categories = categories,

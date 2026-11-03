@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.fg
@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import com.dutype.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -366,7 +367,7 @@ fun ActivePostingsCard(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -468,7 +469,7 @@ fun ActivePostingsCard(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -555,7 +556,7 @@ fun QuickRoleTemplatesSection(
                         .height(96.dp)
                         .clickable { onRoleSelected(title) },
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
@@ -645,7 +646,7 @@ fun RecentCallRequestsSection(
                     Card(
                         modifier = Modifier.width(285.dp),
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                         elevation = CardDefaults.cardElevation(0.dp)
                     ) {
@@ -762,7 +763,7 @@ fun RecentCallRequestsSection(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -811,7 +812,7 @@ fun HelplineTrustStrip(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -969,7 +970,7 @@ fun EmployerHomeHeader(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.NotificationsNone,
+                    painter = painterResource(id = R.drawable.ic_bell_outline),
                     contentDescription = "Notifications",
                     tint = Color(0xFF0F172A),
                     modifier = Modifier.size(22.dp)
@@ -1372,7 +1373,7 @@ fun EmployerWelcomeSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFF8FAFC).bg(), RoundedCornerShape(12.dp))
+                .background(Color(0xFFF7F7F7).bg(), RoundedCornerShape(12.dp))
                 .border(1.dp, line.bd(), RoundedCornerShape(12.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -1462,30 +1463,7 @@ fun LocalWorkersSocialProofCard(
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFFF0FDF4),
-                    border = BorderStroke(0.6.dp, Color(0xFFBBF7D0))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = null,
-                            tint = Color(0xFF16A34A),
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = "Verified Profiles",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D)
-                        )
-                    }
-                }
+
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1541,23 +1519,6 @@ fun LocalWorkersSocialProofCard(
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = Color(0xFF16A34A),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = "0% Commission",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF334155).fg()
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1584,7 +1545,7 @@ fun LocalWorkersSocialProofCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Urgent Staff",
+                        text = "Urgent",
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1628,25 +1589,46 @@ fun EmployerTrialCountdownCard(
     trialExpiresAt: Long,
     freeJobPostsUsed: Int,
     hasActiveSubscription: Boolean,
+    isGuest: Boolean = false,
     onPostJobClick: () -> Unit,
     onUpgradeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (hasActiveSubscription) return
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     val now = System.currentTimeMillis()
-    var remainingMillis by remember(trialExpiresAt) {
-        mutableLongStateOf((trialExpiresAt - now).coerceAtLeast(0L))
-    }
 
-    LaunchedEffect(trialExpiresAt) {
-        while (remainingMillis > 0L) {
-            delay(1000L)
-            remainingMillis = (trialExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L)
+    // For guest users, provide a persistent 48-hour guest countdown from first open
+    val effectiveTrialExpiresAt = remember(trialExpiresAt, isGuest) {
+        if (isGuest) {
+            val prefs = context.getSharedPreferences("employer_guest_prefs", android.content.Context.MODE_PRIVATE)
+            var guestExp = prefs.getLong("guest_trial_expires_at", 0L)
+            if (guestExp <= 0L) {
+                guestExp = System.currentTimeMillis() + 48 * 3600 * 1000L
+                prefs.edit().putLong("guest_trial_expires_at", guestExp).apply()
+            }
+            guestExp
+        } else if (trialExpiresAt > 0L) {
+            trialExpiresAt
+        } else {
+            System.currentTimeMillis() + 48 * 3600 * 1000L
         }
     }
 
-    val isExpired = remainingMillis <= 0L || (trialExpiresAt > 0L && remainingMillis <= 0L) || freeJobPostsUsed >= 1
+    var remainingMillis by remember(effectiveTrialExpiresAt) {
+        mutableLongStateOf((effectiveTrialExpiresAt - now).coerceAtLeast(0L))
+    }
+
+    LaunchedEffect(effectiveTrialExpiresAt) {
+        while (remainingMillis > 0L) {
+            delay(1000L)
+            remainingMillis = (effectiveTrialExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L)
+        }
+    }
+
+    // Guest users never see expired trial; they see the active trial & ticking countdown to onboard
+    val isExpired = if (isGuest) false else (remainingMillis <= 0L || freeJobPostsUsed >= 1)
     val totalSeconds = (remainingMillis / 1000L).coerceAtLeast(0L)
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
@@ -1656,7 +1638,7 @@ fun EmployerTrialCountdownCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isExpired) Color(0xFFF8FAFC).bg() else Color(0xFFFFFBEB).bg()
+            containerColor = if (isExpired) Color(0xFFF7F7F7).bg() else Color(0xFFFFFBEB).bg()
         ),
         border = BorderStroke(
             1.5.dp,

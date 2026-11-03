@@ -211,6 +211,11 @@ fun EmployerUrgentNeedDetailScreen(
         onRefreshMatchedWorkers = { applicationViewModel.loadMatchedWorkers(requestId, force = true) },
         onBackClick = onNavigateBack,
         onCallMatchedWorker = { worker ->
+        val isUrgentClosed = request?.status in listOf("filled", "completed", "cancelled", "expired", "deleted") || ((request?.expiresAt ?: 0L) in 1..System.currentTimeMillis())
+        if (isUrgentClosed) {
+            Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+            return@EmployerUrgentNeedDetailContent
+        }
             if (worker.phone.isNotBlank()) {
                 openDialer(context, worker.phone)
             } else {
@@ -231,6 +236,11 @@ fun EmployerUrgentNeedDetailScreen(
             }
         },
         onChatMatchedWorker = { worker ->
+        val isUrgentClosed = request?.status in listOf("filled", "completed", "cancelled", "expired", "deleted") || ((request?.expiresAt ?: 0L) in 1..System.currentTimeMillis())
+        if (isUrgentClosed) {
+            Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+            return@EmployerUrgentNeedDetailContent
+        }
             val phone = worker.phone
             val reqTitle = request?.title ?: "Urgent Job"
             val chatMsg = "Hello ${worker.fullName}, I have an urgent job opening on DutyPe: $reqTitle."
@@ -271,7 +281,14 @@ fun EmployerUrgentNeedDetailScreen(
             navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
         },
         onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
-        onCallWorker = { response -> instantHelpViewModel.callWorker(response) { phone -> openDialer(context, phone) } },
+        onCallWorker = { response ->
+            val isUrgentClosed = request?.status in listOf("filled", "completed", "cancelled", "expired", "deleted") || ((request?.expiresAt ?: 0L) in 1..System.currentTimeMillis())
+            if (isUrgentClosed) {
+                Toast.makeText(context, context.getString(R.string.job_closed_cannot_call), Toast.LENGTH_SHORT).show()
+            } else {
+                instantHelpViewModel.callWorker(response) { phone -> openDialer(context, phone) }
+            }
+        },
         onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
         onCompleteResponse = { response -> pendingCompletionResponse = response },
         onNoShowResponse = { response -> pendingNoShowResponse = response },
