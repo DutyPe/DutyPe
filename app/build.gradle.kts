@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 872
-        versionName = "9.2"
+        versionCode = 873
+        versionName = "9.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -106,21 +106,12 @@ android {
             }
 
             // ---------------------------------------------------------------
-            // Play update-size churn fix: Stable obfuscation via -applymapping.
-            // R8 consumes the previous-production mapping so that existing
-            // classes & methods keep their obfuscated names across versions.
-            // This prevents DEX-wide bytecode churn and ensures Google Play
-            // delivers ~1-2 MB delta patches instead of 20 MB full downloads.
+            // Stable obfuscation & safety guard:
+            // -applymapping with R8 is intentionally disabled because applying
+            // stale mapping files causes AbstractMethodError and binary incompatibilities
+            // across library updates (specifically in Protobuf / DataStore / Firestore).
+            // R8 generates a clean, self-consistent mapping for every release build.
             // ---------------------------------------------------------------
-            val previousMappingFile = file("mapping/release-mapping.txt")
-            if (previousMappingFile.exists() && previousMappingFile.length() > 1000L) {
-                val applyMappingRules = file(".gradle/applyMapping.pro")
-                applyMappingRules.parentFile.mkdirs()
-                applyMappingRules.writeText(
-                    "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
-                )
-                proguardFiles(applyMappingRules)
-            }
         }
         
         debug {
@@ -315,7 +306,6 @@ tasks.configureEach {
     if (name == "bundleRelease") {
         finalizedBy(checkReleaseSizeBudget)
         finalizedBy(verifyNative16KbPageSize)
-        finalizedBy(archiveReleaseMapping)
     }
 }
 

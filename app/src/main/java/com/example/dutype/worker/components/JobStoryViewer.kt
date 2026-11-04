@@ -311,7 +311,7 @@ fun JobStoryViewerContent(
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 16.dp)
-                .padding(top = 10.dp, bottom = 8.dp)
+                .padding(top = 18.dp, bottom = 8.dp)
         ) {
             // Segmented Progress Bars (Up to 6 segments)
             val visibleJobsCount = jobs.size.coerceAtMost(8)

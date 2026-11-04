@@ -117,11 +117,35 @@
 -keep interface androidx.datastore.preferences.protobuf.** { *; }
 -dontwarn androidx.datastore.preferences.protobuf.**
 
+# Keep Protobuf GeneratedMessageLite and its dynamically invoked methods
+-keep class androidx.datastore.preferences.protobuf.GeneratedMessageLite {
+    *** dynamicMethod(***);
+}
+-keep class * extends androidx.datastore.preferences.protobuf.GeneratedMessageLite {
+    <init>(...);
+    protected java.lang.Object dynamicMethod(androidx.datastore.preferences.protobuf.GeneratedMessageLite$MethodToInvoke, java.lang.Object, java.lang.Object);
+}
+-keep class androidx.datastore.preferences.PreferencesProto** { *; }
+-keep class androidx.datastore.preferences.** { *; }
+
 -keep class com.google.protobuf.** { *; }
 -keep interface com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
+-keep class com.google.protobuf.GeneratedMessageLite {
+    *** dynamicMethod(***);
+}
+-keep class * extends com.google.protobuf.GeneratedMessageLite {
+    <init>(...);
+    protected java.lang.Object dynamicMethod(com.google.protobuf.GeneratedMessageLite$MethodToInvoke, java.lang.Object, java.lang.Object);
+}
+
+# Keep Firebase Firestore and Auth listener classes
 -keep class com.google.firebase.firestore.** { *; }
+-keep interface com.google.firebase.firestore.** { *; }
+-keep class com.google.firebase.firestore.util.Listener { *; }
+-keep interface com.google.firebase.firestore.util.Listener { *; }
+-keep class * implements com.google.firebase.firestore.util.Listener { *; }
 -dontwarn com.google.firebase.firestore.**
 
 # -----------------------------------------------------------------------------
