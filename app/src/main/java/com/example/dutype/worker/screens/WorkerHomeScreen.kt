@@ -369,15 +369,20 @@ fun WorkerHomeScreen(
 
         // If permission was just granted, set loading state
         if (!wasGranted && hasLocationPermission) {
+            showLocationPermissionBottomSheet = false
             if (shouldFetchCurrentLocationAfterPermission) {
                 shouldFetchCurrentLocationAfterPermission = false
                 scope.launch { fetchCurrentLocationFromSheet() }
             } else {
                 isLocationLoading = true
             }
-        } else if (!hasLocationPermission && shouldFetchCurrentLocationAfterPermission) {
-            shouldFetchCurrentLocationAfterPermission = false
-            locationPickerError = context.getString(R.string.location_permission_required_current)
+        } else if (!hasLocationPermission) {
+            // If user ignores or denies direct system permission prompt, show the bottom sheet explanation
+            showLocationPermissionBottomSheet = true
+            if (shouldFetchCurrentLocationAfterPermission) {
+                shouldFetchCurrentLocationAfterPermission = false
+                locationPickerError = context.getString(R.string.location_permission_required_current)
+            }
         }
     }
 
@@ -582,13 +587,20 @@ fun WorkerHomeScreen(
         announcementViewModel.loadAnnouncements("worker")
     }
 
-    // First-visit location prompt: immediately asks for location permission when arriving for the first time
-    LaunchedEffect(hasLocationPermission) {
+    // First-visit location prompt: directly triggers system location permission dialog upon arrival.
+    // If the user dismisses/ignores it, locationPermissionLauncher opens showLocationPermissionBottomSheet.
+    LaunchedEffect(Unit) {
         if (!hasLocationPermission && !locationPreferences.hasPromptedFirstTimeLocation()) {
             locationPreferences.setPromptedFirstTimeLocation(true)
-            delay(600)
+            delay(500)
             shouldFetchCurrentLocationAfterPermission = true
-            showLocationPermissionBottomSheet = true
+            hasAttemptedLocationRequest = true
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
         }
     }
 
@@ -1003,8 +1015,12 @@ fun WorkerHomeScreen(
             defaultHeaderColor
         }
     }
-    LaunchedEffect(dynamicStatusBarColor) {
-        onStatusBarColorChange(dynamicStatusBarColor)
+    LaunchedEffect(dynamicStatusBarColor, activeStoryIndex) {
+        if (activeStoryIndex != null) {
+            onStatusBarColorChange(Color.Black)
+        } else {
+            onStatusBarColorChange(dynamicStatusBarColor)
+        }
     }
 
 

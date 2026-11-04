@@ -1,6 +1,11 @@
 package com.example.dutype.worker.components
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.togetherWith
@@ -103,12 +108,13 @@ fun JobStoryViewerModal(
 ) {
     if (jobs.isEmpty()) return
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
+    BackHandler(onBack = onDismiss)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(999f)
+            .background(Color.Black)
     ) {
         JobStoryViewerContent(
             jobs = jobs,
@@ -304,7 +310,8 @@ fun JobStoryViewerContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
+                .padding(top = 10.dp, bottom = 8.dp)
         ) {
             // Segmented Progress Bars (Up to 6 segments)
             val visibleJobsCount = jobs.size.coerceAtMost(8)

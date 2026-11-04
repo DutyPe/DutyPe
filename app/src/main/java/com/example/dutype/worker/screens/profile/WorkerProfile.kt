@@ -1246,6 +1246,7 @@ private fun ProfileSettingsCard(
             iconRes = R.drawable.ic_profile_star,
             showStars = true
         )
+        com.example.dutype.components.ProfileFollowUsRow()
     }
 }
 

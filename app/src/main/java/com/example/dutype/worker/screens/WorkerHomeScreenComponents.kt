@@ -654,14 +654,9 @@ fun HomeSectionsContent(
                 }
             }
 
-            // Live Worker Payouts under online card (at top as before)
-            item(key = "worker_home_top_live_earnings") {
-                WorkerLiveEarningsSection()
-            }
-
-            // Promotional / announcement carousel: always rendered matching Employer Home
+            // Promotional / announcement carousel: rendered at top of feed matching Employer Home
             item(key = "worker_home_promo_carousel") {
-                Box(modifier = Modifier.cascadeEnter(1)) {
+                Box(modifier = Modifier.cascadeEnter(0)) {
                     com.example.dutype.components.PromotionalBannerCarousel(
                         isWorker = true,
                         customSlides = dynamicPromoSlides,
@@ -688,6 +683,11 @@ fun HomeSectionsContent(
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
+            }
+
+            // Live Worker Payouts under announcements carousel
+            item(key = "worker_home_top_live_earnings") {
+                WorkerLiveEarningsSection()
             }
 
             // Hidden for now: the "jobs near you · view map" hero card (the map tab is hidden too).
@@ -2117,58 +2117,17 @@ internal fun WorkerHomeGreetingHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                HomeSwitchRoleButton(onClick = onSwitchRoleClick)
+                if (onOnlineChange != null) {
+                    HomeOnlineDutySwitch(
+                        isOnline = isOnline,
+                        isSaving = isSavingOnline,
+                        onCheckedChange = onOnlineChange
+                    )
+                }
                 HomeBellButton(
                     hasUnread = unreadNotificationCount > 0,
                     onClick = onNotificationClick
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Row 2: Duty Toggle Card: "You're offline / Go on duty for urgent jobs"
-        val dutyShape = RoundedCornerShape(12.dp)
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
-            shape = dutyShape,
-            color = Color.White,
-            shadowElevation = 1.dp,
-            border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOnlineChange?.invoke(!isOnline) }
-                    .padding(horizontal = 18.dp, vertical = 15.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isOnline) "You're on duty" else "You're offline",
-                        color = Color(0xFF0F172A).fg(),
-                        fontSize = 16.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (isOnline) "Receiving urgent job alerts" else "Go on duty for urgent jobs",
-                        color = Color(0xFF64748B).fg(),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                }
-
-                if (onOnlineChange != null) {
-                    com.example.dutype.common.screens.AirbnbModernSwitch(
-                        checked = isOnline,
-                        onCheckedChange = onOnlineChange,
-                        activeTrackColor = Color(0xFF10B981)
-                    )
-                }
             }
         }
     }
@@ -2208,22 +2167,65 @@ private fun HomeFilterPill(
 }
 
 @Composable
-private fun HomeSwitchRoleButton(onClick: () -> Unit) {
+private fun HomeOnlineDutySwitch(
+    isOnline: Boolean,
+    isSaving: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val trackBg by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isOnline) Color(0xFF10B981) else Color(0xFFE2E8F0),
+        animationSpec = androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "switchTrack"
+    )
+    val thumbOffset by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isOnline) 22.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "switchThumb"
+    )
+
     Box(
         modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(Color.White.bg())
-            .border(1.dp, HomeBorder.bd(), CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+            .width(52.dp)
+            .height(30.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(trackBg.bg())
+            .border(1.dp, if (isOnline) Color(0xFF059669).copy(alpha = 0.4f) else Color(0xFFCBD5E1), RoundedCornerShape(16.dp))
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onCheckedChange(!isOnline) }
+            .padding(2.5.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_switch_role),
-            contentDescription = "Switch to Employer",
-            tint = HomeInk.fg(),
-            modifier = Modifier.size(20.dp)
-        )
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(25.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(0.5.dp, Color(0xFFE2E8F0), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(13.dp),
+                    strokeWidth = 2.dp,
+                    color = if (isOnline) Color(0xFF10B981) else Color(0xFF64748B)
+                )
+            } else if (isOnline) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(Color(0xFF10B981), CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(Color(0xFF94A3B8), CircleShape)
+                )
+            }
+        }
     }
 }
 

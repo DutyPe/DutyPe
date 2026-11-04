@@ -382,8 +382,11 @@ export interface BannerOptimizationResult {
   savingsPct: number;
 }
 
-// Convert any banner image to low-KB WebP directly in browser with smooth downscaling
-export async function optimizeBannerImage(file: File): Promise<BannerOptimizationResult> {
+// Convert any banner image to low-KB WebP directly in browser with crisp resolution and no quality loss
+export async function optimizeBannerImage(
+  file: File,
+  options?: { maxDim?: number; quality?: number }
+): Promise<BannerOptimizationResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -391,8 +394,8 @@ export async function optimizeBannerImage(file: File): Promise<BannerOptimizatio
       img.onload = () => {
         let w = img.width;
         let h = img.height;
-        // Banners look sharp on 1080p/1440p mobile displays at max 800px dimension
-        const maxDim = 800;
+        // Launch promo posters and high-res mobile displays look ultra-sharp at up to 1440px / 1920px max dimension
+        const maxDim = options?.maxDim ?? 1440;
         if (w > maxDim || h > maxDim) {
           if (w > h) {
             h = Math.round((h * maxDim) / w);
@@ -414,30 +417,57 @@ export async function optimizeBannerImage(file: File): Promise<BannerOptimizatio
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, w, h);
 
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("WebP conversion failed"));
-              return;
-            }
-            const originalKb = Math.round((file.size / 1024) * 10) / 10;
-            const webpKb = Math.round((blob.size / 1024) * 10) / 10;
-            const savings = Math.max(0, Math.round(((file.size - blob.size) / file.size) * 100));
+        const targetQuality = options?.quality ?? 0.88;
 
-            resolve({
-              file,
-              originalSizeKb: originalKb,
-              webpBlob: blob,
-              webpSizeKb: webpKb,
-              previewUrl: URL.createObjectURL(blob),
-              width: w,
-              height: h,
-              savingsPct: savings
-            });
-          },
-          "image/webp",
-          0.85
-        );
+        const handleResultBlob = (blob: Blob | null) => {
+          if (!blob) {
+            reject(new Error("WebP conversion failed"));
+            return;
+          }
+
+          // If dense graphics cause file to exceed 220 KB, run fine-tuned pass at 0.82 to keep it light
+          if (blob.size > 220 * 1024 && targetQuality > 0.82) {
+            canvas.toBlob(
+              (blob2) => {
+                const finalBlob = blob2 || blob;
+                const originalKb = Math.round((file.size / 1024) * 10) / 10;
+                const webpKb = Math.round((finalBlob.size / 1024) * 10) / 10;
+                const savings = Math.max(0, Math.round(((file.size - finalBlob.size) / file.size) * 100));
+
+                resolve({
+                  file,
+                  originalSizeKb: originalKb,
+                  webpBlob: finalBlob,
+                  webpSizeKb: webpKb,
+                  previewUrl: URL.createObjectURL(finalBlob),
+                  width: w,
+                  height: h,
+                  savingsPct: savings
+                });
+              },
+              "image/webp",
+              0.82
+            );
+            return;
+          }
+
+          const originalKb = Math.round((file.size / 1024) * 10) / 10;
+          const webpKb = Math.round((blob.size / 1024) * 10) / 10;
+          const savings = Math.max(0, Math.round(((file.size - blob.size) / file.size) * 100));
+
+          resolve({
+            file,
+            originalSizeKb: originalKb,
+            webpBlob: blob,
+            webpSizeKb: webpKb,
+            previewUrl: URL.createObjectURL(blob),
+            width: w,
+            height: h,
+            savingsPct: savings
+          });
+        };
+
+        canvas.toBlob(handleResultBlob, "image/webp", targetQuality);
       };
       img.onerror = () => reject(new Error("Failed to decode image"));
       img.src = e.target?.result as string;

@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 870
-        versionName = "9.0"
+        versionCode = 872
+        versionName = "9.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -111,21 +111,16 @@ android {
             // classes & methods keep their obfuscated names across versions.
             // This prevents DEX-wide bytecode churn and ensures Google Play
             // delivers ~1-2 MB delta patches instead of 20 MB full downloads.
-            //
-            // Workflow:
-            //   1. Keep app/mapping/release-mapping.txt as the mapping from
-            //      the currently live Play release.
-            //   2. Build the next release. R8 consumes that previous mapping
-            //      through the generated -applymapping fragment below.
-            //   3. Upload the AAB and wait until Play accepts it as the new
-            //      baseline.
-            //   4. Only then run :app:archiveReleaseMapping and commit the new
-            //      app/mapping/release-mapping.txt for the following release.
             // ---------------------------------------------------------------
-            // Note: -applymapping with R8 is intentionally disabled because applying
-            // stale mapping files causes AbstractMethodError and binary incompatibilities
-            // across library updates (especially in Protobuf / DataStore). R8 generates
-            // a fresh, consistent mapping file for every release build.
+            val previousMappingFile = file("mapping/release-mapping.txt")
+            if (previousMappingFile.exists() && previousMappingFile.length() > 1000L) {
+                val applyMappingRules = file(".gradle/applyMapping.pro")
+                applyMappingRules.parentFile.mkdirs()
+                applyMappingRules.writeText(
+                    "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
+                )
+                proguardFiles(applyMappingRules)
+            }
         }
         
         debug {
@@ -178,6 +173,12 @@ android {
         // to delta, so small fixes patch closer to their real binary change.
         dex {
             useLegacyPackaging = false
+        }
+    }
+
+    bundle {
+        storeArchive {
+            enable = true
         }
     }
     
@@ -314,7 +315,13 @@ tasks.configureEach {
     if (name == "bundleRelease") {
         finalizedBy(checkReleaseSizeBudget)
         finalizedBy(verifyNative16KbPageSize)
+        finalizedBy(archiveReleaseMapping)
     }
+}
+
+tasks.withType<Zip>().configureEach {
+    isReproducibleFileOrder = true
+    isPreserveFileTimestamps = false
 }
 
 // Exclude legacy deprecated firebase-iid module globally to prevent AbstractMethodError in FirebaseInitProvider

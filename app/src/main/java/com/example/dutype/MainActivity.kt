@@ -670,15 +670,10 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         Timber.d("📱 MainActivity.onStop() - App in background check")
         if (!com.example.dutype.utils.AppLifecycleTracker.isAppInForeground()) {
-            val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
-            if (isUserLoggedIn) {
-                Timber.d("📱 MainActivity.onStop() - App is ACTUALLY in background and user is logged in, applying launcher icon switch")
-                // Applied only while in the background: switching launcher components in the
-                // foreground can close the app on some launchers/OEMs. Runs on an IO thread.
-                com.example.dutype.promo.AppIconManager.reconcileAsync(applicationContext)
-            } else {
-                Timber.d("📱 MainActivity.onStop() - App is in background but user is NOT logged in (auth flow safety), skipping icon switch")
-            }
+            Timber.d("📱 MainActivity.onStop() - App is in background, checking launcher icon reconciliation")
+            // Applied only while in the background: switching launcher components in the
+            // foreground can close the app on some launchers/OEMs. Runs on an IO thread.
+            com.example.dutype.promo.AppIconManager.reconcileAsync(applicationContext)
         } else {
             Timber.d("📱 MainActivity.onStop() - App still in foreground (active activity present), skipping icon switch")
         }

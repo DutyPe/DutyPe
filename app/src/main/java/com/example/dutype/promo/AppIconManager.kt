@@ -54,15 +54,32 @@ object AppIconManager {
         scope.launch { reconcile(app) }
     }
 
-    /** Computes the desired icon from the cached config and applies it. Call off the main thread. */
+    /** Computes the desired icon from dynamic features or launch config and applies it. Call off the main thread. */
     fun reconcile(context: Context): Boolean {
         return try {
             val ctx = context.applicationContext
-            val desired = desiredIconId(LaunchConfigStore.current(ctx), System.currentTimeMillis(), ctx.appVersionInfo().code)
+            val dynamicIcon = getActiveIconFromDynamicFeatures(ctx)
+            val desired = if (!dynamicIcon.isNullOrBlank()) {
+                dynamicIcon
+            } else {
+                desiredIconId(LaunchConfigStore.current(ctx), System.currentTimeMillis(), ctx.appVersionInfo().code)
+            }
             apply(ctx, desired)
         } catch (t: Throwable) {
             Timber.tag(TAG).d("Icon reconcile failed (%s); keeping current icon", t.javaClass.simpleName)
             false
+        }
+    }
+
+    private fun getActiveIconFromDynamicFeatures(ctx: Context): String? {
+        return try {
+            val prefs = ctx.getSharedPreferences("app_config_cache", Context.MODE_PRIVATE)
+            val raw = prefs.getString("dynamic_features", null) ?: return null
+            val json = org.json.JSONObject(raw)
+            val icon = json.optString("activeLauncherIcon", "").trim().lowercase()
+            if (icon.isNotEmpty() && ALIASES.containsKey(icon)) icon else null
+        } catch (_: Throwable) {
+            null
         }
     }
 
@@ -106,7 +123,9 @@ object AppIconManager {
 
                 val toDefault = targetAlias == ALIASES[DEFAULT_ID]
                 val now = System.currentTimeMillis()
-                if (!toDefault && now - prefs.getLong(KEY_LAST_APPLY_AT, 0L) < THROTTLE_MS) {
+                // Do not throttle if switching to default (kill switch), or if switching to a new target alias
+                val lastAppliedAlias = prefs.getString("last_applied_alias", null)
+                if (!toDefault && lastAppliedAlias == targetAlias && now - prefs.getLong(KEY_LAST_APPLY_AT, 0L) < THROTTLE_MS) {
                     Timber.tag(TAG).d("Icon switch to '%s' throttled (24h)", iconId)
                     return@synchronized false
                 }
@@ -128,6 +147,7 @@ object AppIconManager {
                 prefs.edit()
                     .putLong(KEY_LAST_APPLY_AT, now)
                     .putString("active_alias", targetAlias)
+                    .putString("last_applied_alias", targetAlias)
                     .apply()
                 true
             }

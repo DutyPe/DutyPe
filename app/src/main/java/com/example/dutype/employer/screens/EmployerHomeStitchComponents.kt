@@ -1425,14 +1425,14 @@ fun LocalWorkersSocialProofCard(
     onUrgentClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val locationLabel = cityName.trim().takeIf { it.isNotBlank() } ?: "Your Area"
+    val locationLabel = cityName.trim().takeIf { it.isNotBlank() } ?: "Khammam, TS"
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onHireClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         color = Color.White,
-        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f)),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         shadowElevation = 1.dp
     ) {
         Column(
@@ -1440,6 +1440,7 @@ fun LocalWorkersSocialProofCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            // Header: Live dot + Title + Location badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1456,23 +1457,99 @@ fun LocalWorkersSocialProofCard(
                             .background(Color(0xFF10B981))
                     )
                     Text(
-                        text = "300+ Active Workers Near You",
-                        fontSize = 14.5.sp,
+                        text = "Verified Local Hiring",
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A).fg()
                     )
                 }
 
+                // Required location badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFEFF6FF).bg())
+                        .border(0.8.dp, Color(0xFFBFDBFE).bd(), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Location",
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = locationLabel,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E40AF).fg()
+                    )
+                }
+            }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Two-column Proof Metrics: 300+ Workers & 100+ Employers
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Metric 1: 300+ Workers
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF0FDF4).bg())
+                        .border(0.8.dp, Color(0xFFBBF7D0).bd(), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "300+",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF047857)
+                    )
+                    Text(
+                        text = "Workers Near You",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF065F46).fg()
+                    )
+                }
+
+                // Metric 2: 100+ Employers Hired
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFEFF6FF).bg())
+                        .border(0.8.dp, Color(0xFFBFDBFE).bd(), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "100+",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1D4ED8)
+                    )
+                    Text(
+                        text = "Employers Hired Staff",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1E40AF).fg()
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "Looking for staff in $locationLabel? Over 300+ verified workers are online across cooks, helpers, drivers, electricians, cleaners & delivery roles.",
-                fontSize = 12.5.sp,
+                text = "In $locationLabel, over 100+ employers hired staff through DutyPe. Over 300+ phone-verified workers are available across helpers, cooks, drivers, cleaners & delivery roles.",
+                fontSize = 12.sp,
                 color = Color(0xFF475569).fg(),
-                lineHeight = 17.sp
+                lineHeight = 16.5.sp
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1519,6 +1596,23 @@ fun LocalWorkersSocialProofCard(
                     )
                 }
 
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF059669),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "Zero Commission",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF334155).fg()
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1569,7 +1663,6 @@ fun LocalWorkersSocialProofCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = Color.White,
                         modifier = Modifier.size(14.dp)
                     )
                 }

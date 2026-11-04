@@ -454,6 +454,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             onClick = actions.onRateApp,
             showStars = true
         )
+        com.example.dutype.components.ProfileFollowUsRow()
     }
 }
 

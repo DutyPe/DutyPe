@@ -54,6 +54,11 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.dutype.navigation.Routes
 import com.example.dutype.repositories.DynamicFeaturesConfig
 import kotlinx.coroutines.delay
@@ -82,9 +87,13 @@ fun DynamicLaunchPromoDialog(
         Routes.SERVICES
     )
 
-    LaunchedEffect(dynamicConfig.launchPromoEnabled, dynamicConfig.launchPromoBannerUrl, isEligibleScreen) {
+    val isAnimation = dynamicConfig.launchPromoMediaType.equals("ANIMATION", ignoreCase = true) &&
+        dynamicConfig.launchPromoAnimationUrl.isNotBlank()
+    val hasMedia = dynamicConfig.launchPromoBannerUrl.isNotBlank() || dynamicConfig.launchPromoAnimationUrl.isNotBlank()
+
+    LaunchedEffect(dynamicConfig.launchPromoEnabled, hasMedia, isEligibleScreen) {
         if (dynamicConfig.launchPromoEnabled &&
-            dynamicConfig.launchPromoBannerUrl.isNotBlank() &&
+            hasMedia &&
             isEligibleScreen &&
             !DynamicLaunchPromoSessionTracker.hasDismissedThisSession
         ) {
@@ -188,18 +197,36 @@ fun DynamicLaunchPromoDialog(
                             .background(Color.White)
                     ) {
                         Column {
-                            // Vertical Aspect Ratio Poster Image
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(dynamicConfig.launchPromoBannerUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = dynamicConfig.launchPromoTitle.ifBlank { "Special Offer" },
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(3f / 4f)
-                            )
+                            if (isAnimation) {
+                                val composition by rememberLottieComposition(
+                                    LottieCompositionSpec.Url(dynamicConfig.launchPromoAnimationUrl.trim())
+                                )
+                                val progress by animateLottieCompositionAsState(
+                                    composition = composition,
+                                    iterations = LottieConstants.IterateForever
+                                )
+                                LottieAnimation(
+                                    composition = composition,
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .background(Color.White)
+                                )
+                            } else {
+                                // Vertical Aspect Ratio Poster Image (WebP)
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(dynamicConfig.launchPromoBannerUrl.ifBlank { dynamicConfig.launchPromoAnimationUrl })
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = dynamicConfig.launchPromoTitle.ifBlank { "Special Offer" },
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(3f / 4f)
+                                )
+                            }
 
                             // Optional Title / CTA Bar below image if configured
                             if (dynamicConfig.launchPromoTitle.isNotBlank() || dynamicConfig.launchPromoActionRoute.isNotBlank()) {

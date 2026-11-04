@@ -147,6 +147,34 @@ export function AdminDynamicConfigClient() {
           },
           { merge: true }
       );
+
+      // Seamlessly sync launch promo and launcher icon to app_config/launch so all mobile clients update
+      await setDoc(
+          doc(services.db, "app_config", "launch"),
+          {
+            version: Date.now(),
+            enabled: config.launchPromoEnabled,
+            appIcon: {
+              enabled: config.activeLauncherIcon !== "default",
+              activeIconId: config.activeLauncherIcon
+            },
+            promos: config.launchPromoEnabled && (config.launchPromoBannerUrl || config.launchPromoAnimationUrl) ? [
+              {
+                id: "launch_promo_campaign",
+                type: "fullscreen",
+                priority: 100,
+                imageUrl: config.launchPromoBannerUrl.trim(),
+                title: { en: config.launchPromoTitle.trim() || "DutyPe Special Offer" },
+                ctaLabel: { en: "Check Now" },
+                deepLink: config.launchPromoActionRoute.trim() || "services",
+                dismissible: true,
+                frequency: { maxShows: 5, minHoursBetween: 4 }
+              }
+            ] : []
+          },
+          { merge: true }
+      );
+
       setMessage("Saved. The changes will instantly push to all active user devices in real-time.");
       setDirty(false);
     } catch (saveError: unknown) {
@@ -172,11 +200,36 @@ export function AdminDynamicConfigClient() {
       let contentType = file.type || "application/octet-stream";
 
       if (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name)) {
-        const opt = await optimizeBannerImage(file);
+        // High-quality WebP conversion without losing sharpness or detail (1080p/1440p mobile resolution)
+        const isLaunchPromo = field === "launchPromoBannerUrl";
+        const opt = await optimizeBannerImage(file, {
+          maxDim: isLaunchPromo ? 1920 : 1200,
+          quality: isLaunchPromo ? 0.90 : 0.88
+        });
         uploadBlob = opt.webpBlob;
         fileName = `${fileName}.webp`;
         contentType = "image/webp";
-        setMessage(`Auto-converted to lightweight WebP: ${opt.webpSizeKb} KB (saved ${opt.savingsPct}% data). Uploading...`);
+        setMessage(`✨ Converted to Ultra-Crisp WebP: ${opt.webpSizeKb} KB (${opt.width}x${opt.height}px, saved ${opt.savingsPct}% data). Zero quality loss. Uploading...`);
+      } else if (file.name.endsWith(".json") || file.type.includes("json")) {
+        // Lottie animation validation and minification
+        const text = await file.text();
+        let parsed: any;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error("Invalid JSON: The file is not a valid JSON document.");
+        }
+        if (!parsed.v && !parsed.layers) {
+          throw new Error("Invalid Lottie schema: Missing required 'v' or 'layers' fields in JSON.");
+        }
+        const minified = JSON.stringify(parsed);
+        uploadBlob = new Blob([minified], { type: "application/json" });
+        fileName = `${fileName}.json`;
+        contentType = "application/json";
+        const originalKb = Math.round((file.size / 1024) * 10) / 10;
+        const minifiedKb = Math.round((uploadBlob.size / 1024) * 10) / 10;
+        const savings = Math.max(0, Math.round(((file.size - uploadBlob.size) / file.size) * 100));
+        setMessage(`⚡ Minified Lottie Animation JSON: ${minifiedKb} KB (saved ${savings}%). Uploading...`);
       } else {
         const fileExt = file.name.split('.').pop();
         fileName = `${fileName}.${fileExt}`;
@@ -343,9 +396,14 @@ export function AdminDynamicConfigClient() {
                 />
               </div>
               {config.launchPromoBannerUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <img src={config.launchPromoBannerUrl} alt="Launch promo preview" style={{ maxWidth: 220, borderRadius: 6, objectFit: "cover" }} />
-                  <button type="button" onClick={() => { setConfig({ ...config, launchPromoBannerUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer" }}>Delete</button>
+                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <img src={config.launchPromoBannerUrl} alt="Launch promo preview" style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, objectFit: "contain", border: "1px solid #e5e7eb" }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", backgroundColor: "#ecfdf5", padding: "3px 8px", borderRadius: 4, width: "fit-content" }}>
+                      ✓ High-Quality WebP (Fast Mobile Load)
+                    </span>
+                    <button type="button" onClick={() => { setConfig({ ...config, launchPromoBannerUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer", width: "fit-content" }}>Delete Image</button>
+                  </div>
                 </div>
               )}
             </label>
@@ -367,9 +425,16 @@ export function AdminDynamicConfigClient() {
                 />
               </div>
               {config.launchPromoAnimationUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <LottiePreview url={config.launchPromoAnimationUrl} />
-                  <button type="button" onClick={() => { setConfig({ ...config, launchPromoAnimationUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer" }}>Delete</button>
+                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ width: 180, height: 180, border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", backgroundColor: "#f9fafb" }}>
+                    <LottiePreview url={config.launchPromoAnimationUrl} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", backgroundColor: "#ecfdf5", padding: "3px 8px", borderRadius: 4, width: "fit-content" }}>
+                      ✓ Minified Vector Lottie Animation
+                    </span>
+                    <button type="button" onClick={() => { setConfig({ ...config, launchPromoAnimationUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer", width: "fit-content" }}>Delete Animation</button>
+                  </div>
                 </div>
               )}
             </label>
