@@ -154,6 +154,7 @@ import timber.log.Timber
 fun JobDescriptionScreen(
     jobId: String,
     navController: NavController,
+    rootNavController: NavController? = null,
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -234,9 +235,8 @@ fun JobDescriptionScreen(
         }
     }
 
-    // Guest mode - Login bottom sheet state
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
-    var pendingAction by remember { mutableStateOf<String?>(null) }
+    // Login navigation uses rootNavController if provided, else falls back to local
+    val authNavController = rootNavController ?: navController
 
     // Notification permission prompt on saving jobs
     var showSaveJobNotificationPrompt by remember { mutableStateOf(false) }
@@ -252,7 +252,7 @@ fun JobDescriptionScreen(
     // Reactive auth state so the UI updates immediately after a login via
     // the bottom sheet — the old `val currentUser = ...getInstance().currentUser`
     // was a one-shot snapshot captured at composition time and stayed null
-    // after the LoginBottomSheet signed in the user.
+    // after user signs in.
     var currentUser by remember { mutableStateOf(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser) }
     DisposableEffect(Unit) {
         val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { auth ->
@@ -390,8 +390,9 @@ fun JobDescriptionScreen(
             // button next to "Apply Now (1-Tap)".
             val handleSaveClick: () -> Unit = {
                 if (currentUser == null) {
-                    pendingAction = "save"
-                    showLoginBottomSheet = true
+                    authNavController.navigate(
+                        Routes.loginRoute(role = "WORKER", returnRoute = Routes.jobDetailRoute(resolvedJobId))
+                    )
                 } else {
                     if (isSaved) {
                         savedJobsViewModel.unsaveJob(resolvedJobId)
@@ -486,7 +487,7 @@ fun JobDescriptionScreen(
             val handleApplyClick: () -> Unit = {
                 val user = currentUser
                 if (user == null) {
-                    navController.navigate(
+                    authNavController.navigate(
                         Routes.loginRoute(role = "WORKER", returnRoute = Routes.jobApplicationRoute(jobId))
                     )
                 } else {
@@ -515,8 +516,8 @@ fun JobDescriptionScreen(
                 }
             }
             val handleLoginRequired: (String) -> Unit = { action ->
-                val returnRoute = if (action == "apply") Routes.jobApplicationRoute(jobId) else null
-                navController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = returnRoute))
+                val returnRoute = if (action == "apply") Routes.jobApplicationRoute(jobId) else Routes.jobDetailRoute(jobId)
+                authNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = returnRoute))
             }
             val handleCallClick: (JobListing) -> Unit = { currentJob ->
                 if (currentUser == null) {

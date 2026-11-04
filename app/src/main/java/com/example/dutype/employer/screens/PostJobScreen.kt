@@ -298,7 +298,6 @@ private class PostJobController(
     var showLocationWarningDialog by mutableStateOf(false)
     var locationDistanceKm by mutableStateOf(0.0)
     var pendingJobSubmission by mutableStateOf(false)
-    var showLoginBottomSheet by mutableStateOf(false)
     var showPostJobNotificationBottomSheet by mutableStateOf(false)
     var pendingNavJobId by mutableStateOf<String?>(null)
 
@@ -749,8 +748,10 @@ private class PostJobController(
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            Timber.d("JOB POSTING DEBUG: User not logged in, showing login sheet")
-            showLoginBottomSheet = true
+            Timber.d("JOB POSTING DEBUG: User not logged in, navigating to login")
+            (rootNavController ?: navController).navigate(
+                Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_POST_JOB)
+            )
             return
         }
 
@@ -893,7 +894,9 @@ private class PostJobController(
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            showLoginBottomSheet = true
+            (rootNavController ?: navController).navigate(
+                Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_POST_JOB)
+            )
             return
         }
 
@@ -917,7 +920,9 @@ private class PostJobController(
         }
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            showLoginBottomSheet = true
+            (rootNavController ?: navController).navigate(
+                Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_POST_JOB)
+            )
             return
         }
         if (!postJobVacanciesValid(vacancies)) {
@@ -970,7 +975,9 @@ private class PostJobController(
         }
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            showLoginBottomSheet = true
+            (rootNavController ?: navController).navigate(
+                Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_POST_JOB)
+            )
             return
         }
         if (!postJobVacanciesValid(vacancies)) {
@@ -1617,28 +1624,6 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
 
 @Composable
 private fun PostJobSheets(c: PostJobController) {
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = c.showLoginBottomSheet,
-        onDismiss = { c.showLoginBottomSheet = false },
-        onLoginSuccess = {
-            c.showLoginBottomSheet = false
-            if (c.currentStep == 3) {
-                c.submitJob()
-            } else if (c.currentStep == 1) {
-                c.currentStep = 2
-            }
-        },
-        onProfileSetupRequired = {
-            c.showLoginBottomSheet = false
-            c.openProfileSetup()
-        },
-        requiresProfileCheck = true,
-        role = com.example.dutype.models.UserRole.EMPLOYER,
-        title = stringResource(R.string.login_to_post_job),
-        subtitle = stringResource(R.string.login_publish_job_subtitle),
-        navController = c.rootNavController ?: c.navController
-    )
-
     com.example.dutype.components.NotificationPermissionBottomSheet(
         isVisible = c.showPostJobNotificationBottomSheet,
         onDismiss = {

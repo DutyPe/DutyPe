@@ -580,11 +580,13 @@ private fun WorkerWorkTipsSection() {
  * silently no-op'd and the Return-to-Home button appeared dead.
  */
 private fun navigateToWorkerHome(navController: NavController) {
+    navController.popBackStack(com.example.dutype.navigation.Routes.WORKER_ALL_JOBS, inclusive = false)
     com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.HOME)
 }
 
 private fun navigateToWorkerMyJobs(navController: NavController) {
     // Fresh My Jobs so the just-submitted application is shown, not a stale saved tab.
+    navController.popBackStack(com.example.dutype.navigation.Routes.WORKER_ALL_JOBS, inclusive = false)
     com.example.dutype.components.navigateToWorkerTab(
         navController,
         com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS,
@@ -600,21 +602,34 @@ private fun ApplicationSentSuccess(
     onViewMyJobs: () -> Unit,
     onReturnHome: () -> Unit
 ) {
-    // Animated scale-in for the check circle.
-    var animateIn by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { animateIn = true }
-    val scale by animateFloatAsState(
-        targetValue = if (animateIn) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+    // Professional repeating pulse + halo wave animation for success checkmark
+    val infiniteTransition = rememberInfiniteTransition(label = "successCheckLoop")
+    val haloScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.38f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "successScale"
+        label = "haloScale"
     )
-    val tickAlpha by animateFloatAsState(
-        targetValue = if (animateIn) 1f else 0f,
-        animationSpec = tween(durationMillis = 400, delayMillis = 250),
-        label = "tickAlpha"
+    val haloAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "haloAlpha"
+    )
+    val checkPulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(750, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "checkPulse"
     )
 
     val context = LocalContext.current
@@ -649,16 +664,22 @@ private fun ApplicationSentSuccess(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier
-                .size(112.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .background(WorkerColors.Success.copy(alpha = 0.12f)),
+            modifier = Modifier.size(130.dp),
             contentAlignment = Alignment.Center
         ) {
+            // Continuously expanding outer halo ripple
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .scale(haloScale)
+                    .clip(CircleShape)
+                    .background(WorkerColors.Success.copy(alpha = haloAlpha))
+            )
+            // Inner solid green badge with subtle rhythmic pulse
             Box(
                 modifier = Modifier
                     .size(80.dp)
+                    .scale(checkPulse)
                     .clip(CircleShape)
                     .background(WorkerColors.Success),
                 contentAlignment = Alignment.Center
@@ -667,9 +688,7 @@ private fun ApplicationSentSuccess(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .scale(tickAlpha)
+                    modifier = Modifier.size(46.dp)
                 )
             }
         }

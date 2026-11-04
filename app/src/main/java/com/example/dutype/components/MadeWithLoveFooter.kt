@@ -22,20 +22,19 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Shared signature brand footer for DutyPe.
- * Displays the large bold signature statement followed by the blue heart icon inline on line 2,
- * exactly matching the reference design layout.
- * Used across Worker Home, Hire Workers, and Customer Services screens.
+ * Displays "India's #1" and "local jobs app" with blue heart/emoji.
+ * Featured prominently at the bottom of Profile screens.
  */
 @Composable
 fun MadeWithLoveFooter(
-    modifier: Modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp)
+    modifier: Modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 32.dp)
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = "India's local",
+            text = "India's #1",
             fontSize = 32.sp,
             fontWeight = FontWeight.Black,
             color = Color(0xFF94A3B8),
@@ -47,7 +46,7 @@ fun MadeWithLoveFooter(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "jobs & service app",
+                text = "local jobs app",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Black,
                 color = Color(0xFF94A3B8),

@@ -139,6 +139,17 @@ private val DEFAULT_WORKER_PROMOS = listOf(
         gradientColors = listOf(Color(0xFF78350F), Color(0xFF92400E), Color(0xFFB45309)),
         ctaBgColor = Color.White,
         ctaTextColor = Color(0xFF78350F)
+    ),
+    HomePromoSlide(
+        tag = "🛠️ EARN WITH SERVICES",
+        tagBgColor = Color(0xFF0284C7),
+        headline = "Earn More as Services Partner",
+        subheadline = "Offer AC repair, electrical, plumbing, carpentry or cleaning services to households in your area.",
+        cta = "Join Partner",
+        targetKey = "partner",
+        gradientColors = listOf(Color(0xFF0C4A6E), Color(0xFF0369A1), Color(0xFF0284C7)),
+        ctaBgColor = Color(0xFFFBBF24),
+        ctaTextColor = Color(0xFF0F172A)
     )
 )
 

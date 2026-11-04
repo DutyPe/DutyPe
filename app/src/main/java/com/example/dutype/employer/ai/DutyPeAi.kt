@@ -1,5 +1,7 @@
 package com.example.dutype.employer.ai
 
+import com.example.dutype.navigation.Routes
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -419,7 +421,6 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
     var typed by rememberSaveable { mutableStateOf("") }
     var muted by rememberSaveable { mutableStateOf(false) }
     var autoListened by rememberSaveable { mutableStateOf(false) }
-    var showLogin by remember { mutableStateOf(false) }
     var showKeyboard by remember { mutableStateOf(false) }
     val greeting = stringResource(R.string.dutype_ai_greeting)
 
@@ -702,7 +703,11 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
             when {
                 state.needsLogin -> AiDarkLoginGate(
                     modifier = Modifier.weight(1f),
-                    onLogin = { showLogin = true }
+                    onLogin = {
+                        (rootNavController ?: navController).navigate(
+                            Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.DUTYPE_AI)
+                        )
+                    }
                 )
                 isListening -> AiDarkListeningView(modifier = Modifier.weight(1f))
                 !conversationStarted -> AiDarkWelcome(
@@ -887,19 +892,6 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
             }
         }
     }
-
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLogin,
-        onDismiss = { showLogin = false },
-        onLoginSuccess = {
-            showLogin = false
-            viewModel.refreshLogin()
-        },
-        role = com.example.dutype.models.UserRole.EMPLOYER,
-        title = stringResource(R.string.dutype_ai_login_title),
-        subtitle = stringResource(R.string.dutype_ai_login_body),
-        navController = navController
-    )
 }
 
 @Composable

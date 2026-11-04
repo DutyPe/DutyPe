@@ -559,10 +559,26 @@ fun MandatoryWorkerProfileSetupScreen(
 
                 // Navigate to next screen
                 if (returnRoute != null) {
-                    Timber.d("📍 Navigating to return route '$returnRoute'")
-                    navController.navigate(returnRoute) {
-                        popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
-                        launchSingleTop = true
+                    val trimmed = returnRoute.trim()
+                    Timber.d("📍 Navigating to return route '$trimmed'")
+                    val isWorkerInner = trimmed.startsWith("worker_") ||
+                        trimmed.startsWith("job_application") ||
+                        trimmed == Routes.WORKER_REFER_EARN ||
+                        trimmed == Routes.WORKER_EARNINGS ||
+                        trimmed == Routes.WORKER_HISTORY ||
+                        trimmed == Routes.WORKER_PROFILE_DETAILS ||
+                        trimmed == Routes.WORKER_ALL_JOBS
+                    if (isWorkerInner) {
+                        com.example.dutype.navigation.WorkerInnerNavQueue.setPending(trimmed)
+                        navController.navigate(Routes.WORKER_HOME) {
+                            popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } else {
+                        navController.navigate(trimmed) {
+                            popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
                 } else {
                     Timber.d("📍 Navigating to WORKER_HOME")

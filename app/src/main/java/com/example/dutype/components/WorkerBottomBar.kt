@@ -191,9 +191,10 @@ fun navigateToWorkerTab(navController: NavController, route: String, restoreStat
         }
         return
     }
+    val shouldRestore = restoreState && (route != WorkerBottomRoutes.JOBS)
     navController.navigate(route) {
         popUpTo(startId) { saveState = true }
         launchSingleTop = true
-        this.restoreState = restoreState
+        this.restoreState = shouldRestore
     }
 }

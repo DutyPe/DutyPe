@@ -135,7 +135,7 @@ class OtpViewModel @Inject constructor(
     private var whatsappPhone: String? = null
     private var cooldownJob: Job? = null
 
-    // Role context for FCM registration - set by LoginBottomSheet before OTP flow
+    // Role context for FCM registration - set before OTP flow
     private var pendingRole: UserRole = UserRole.WORKER
 
     enum class PostOtpDestination {

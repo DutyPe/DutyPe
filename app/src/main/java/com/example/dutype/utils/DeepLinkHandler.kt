@@ -56,11 +56,14 @@ object DeepLinkHandler {
             Timber.i("🔗 DEEP LINK: ✅ $label navigation successful")
         } catch (e: IllegalArgumentException) {
             // Some links target nested worker routes that may not exist on the root NavController.
-            val fallbackRoute = when (route) {
-                com.example.dutype.navigation.WorkerBottomRoutes.PROFILE,
-                Routes.WORKER_NOTIFICATIONS,
-                Routes.WORKER_ALL_JOBS,
-                com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS -> Routes.WORKER_HOME
+            com.example.dutype.navigation.WorkerInnerNavQueue.setPending(route)
+            val fallbackRoute = when {
+                route == com.example.dutype.navigation.WorkerBottomRoutes.PROFILE ||
+                route == Routes.WORKER_NOTIFICATIONS ||
+                route == Routes.WORKER_ALL_JOBS ||
+                route == com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS ||
+                route.startsWith("worker_") ||
+                route.startsWith("job_application") -> Routes.WORKER_HOME
                 else -> null
             }
 

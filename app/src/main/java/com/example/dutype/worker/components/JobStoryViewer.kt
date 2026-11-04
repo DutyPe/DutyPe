@@ -230,14 +230,6 @@ fun JobStoryViewerContent(
                 )
             }
     ) {
-        // Solid black status bar coverage ensuring 0% bleed-through from background screens at top edge
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(Color.Black)
-                .align(Alignment.TopCenter)
-        )
         // Full bleed workplace / job image background
         val photoUrl = currentJob.photoUrl?.takeIf { it.isNotBlank() }
         if (photoUrl != null) {
@@ -346,7 +338,35 @@ fun JobStoryViewerContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = currentJob.companyName.ifBlank { "DutyPe Verified" },
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
 
         // Right-Side Vertical Floating Action Buttons: Favorite + Share (lifted slightly higher)

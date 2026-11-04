@@ -541,15 +541,30 @@ fun HomeSectionsContent(
     // Memoize filtered jobs to avoid recomputation on every recomposition
     val availableJobs = jobListings
 
-    // Memoize skill-matched jobs - prioritize jobs matching worker skills, then by distance
-    // Instant / urgent jobs (urgency == HIGH), nearest-first, shown in their own section on top.
+    // Memoize nearest jobs (top 5) and skill matched jobs (at least 5)
     val urgentPreview = remember(urgentJobs) { urgentJobs.take(3) }
-    val skillMatchedJobs = remember(availableJobs, urgentPreview, userSkills) {
-        // Jobs are already distance-enriched and sorted nearest-first by the ViewModel.
-        // Keep home preview concise; full list is available in All Jobs.
-        // Jobs already shown in the urgent section are not repeated right below it.
-        // The 5 nearest jobs are always shown, even when they also appear in the urgent section.
+    val nearestJobs = remember(availableJobs) {
         availableJobs.take(5)
+    }
+    val skillMatchedJobs = remember(availableJobs, userSkills) {
+        val normalizedSkills = userSkills.map { it.trim().lowercase() }.filter { it.isNotBlank() }
+        val matched = if (normalizedSkills.isNotEmpty()) {
+            availableJobs.filter { job ->
+                val cat = job.category.lowercase()
+                val title = job.title.lowercase()
+                normalizedSkills.any { s -> cat.contains(s) || title.contains(s) || s.contains(cat) }
+            }
+        } else emptyList()
+        // Ensure at least 5 jobs: prioritize skill matches, then diverse jobs from the feed
+        val remaining = availableJobs.filterNot { nearestJobs.contains(it) }
+        val combined = (matched + remaining).distinctBy { it.id }
+        if (combined.size >= 5) {
+            combined.take(8)
+        } else if (availableJobs.size > 5) {
+            availableJobs.drop(5).take(5)
+        } else {
+            availableJobs
+        }
     }
 
     // Hidden for now: the "jobs near you · view map" hero card (the map tab is hidden too).
@@ -644,15 +659,22 @@ fun HomeSectionsContent(
                 WorkerLiveEarningsSection()
             }
 
-            if (dynamicPromoSlides.isNotEmpty() || promoBannerUrl.isNotBlank()) {
-                item(key = "worker_home_promo_carousel") {
-                    Box(modifier = Modifier.cascadeEnter(1)) {
-                        com.example.dutype.components.PromotionalBannerCarousel(
+            // Promotional / announcement carousel: always rendered matching Employer Home
+            item(key = "worker_home_promo_carousel") {
+                Box(modifier = Modifier.cascadeEnter(1)) {
+                    com.example.dutype.components.PromotionalBannerCarousel(
                         isWorker = true,
+                        customSlides = dynamicPromoSlides,
                         onAction = { target ->
                             when {
+                                target == "partner" || target == "partner_services" || target.contains("partner") -> {
+                                    rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER)
+                                }
+                                target == "services" -> {
+                                    rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES)
+                                }
                                 target.startsWith("dutype://") || target.contains("://") || target.startsWith("showcase") ||
-                                        target == "promote_business" || target.contains("promote-business") || target.contains("partner") -> {
+                                        target == "promote_business" || target.contains("promote-business") -> {
                                     DeepLinkHandler.handleAnnouncementAction(target, navController, context)
                                 }
                                 target == "jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
@@ -661,25 +683,9 @@ fun HomeSectionsContent(
                                 else -> DeepLinkHandler.handleAnnouncementAction(target, navController, context)
                             }
                         },
-                        customSlides = dynamicPromoSlides,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-
-            // DutyPe Services partner entry & home services booking in Khammam
-            item(key = "worker_home_partner_entry") {
-                Box(modifier = Modifier.cascadeEnter(2)) {
-                    com.example.dutype.homeservices.PartnerEntryIfInArea(
-                    lat = currentLocation?.latitude ?: 17.2473,
-                    lng = currentLocation?.longitude ?: 80.1514,
-                    onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
-                    onBookServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
-                    modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
             }
@@ -798,7 +804,7 @@ fun HomeSectionsContent(
                 )
                 Spacer(modifier = Modifier.height(36.dp))
             }
-        } else if (skillMatchedJobs.isEmpty()) {
+        } else if (nearestJobs.isEmpty()) {
             // Jobs still loading (urgent jobs may already be on screen): skeleton, not a blank gap.
             if (isLoadingJobs) {
                 item(key = "worker_home_jobs_skeleton") {
@@ -806,7 +812,7 @@ fun HomeSectionsContent(
                 }
             }
         } else {
-            // Section 3: Jobs For You (skill-matched) - transparent to show gradient
+            // Section: Nearest Jobs
             item {
                 Column(
                     modifier = Modifier
@@ -815,23 +821,26 @@ fun HomeSectionsContent(
                         .padding(top = 8.dp, bottom = 4.dp)
                 ) {
                     RecommendedJobsSection(
-                        jobs = skillMatchedJobs,
+                        jobs = nearestJobs,
                         onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
                         savedJobsViewModel = savedJobsViewModel,
                         onNavigateToJob = onNavigateToJob,
                         onOpenStory = onOpenStory,
-                        // Nothing within 20 km: say where these jobs are ("More jobs in Khammam district").
-                        sectionTitle = skillMatchedJobs.first().let { first ->
-                            val section = first.feedSection
-                            when {
-                                section != null && !section.isNearby -> com.example.dutype.worker.components
-                                    .feedSectionTitle(section, first.district, first.state)
-                                skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.worker_nearest_jobs)
-                                else -> stringResource(R.string.jobs_for_you)
-                            }
-                        }
+                        sectionTitle = stringResource(R.string.worker_nearest_jobs)
                     )
-                    if (isLoadingJobs && skillMatchedJobs.size < 5) {
+                    // Section: Jobs Matching Your Skills (shows at least 5 matching jobs)
+                    if (skillMatchedJobs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(18.dp))
+                        RecommendedJobsSection(
+                            jobs = skillMatchedJobs,
+                            onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
+                            savedJobsViewModel = savedJobsViewModel,
+                            onNavigateToJob = onNavigateToJob,
+                            onOpenStory = onOpenStory,
+                            sectionTitle = "Jobs Matching Your Skills"
+                        )
+                    }
+                    if (isLoadingJobs && nearestJobs.size < 5) {
                         HomeJobsSkeleton()
                     }
                 }
@@ -948,10 +957,7 @@ fun HomeSectionsContent(
             }
         }
 
-        // Section 5: Signature "Made with Love in India" brand footer
-        item(key = "worker_home_made_with_love") {
-            com.example.dutype.components.MadeWithLoveFooter()
-        }
+
 
     }
     }
@@ -1673,79 +1679,7 @@ fun RecommendedJobsSection(
     }
 }
 
-@Composable
-fun EarnWithDutyPeServicesSection(
-    onViewAllServices: () -> Unit
-) {
-    val sampleServices = remember {
-        listOf(
-            Triple("AC Repair & Servicing", "From ₹449", "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=75"),
-            Triple("Electrician at Home", "From ₹129", "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=75"),
-            Triple("Deep House Cleaning", "From ₹499", "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=75"),
-            Triple("Plumbing & Pipe Repair", "From ₹149", "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=600&q=75"),
-            Triple("Wall Painting & Polish", "From ₹799", "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=75")
-        )
-    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 18.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Earn with DutyPe Services",
-                color = HomeInk.fg(),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9).bg())
-                    .clickable { onViewAllServices() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "DutyPe Services",
-                    tint = Color(0xFF0F172A).fg(),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            itemsIndexed(sampleServices) { idx, item ->
-                Box(modifier = Modifier.cascadeEnter(index = idx.coerceAtMost(5))) {
-                    WorkerMockupServiceCard(
-                        title = item.first,
-                        priceText = item.second,
-                        imageUrl = item.third,
-                        category = "SERVICE",
-                        onCardClick = onViewAllServices
-                    )
-                }
-            }
-        }
-    }
-}
 
 data class WorkerEarningsProof(
     val name: String,
@@ -2113,6 +2047,7 @@ internal fun WorkerHomeGreetingHeader(
     unreadNotificationCount: Int,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
+    onSwitchRoleClick: () -> Unit = {},
     isOnline: Boolean = false,
     isSavingOnline: Boolean = false,
     onOnlineChange: ((Boolean) -> Unit)? = null,
@@ -2178,10 +2113,16 @@ internal fun WorkerHomeGreetingHeader(
                 }
             }
 
-            HomeBellButton(
-                hasUnread = unreadNotificationCount > 0,
-                onClick = onNotificationClick
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                HomeSwitchRoleButton(onClick = onSwitchRoleClick)
+                HomeBellButton(
+                    hasUnread = unreadNotificationCount > 0,
+                    onClick = onNotificationClick
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -2262,6 +2203,26 @@ private fun HomeFilterPill(
             color = if (isSelected) Color.White.fg() else Color(0xFF0F172A).fg(),
             fontSize = 13.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun HomeSwitchRoleButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color.White.bg())
+            .border(1.dp, HomeBorder.bd(), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_switch_role),
+            contentDescription = "Switch to Employer",
+            tint = HomeInk.fg(),
+            modifier = Modifier.size(20.dp)
         )
     }
 }

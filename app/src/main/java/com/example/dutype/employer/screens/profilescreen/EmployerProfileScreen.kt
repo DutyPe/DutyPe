@@ -475,11 +475,15 @@ private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifie
                 EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
             }
         }
+        // 30dp top padding from profile hero/card to flat menu items
+        Spacer(modifier = Modifier.height(30.dp))
         Box(modifier = Modifier.cascadeEnter(index = 2)) {
             EmpMenuCard(ui = ui, actions = actions)
         }
 
-        Spacer(modifier = Modifier.height(90.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        com.example.dutype.components.MadeWithLoveFooter()
+        Spacer(modifier = Modifier.height(72.dp))
     }
 }
 
@@ -536,8 +540,7 @@ fun EmployerProfileScreen(
     var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    // Guest mode - Login bottom sheet state
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
+// Guest mode login handled via loginRoute
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
     fun applyEmployer(p: com.example.dutype.profile.EmployerProfile) {

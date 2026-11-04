@@ -180,8 +180,7 @@ fun WorkerProfileScreen(
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // Guest mode - Login bottom sheet state
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    // Guest mode login handled via loginRoute
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
     // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
@@ -654,6 +653,8 @@ fun WorkerProfileScreen(
 
                 // SETTINGS LIST CARD (mockup: exactly 5 rows)
                 item {
+                    // 30dp top padding from profile hero/completeness to menu items
+                    Spacer(modifier = Modifier.height(30.dp))
                     Box(modifier = Modifier.cascadeEnter(index = 2)) {
                         ProfileSettingsCard(
                         onEditProfile = openProfileDetails,
@@ -706,6 +707,8 @@ fun WorkerProfileScreen(
 
 
                 item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    com.example.dutype.components.MadeWithLoveFooter()
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }

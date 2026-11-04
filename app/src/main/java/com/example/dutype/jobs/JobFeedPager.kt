@@ -215,7 +215,7 @@ class JobFeedPager internal constructor(
         const val MAX_BAND_KM = 20.0
         /** Firestore's limit for one `in` filter. */
         const val MAX_IN_VALUES = 30
-        const val FETCH_SIZE = 20L
+        const val FETCH_SIZE = 10L
         /** Max job documents one page may read (district / state pages skip jobs already shown). */
         const val READ_BUDGET = 120
     }

@@ -305,25 +305,7 @@ private fun OtpLoginScreen(
                                 Toast.makeText(context, welcomeMessage, Toast.LENGTH_SHORT).show()
 
                                 // Redirect to requested destination or back to caller
-                                if (!returnRoute.isNullOrBlank()) {
-                                    try {
-                                        navController.navigate(returnRoute) {
-                                            popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
-                                            launchSingleTop = true
-                                        }
-                                    } catch (e: Exception) {
-                                        Timber.e(e, "Error navigating to returnRoute: $returnRoute")
-                                        if (navController.previousBackStackEntry != null) {
-                                            navController.popBackStack()
-                                        } else {
-                                            navigateToHome(outcome.role, navController)
-                                        }
-                                    }
-                                } else if (navController.previousBackStackEntry != null) {
-                                    navController.popBackStack()
-                                } else {
-                                    navigateToHome(outcome.role, navController)
-                                }
+                                handlePostLoginNavigation(outcome.role, navController, returnRoute)
                             } else {
                                 navigateToProfileSetup(outcome.role, navController, returnRoute)
                             }
@@ -1018,5 +1000,84 @@ private fun OtpSixDigitInputRow(
             cursorBrush = SolidColor(Color.Transparent),
             textStyle = TextStyle(color = Color.Transparent)
         )
+    }
+}
+
+private fun handlePostLoginNavigation(
+    role: UserRole,
+    navController: NavController,
+    returnRoute: String?
+) {
+    if (returnRoute.isNullOrBlank()) {
+        if (navController.previousBackStackEntry != null) {
+            navController.popBackStack()
+        } else {
+            navigateToHome(role, navController)
+        }
+        return
+    }
+
+    val trimmedRoute = returnRoute.trim()
+    val isWorkerInnerRoute = trimmedRoute.startsWith("worker_") ||
+        trimmedRoute.startsWith("job_application") ||
+        trimmedRoute == Routes.WORKER_REFER_EARN ||
+        trimmedRoute == Routes.WORKER_EARNINGS ||
+        trimmedRoute == Routes.WORKER_HISTORY ||
+        trimmedRoute == Routes.WORKER_PROFILE_DETAILS ||
+        trimmedRoute == Routes.WORKER_ALL_JOBS ||
+        trimmedRoute == Routes.WORKER_JOB_MAP ||
+        trimmedRoute == Routes.WORKER_NOTIFICATIONS ||
+        trimmedRoute == Routes.WORKER_CATEGORIES
+
+    val isEmployerInnerRoute = trimmedRoute.startsWith("employer_") ||
+        trimmedRoute == Routes.EMPLOYER_POST_JOB ||
+        trimmedRoute == Routes.EMPLOYER_POST_URGENT_NEED ||
+        trimmedRoute == Routes.EMPLOYER_REFER_EARN ||
+        trimmedRoute == Routes.EMPLOYER_COMPANY_DETAILS ||
+        trimmedRoute == Routes.EMPLOYER_MY_JOBS ||
+        trimmedRoute == Routes.EMPLOYER_APPLICATIONS ||
+        trimmedRoute == Routes.EMPLOYER_SUBSCRIPTION ||
+        trimmedRoute == Routes.EMPLOYER_NOTIFICATIONS ||
+        trimmedRoute == Routes.ANALYTICS ||
+        trimmedRoute == Routes.EMPLOYER_MANAGE_ADDRESSES
+
+    when {
+        role == UserRole.WORKER && isWorkerInnerRoute -> {
+            com.example.dutype.navigation.WorkerInnerNavQueue.setPending(trimmedRoute)
+            if (navController.previousBackStackEntry != null) {
+                navController.popBackStack()
+            } else {
+                navController.navigate(Routes.WORKER_HOME) {
+                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+        role == UserRole.EMPLOYER && isEmployerInnerRoute -> {
+            com.example.dutype.navigation.EmployerInnerNavQueue.setPending(trimmedRoute)
+            if (navController.previousBackStackEntry != null) {
+                navController.popBackStack()
+            } else {
+                navController.navigate(Routes.EMPLOYER_HOME) {
+                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+        else -> {
+            try {
+                navController.navigate(trimmedRoute) {
+                    popUpTo(Routes.ENHANCED_LOGIN) { inclusive = true }
+                    launchSingleTop = true
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error navigating to returnRoute: $trimmedRoute")
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                } else {
+                    navigateToHome(role, navController)
+                }
+            }
+        }
     }
 }

@@ -60,7 +60,6 @@ import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.InstantHelpViewModel
-import com.example.dutype.components.LoginBottomSheet
 import com.example.dutype.models.UserRole
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -202,7 +201,6 @@ fun PostUrgentNeedContent(
     var showLocationDialog by rememberSaveable { mutableStateOf(false) }
     var tempManualAddress by rememberSaveable { mutableStateOf("") }
     var showVoiceSheet by rememberSaveable { mutableStateOf(false) }
-    var showLoginBottomSheet by rememberSaveable { mutableStateOf(false) }
 
     val profileCompletionService = hiltViewModel<com.example.dutype.viewmodels.ProfileCompletionViewModel>().profileCompletionService
 
@@ -350,7 +348,9 @@ fun PostUrgentNeedContent(
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            showLoginBottomSheet = true
+            navController?.navigate(
+                Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_POST_URGENT_NEED)
+            )
             return
         }
 
@@ -576,7 +576,9 @@ fun PostUrgentNeedContent(
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser == null) {
                     showVoiceSheet = false
-                    showLoginBottomSheet = true
+                    navController?.navigate(
+                        Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_POST_URGENT_NEED)
+                    )
                 } else {
                     scope.launch {
                         if (!hasEmployerLocation) {
@@ -616,28 +618,6 @@ fun PostUrgentNeedContent(
             defaultAddress = addressText
         )
     }
-
-    LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = { showLoginBottomSheet = false },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            broadcastNeed()
-        },
-        onProfileSetupRequired = {
-            showLoginBottomSheet = false
-            navController?.navigate(
-                Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
-            ) {
-                launchSingleTop = true
-            }
-        },
-        requiresProfileCheck = false,
-        role = UserRole.EMPLOYER,
-        title = stringResource(R.string.login_to_post_job),
-        subtitle = stringResource(R.string.login_publish_job_subtitle),
-        navController = navController
-    )
 }
 
 @Composable

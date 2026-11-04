@@ -214,6 +214,7 @@ fun WorkerNavGraph(
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
+                rootNavController = rootNavController,
                 onStatusBarColorChange = onStatusBarColorChange
             )
         }

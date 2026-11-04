@@ -58,6 +58,23 @@ fun WorkerMainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Handle deep link / post-login queued routes handed off from outer MainNavGraph
+    LaunchedEffect(Unit) {
+        WorkerInnerNavQueue.events.collect { pending ->
+            if (pending.isNotBlank()) {
+                WorkerInnerNavQueue.consume()
+                timber.log.Timber.i("WorkerMainScreen - Draining queued route to inner controller: $pending")
+                try {
+                    navController.navigate(pending) {
+                        launchSingleTop = true
+                    }
+                } catch (err: Exception) {
+                    timber.log.Timber.e(err, "WorkerMainScreen - Failed inner navigation to $pending")
+                }
+            }
+        }
+    }
+
     // Handle back press gracefully: exit on double back from Home, navigate to Home from other tabs
     val context = androidx.compose.ui.platform.LocalContext.current
     var lastBackPressTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }

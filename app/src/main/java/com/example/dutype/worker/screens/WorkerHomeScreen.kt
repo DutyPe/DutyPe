@@ -203,7 +203,8 @@ fun WorkerHomeScreen(
     val scope = rememberCoroutineScope()
     val notificationRepository = jobViewModel.notificationRepository
     val earningsViewModel: EarningsViewModel = hiltViewModel()
-    val profileCompletionService = hiltViewModel<com.example.dutype.viewmodels.ProfileCompletionViewModel>().profileCompletionService
+    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = hiltViewModel()
+    val profileCompletionService = profileCompletionViewModel.profileCompletionService
     val earningsUiState by earningsViewModel.uiState.collectAsStateWithLifecycle()
     val locationService = jobViewModel.locationService
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
@@ -299,9 +300,6 @@ fun WorkerHomeScreen(
     var isFetchingSheetLocation by remember { mutableStateOf(false) }
     var shouldFetchCurrentLocationAfterPermission by remember { mutableStateOf(false) }
     var showNoUrgentJobsToastAfterSwitchOn by remember { mutableStateOf(false) }
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
-    var loginSheetTitle by remember { mutableStateOf("") }
-    var loginSheetSubtitle by remember { mutableStateOf("") }
     // P1 PLAY STORE COMPLIANCE & SMOOTH PERMISSION UX: Show friendly bottom sheet
     // explaining location benefits before triggering Android system permission dialog.
     var showLocationPermissionBottomSheet by remember { mutableStateOf(false) }
@@ -1169,9 +1167,7 @@ fun WorkerHomeScreen(
                                     guestWelcomeMessage = stringResource(R.string.guest_worker_welcome_message),
                                     guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                                     onGuestWelcomeClick = {
-                                        loginSheetTitle = context.getString(R.string.guest_apply_login_title)
-                                        loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
-                                        showLoginBottomSheet = true
+                                        rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
                                     },
                                     appliedJobsCount = applicationStats.appliedApplications,
                                     announcements = announcements,
@@ -1187,9 +1183,7 @@ fun WorkerHomeScreen(
                                     isSavingOnline = savingOnline,
                                     onOnlineChange = { online ->
                                         if (isGuestUser) {
-                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
-                                            loginSheetSubtitle = "Log in to turn ON Duty and start receiving instant job alerts."
-                                            showLoginBottomSheet = true
+                                            rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
                                             return@HomeSectionsContent
                                         }
                                         val isTestModeActive = context.isDebuggableBuild() ||
@@ -1215,9 +1209,7 @@ fun WorkerHomeScreen(
                                     },
                                     onApplyInstantRequest = { request ->
                                         if (isGuestUser) {
-                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
-                                            loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
-                                            showLoginBottomSheet = true
+                                            rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
                                         } else if (request.requestId.startsWith("svc_")) {
                                             val bId = request.requestId.removePrefix("svc_")
                                             val statusLower = request.status.trim().lowercase()
@@ -1250,9 +1242,7 @@ fun WorkerHomeScreen(
                                     },
                                     onCallInstantRequest = { request ->
                                         if (isGuestUser) {
-                                            loginSheetTitle = context.getString(R.string.guest_call_login_title)
-                                            loginSheetSubtitle = context.getString(R.string.guest_call_login_desc)
-                                            showLoginBottomSheet = true
+                                            rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
                                         } else if (request.requestId.startsWith("svc_")) {
                                             val bId = request.requestId.removePrefix("svc_")
                                             val statusLower = request.status.trim().lowercase()
@@ -1309,6 +1299,14 @@ fun WorkerHomeScreen(
                                     headerContent = {
                                         WorkerHomeGreetingHeader(
                                             areaName = homeAreaName,
+                                            onSwitchRoleClick = {
+                                                scope.launch {
+                                                    profileCompletionViewModel.saveUserInfoToLocalStorage("", "", com.example.dutype.models.UserRole.EMPLOYER)
+                                                    rootNavController.navigate(Routes.EMPLOYER_HOME) {
+                                                        popUpTo(Routes.WORKER_HOME) { inclusive = true }
+                                                    }
+                                                }
+                                            },
                                             isLocationLoading = isLocationLoading && currentLocation == null,
                                             unreadNotificationCount = unreadNotificationCount,
                                             onNotificationClick = {
@@ -1337,9 +1335,7 @@ fun WorkerHomeScreen(
                                             isSavingOnline = savingOnline,
                                             onOnlineChange = { online ->
                                                 if (isGuestUser) {
-                                                    loginSheetTitle = context.getString(R.string.guest_apply_login_title)
-                                                    loginSheetSubtitle = "Log in to turn ON Duty and start receiving instant job alerts."
-                                                    showLoginBottomSheet = true
+                                                    rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
                                                     return@WorkerHomeGreetingHeader
                                                 }
                                                 val isTestModeActive = context.isDebuggableBuild() ||
@@ -1377,27 +1373,26 @@ fun WorkerHomeScreen(
             }
         }
 
-        // Floating Bottom Pill: "Apply free · 0 fee"
-        // Starts hidden (false), smoothly slides up from bottom at 500ms, stays 3.5s, then slides back down into bottom bar
+        // Floating Bottom Pill: "Apply free · 0 fee" with Slow Fade On
         var showApplyFreeChip by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
-            delay(500L)
+            delay(400L)
             showApplyFreeChip = true
-            delay(3500L)
+            delay(6000L)
             showApplyFreeChip = false
         }
 
         androidx.compose.animation.AnimatedVisibility(
             visible = showApplyFreeChip,
-            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(500)) +
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
                     androidx.compose.animation.slideInVertically(
-                        initialOffsetY = { fullHeight -> fullHeight * 2 },
-                        animationSpec = androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                        initialOffsetY = { fullHeight -> fullHeight },
+                        animationSpec = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing)
                     ),
-            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(500)) +
+            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutLinearInEasing)) +
                    androidx.compose.animation.slideOutVertically(
-                       targetOffsetY = { fullHeight -> fullHeight * 2 },
-                       animationSpec = androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                       targetOffsetY = { fullHeight -> fullHeight },
+                       animationSpec = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutLinearInEasing)
                    ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1551,18 +1546,7 @@ fun WorkerHomeScreen(
             }
         )
 
-        // Guest Mode Login Bottom Sheet
-        com.example.dutype.components.LoginBottomSheet(
-            isVisible = showLoginBottomSheet,
-            onDismiss = { showLoginBottomSheet = false },
-            onLoginSuccess = {
-                showLoginBottomSheet = false
-            },
-            role = com.example.dutype.models.UserRole.WORKER,
-            title = if (loginSheetTitle.isNotBlank()) loginSheetTitle else stringResource(R.string.guest_apply_login_title),
-            subtitle = if (loginSheetSubtitle.isNotBlank()) loginSheetSubtitle else stringResource(R.string.guest_apply_login_desc),
-            navController = navController
-        )
+
 
         if (!showNotificationBottomSheet && !showLocationPickerSheet) {
             AppUpdatePrompt(

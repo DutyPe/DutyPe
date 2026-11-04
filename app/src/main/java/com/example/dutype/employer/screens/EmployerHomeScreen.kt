@@ -263,7 +263,6 @@ fun EmployerHomeScreen(
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     val employerId = currentUser?.uid
     val isGuestEmployer = currentUser == null || currentUser.isAnonymous
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showVoiceJobSheet by remember { mutableStateOf(false) }
     var showVoiceLanguageSheet by remember { mutableStateOf(false) }
     var selectedVoiceLanguage by remember { mutableStateOf(com.example.dutype.employer.voice.VoiceLanguage.TELUGU) }
@@ -563,7 +562,7 @@ fun EmployerHomeScreen(
                 guestWelcomeMessage = employerWelcomeMessage,
                 guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                 onGuestWelcomeClick = {
-                    showLoginBottomSheet = true
+                    rootNavController.navigate(Routes.loginRoute(role = "EMPLOYER"))
                 },
                 companyName = companyName.ifEmpty { "" },
                 unreadCount = unreadNotificationCount,
@@ -647,17 +646,6 @@ fun EmployerHomeScreen(
                 userRole = "EMPLOYER"
             )
         }
-
-        // Guest Mode Login Bottom Sheet
-        com.example.dutype.components.LoginBottomSheet(
-            isVisible = showLoginBottomSheet,
-            onDismiss = { showLoginBottomSheet = false },
-            onLoginSuccess = { showLoginBottomSheet = false },
-            role = com.example.dutype.models.UserRole.EMPLOYER,
-            title = stringResource(R.string.guest_post_job_title),
-            subtitle = stringResource(R.string.guest_post_job_desc),
-            navController = navController
-        )
 
         // Language Picker Bottom Sheet (Prompt: Telugu, English, Hindi)
         if (showVoiceLanguageSheet) {
