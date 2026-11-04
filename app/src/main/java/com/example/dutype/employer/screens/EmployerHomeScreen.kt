@@ -480,7 +480,7 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFFFF).bg())
+            .background(Color(0xFFF7F7F7).bg())
     ) {
         Column(
             modifier = Modifier
@@ -1661,7 +1661,7 @@ fun DashboardContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFFAFFFF).bg())
+                .background(Color(0xFFF7F7F7).bg())
         ) {
             EmployerHomeHeader(
                 companyName = companyName,

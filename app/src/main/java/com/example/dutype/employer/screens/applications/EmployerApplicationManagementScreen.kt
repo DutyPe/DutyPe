@@ -660,7 +660,7 @@ private fun HiringRoomReplicatedLayout(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFFFF).bg())
+            .background(Color(0xFFF7F7F7).bg())
     ) {
         // 1. YELLOW HERO WITH TITLE RIGHT OF BACK ARROW, LIVE PILL & 4 METRIC CHIPS
         HiringRoomYellowHero(
@@ -2670,7 +2670,7 @@ private fun JobReportSummaryCard(
 
 // ==================== HIRING ROOM (flat design) ====================
 
-private val HrBackground = Color(0xFFFAFFFF)
+private val HrBackground = Color(0xFFF7F7F7)
 private val HrInk = Color(0xFF0F172A)
 private val HrName = Color(0xFF0F0F0F)
 private val HrMuted = Color(0xFF64748B)

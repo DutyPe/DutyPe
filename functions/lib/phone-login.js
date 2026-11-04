@@ -33,7 +33,23 @@ function requestedRole(data) {
 }
 async function registeredRole(phone) {
     const doc = await db.collection(schema_1.PhoneRoles.COLLECTION).doc(phone).get();
-    return doc.exists ? String(doc.get(schema_1.PhoneRoles.ROLE) || "") || null : null;
+    if (doc.exists) {
+        return String(doc.get(schema_1.PhoneRoles.ROLE) || "") || null;
+    }
+    // Fallback: check users collection by phoneNumber
+    const userByPhone = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get().catch(() => null);
+    if (userByPhone && !userByPhone.empty) {
+        const r = userByPhone.docs[0].get("role");
+        if (r) {
+            const existing = String(r).toUpperCase();
+            await db.collection(schema_1.PhoneRoles.COLLECTION).doc(phone).set({
+                [schema_1.PhoneRoles.ROLE]: existing,
+                [schema_1.PhoneRoles.UID]: userByPhone.docs[0].id
+            }, { merge: true }).catch(() => null);
+            return existing;
+        }
+    }
+    return null;
 }
 /** The Firebase Auth account for this number: the one SMS login uses, or a new one. */
 async function uidForPhone(phone) {

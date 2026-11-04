@@ -48,7 +48,7 @@ import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.appVersionName
 
-private val AboutBg = Color(0xFFFAFFFF)
+private val AboutBg = Color.White
 private val AboutInk = Color(0xFF0F0F0F)
 private val AboutBorder = Color(0xFFE2E8F0)
 private val AboutEmerald = Color(0xFF10B981)

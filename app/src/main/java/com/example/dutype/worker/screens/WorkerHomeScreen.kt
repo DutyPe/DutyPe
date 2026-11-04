@@ -1057,7 +1057,7 @@ fun WorkerHomeScreen(
     // white surface so the role identity stays consistent across the app.
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFFFAFFFF).bg())
+        .background(Color(0xFFF7F7F7).bg())
     ) {
         WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 

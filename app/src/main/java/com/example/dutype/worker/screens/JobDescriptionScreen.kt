@@ -484,9 +484,14 @@ fun JobDescriptionScreen(
             // row (in content) and the sticky bottom bar. Declared at
             // screen scope so the two button sites can never drift.
             val handleApplyClick: () -> Unit = {
-                scope.launch {
-                    val currentUserId = currentUser?.uid
-                    if (currentUserId != null) {
+                val user = currentUser
+                if (user == null) {
+                    navController.navigate(
+                        Routes.loginRoute(role = "WORKER", returnRoute = Routes.jobApplicationRoute(jobId))
+                    )
+                } else {
+                    scope.launch {
+                        val currentUserId = user.uid
                         val canApply = profileCompletionService.canApplyDirectly(currentUserId)
                         canApply.fold(
                             onSuccess = { allowed ->
@@ -510,8 +515,8 @@ fun JobDescriptionScreen(
                 }
             }
             val handleLoginRequired: (String) -> Unit = { action ->
-                pendingAction = action
-                showLoginBottomSheet = true
+                val returnRoute = if (action == "apply") Routes.jobApplicationRoute(jobId) else null
+                navController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = returnRoute))
             }
             val handleCallClick: (JobListing) -> Unit = { currentJob ->
                 if (currentUser == null) {
@@ -650,59 +655,7 @@ fun JobDescriptionScreen(
         )
     }
 
-    // Guest Mode - Login Bottom Sheet
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = {
-            showLoginBottomSheet = false
-            pendingAction = null
-        },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            // Execute the pending action after successful login
-            when (pendingAction) {
-                "apply" -> {
-                    // Navigate to JobApplicationScreen for review before submitting
-                    navController.navigate(Routes.jobApplicationRoute(jobId))
-                }
-                "save" -> {
-                    // Save the job after login
-                    job?.let { currentJob ->
-                        scope.launch {
-                            try {
-                                savedJobsViewModel.saveJob(currentJob.id.ifBlank { currentJob.jobId })
-                                snackbarMessage = context.getString(R.string.job_desc_job_saved)
-                                showSnackbar = true
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error saving job after login")
-                            }
-                        }
-                    }
-                }
-                "call" -> {
-                    job?.let(launchEmployerDialer)
-                }
-            }
-            pendingAction = null
-        },
-        onProfileSetupRequired = {
-            // For job application - navigate to profile setup with return route to job application
-            showLoginBottomSheet = false
-            android.widget.Toast.makeText(context, context.getString(R.string.complete_profile_to_apply), android.widget.Toast.LENGTH_SHORT).show()
-            // Navigate to profile setup with return route to job application screen
-            navController.navigate(Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId)))
-            pendingAction = null
-        },
-        requiresProfileCheck = pendingAction == "apply", // Only check profile for job applications
-        role = com.example.dutype.models.UserRole.WORKER,
-        title = stringResource(R.string.login_to_continue),
-        subtitle = when (pendingAction) {
-            "apply" -> stringResource(R.string.login_apply_job)
-            "save" -> stringResource(R.string.login_save_job)
-            "call" -> stringResource(R.string.login_call_employer)
-            else -> stringResource(R.string.please_login_continue)
-        }
-    )
+
 
     if (showContactSheet && job != null) {
         ContactEmployerBottomSheet(

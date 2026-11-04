@@ -11,8 +11,8 @@
     <color name="splash_blue">#FF000000</color>
     <color name="worker_home_header_top">#FF275DF5</color>
     <color name="worker_home_header_mid">#FF275DF5</color>
-    <color name="worker_home_header_bottom">#FFFAFFFF</color>
-    <color name="screen_background">#FFFAFFFF</color>
+    <color name="worker_home_header_bottom">#FFFFFFFF</color>
+    <color name="screen_background">#FFFFFFFF</color>
     <color name="worker_primary">#FF275DF5</color>
     <color name="worker_primary_dark">#FF60A5FA</color>
     <color name="worker_primary_light">#FFDBEAFE</color>

@@ -377,7 +377,7 @@ object DutyPeAiShortcut {
 
 
 // ──────────────────────────── DutyPe AI light theme colour palette ────────────────────────────
-private val AiBg         = Color(0xFFFAFFFF)
+private val AiBg         = Color.White
 private val AiSurface    = Color(0xFFF7F7F7)
 private val AiSurfaceAlt = Color(0xFFF1F5F9)
 private val AiAccent     = Color(0xFF7C3AED)          // vivid violet

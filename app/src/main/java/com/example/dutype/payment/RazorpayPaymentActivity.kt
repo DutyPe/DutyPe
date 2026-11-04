@@ -38,7 +38,7 @@ class RazorpayPaymentActivity : ComponentActivity(), PaymentResultWithDataListen
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFFAFFFF)),
+                    .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
                 Column(

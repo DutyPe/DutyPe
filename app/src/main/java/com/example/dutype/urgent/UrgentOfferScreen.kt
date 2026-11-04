@@ -70,7 +70,7 @@ private val Green = Color(0xFF16A34A)
 private val Ink = Color(0xFF0F172A)
 private val Muted = Color(0xFF64748B)
 private val Urgent = Color(0xFFDC2626)
-private val Page = Color(0xFFFAFFFF)
+private val Page = Color.White
 
 /**
  * The urgent offer, made for workers who may not read well: the job is read aloud in the app

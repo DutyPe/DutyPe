@@ -30,9 +30,9 @@ val SecondaryTeal = Color(0xFF0D9488)
 val TertiaryGold = Color(0xFFD97706)
 
 val DarkBackground = Color(0xFF0F172A)
-val LightBackground = Color(0xFFFAFFFF)
+val LightBackground = Color.White
 val SurfaceDark = Color(0xFF1E293B)
-val SurfaceLight = Color(0xFFFAFFFF)
+val SurfaceLight = Color.White
 
 // =============================================================================
 // DARK MODE COMPOSITION LOCAL
@@ -72,11 +72,11 @@ object WorkerColors {
 
     val StatusBarColor: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
 
     val ScreenBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)
@@ -206,21 +206,21 @@ object WorkerColors {
 object EmployerColors {
     val HomeGradientStart: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
     val HomeGradientMiddle: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
     val HomeGradientEnd: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
 
     val StatusBarColor: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
 
     val ScreenBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFAFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color.White
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)

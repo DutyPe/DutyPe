@@ -499,7 +499,7 @@ private fun ErrorWorkerProfileState(
 // on purpose (large composables can trigger D8 VerifyError at runtime).
 // ---------------------------------------------------------------------------
 
-private val WpBg = Color(0xFFFAFFFF)
+private val WpBg = Color(0xFFF7F7F7)
 private val WpNavy = Color(0xFF0F172A)
 private val WpCobalt = Color(0xFF2563EB)
 private val WpBorder = Color(0xFFE2E8F0)

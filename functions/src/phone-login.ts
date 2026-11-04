@@ -36,7 +36,23 @@ function requestedRole(data: Record<string, unknown>): string {
 
 async function registeredRole(phone: string): Promise<string | null> {
   const doc = await db.collection(PhoneRoles.COLLECTION).doc(phone).get();
-  return doc.exists ? String(doc.get(PhoneRoles.ROLE) || "") || null : null;
+  if (doc.exists) {
+    return String(doc.get(PhoneRoles.ROLE) || "") || null;
+  }
+  // Fallback: check users collection by phoneNumber
+  const userByPhone = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get().catch(() => null);
+  if (userByPhone && !userByPhone.empty) {
+    const r = userByPhone.docs[0].get("role");
+    if (r) {
+      const existing = String(r).toUpperCase();
+      await db.collection(PhoneRoles.COLLECTION).doc(phone).set({
+        [PhoneRoles.ROLE]: existing,
+        [PhoneRoles.UID]: userByPhone.docs[0].id
+      }, { merge: true }).catch(() => null);
+      return existing;
+    }
+  }
+  return null;
 }
 
 /** The Firebase Auth account for this number: the one SMS login uses, or a new one. */

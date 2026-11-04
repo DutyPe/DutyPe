@@ -43,7 +43,7 @@ import com.example.dutype.models.QuickUrgentNeedInput
 
 private val VoicePrimaryNavy = Color(0xFF0F172A)
 private val VoiceEmerald = Color(0xFF10B981)
-private val VoiceSurfaceBg = Color(0xFFFAFFFF)
+private val VoiceSurfaceBg = Color.White
 private val VoiceBorder = Color(0xFFE2E8F0)
 
 @OptIn(ExperimentalMaterial3Api::class)

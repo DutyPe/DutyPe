@@ -167,7 +167,7 @@ fun ServiceWalletScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        containerColor = Color(0xFFFAFFFF)
+        containerColor = Color(0xFFF7F7F7)
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier

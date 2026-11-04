@@ -89,7 +89,7 @@ private fun InstantRequest.toJobListing(): JobListing {
     )
 }
 
-private val HiBg = Color(0xFFFAFFFF)
+private val HiBg = Color.White
 private val HiInk = Color(0xFF0F172A)
 private val HiBlack = Color(0xFF0F0F0F)
 private val HiBorder = Color(0xFFE2E8F0)

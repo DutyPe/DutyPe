@@ -147,6 +147,8 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_HELP,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_HISTORY,
+        Routes.EMPLOYER_HISTORY_WITH_TAB,
+        "employer_history",
         Routes.EMPLOYER_REFER_EARN,
         Routes.GUIDELINES,
         Routes.PROMO_SHOWCASE,
@@ -155,8 +157,12 @@ fun EmployerMainScreen(
     
     // Check if current route should hide bottom bar
     val shouldShowBottomBar = currentRoute?.let { route ->
-        !routesWithoutBottomBar.any { hiddenRoute ->
-            route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("?").substringBefore("{"))
+        if (route.contains("employer_history", ignoreCase = true) || route.contains("history", ignoreCase = true)) {
+            false
+        } else {
+            !routesWithoutBottomBar.any { hiddenRoute ->
+                route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("?").substringBefore("{"))
+            }
         }
     } ?: true
 

@@ -33,7 +33,7 @@ object DarkMap {
     private val whites = hex(0xFFFFFFFF)
     internal val pageGreys = hex(
         0xFFFAFAFA, 0xFFFAFAFB, 0xFFFAFBFC, 0xFFF9FAFB, 0xFFF8FAFC, 0xFFF8F9FA, 0xFFF7F8FA, 0xFFF5F7FA,
-        0xFFFAFAFF, 0xFFF6F7F9, 0xFFF5F5F5, 0xFFF7F7F7, 0xFFFCFCFD, 0xFFFBFBFB, 0xFFFAFFFF
+        0xFFFAFAFF, 0xFFF6F7F9, 0xFFF5F5F5, 0xFFF7F7F7, 0xFFFCFCFD, 0xFFFBFBFB
     )
     private val chipGreys = hex(
         0xFFF3F4F6, 0xFFF1F5F9, 0xFFF1F2F4, 0xFFEEF1F5, 0xFFEEF0F3, 0xFFF2F4F7, 0xFFF4F4F5, 0xFFF0F2F5,
@@ -105,7 +105,7 @@ object DarkMap {
 /** This colour as a background / container in the current theme. */
 @Composable
 @ReadOnlyComposable
-fun Color.bg(): Color = if (isAppInDarkTheme()) DarkMap.background(this) else if (this.value in DarkMap.pageGreys || this == Color(0xFFF7F7F7) || this == Color.White) Color(0xFFFAFFFF) else this
+fun Color.bg(): Color = if (isAppInDarkTheme()) DarkMap.background(this) else if (this.value in DarkMap.pageGreys || this == Color(0xFFF7F7F7)) Color.White else this
 
 /** This colour as text / icon colour in the current theme (white stays white). */
 @Composable

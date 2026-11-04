@@ -76,7 +76,7 @@ import timber.log.Timber
 import com.example.dutype.utils.LocaleHelper
 
 // ── Palette ───────────────────────────────────────────────────────────────
-private val ScreenBg = Color(0xFFFAFFFF)
+private val ScreenBg = Color.White
 private val InkColor = Color(0xFF0F0F0F)
 private val SubtitleGray = Color(0xFF64748B)
 private val BorderNeutral = Color(0xFFE2E8F0)
@@ -112,6 +112,7 @@ fun SelectRoleScreen(
         var selectedRole by remember { mutableStateOf("WORKER") }
         var showLanguageBottomSheet by remember { mutableStateOf(false) }
 
+        val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
         val activeLangName = when (LocaleHelper.getLanguage(context)) {
             LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
             LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
@@ -224,35 +225,10 @@ fun SelectRoleScreen(
 
             ContinueButton(
                 onClick = { applyRole(selectedRole, asGuest = true) },
-                buttonText = if (selectedRole == "WORKER") "Explore Jobs (No Login Needed)" else "Explore Candidates (No Login Needed)"
+                buttonText = if (selectedRole == "WORKER") (if (isTelugu) "ఉద్యోగాలను అన్వేషించండి" else "Explore Jobs") else (if (isTelugu) "అభ్యర్థులను అన్వేషించండి" else "Explore Candidates")
             )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Already have an account? ",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = SubtitleGray.fg(),
-                        fontSize = 14.sp
-                    )
-                )
-                Text(
-                    text = "Log In",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF2563EB),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    ),
-                    modifier = Modifier.clickable {
-                        applyRole(selectedRole, asGuest = false)
-                    }
-                )
-            }
+
 
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -277,14 +253,6 @@ private fun HeadlineBlock() {
                 color = InkColor.fg()
             )
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.select_role_subheadline),
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 15.sp,
-                color = SubtitleGray.fg()
-            )
-        )
     }
 }
 
@@ -293,17 +261,6 @@ private fun ContinueButton(
     onClick: () -> Unit,
     buttonText: String = stringResource(R.string.continue_text)
 ) {
-    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "continue_arrow_pulse")
-    val arrowOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = androidx.compose.animation.core.tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-        ),
-        label = "continue_arrow_offset"
-    )
-
     Button(
         onClick = onClick,
         modifier = Modifier
@@ -316,30 +273,15 @@ private fun ContinueButton(
             contentColor = Color.White
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = buttonText,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .offset(x = arrowOffset.dp)
-                    .size(20.dp)
-            )
-        }
+        Text(
+            text = buttonText,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            ),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 

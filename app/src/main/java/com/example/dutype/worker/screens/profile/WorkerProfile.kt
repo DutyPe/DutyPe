@@ -432,7 +432,7 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 // Flat, fully white page (no cards) — also behind the status bar.
-                .background(Color(0xFFFAFFFF).bg())
+                .background(Color.White.bg())
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             // Offline banner at the very top
@@ -447,12 +447,15 @@ fun WorkerProfileScreen(
                     rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
                 } else {
                     pendingMenuAction = "profile"
-                    showLoginBottomSheet = true
+                    rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_PROFILE_DETAILS))
                 }
             }
             val startImagePicker: () -> Unit = {
                 if (isLoggedIn) showPhotoOptionSheet = true
-                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
+                else {
+                    pendingMenuAction = "profile"
+                    rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_PROFILE_DETAILS))
+                }
             }
             val whatsappSupport: () -> Unit = {
                 val whatsappNumber = "918019151847" // DutyPe support number
@@ -515,7 +518,7 @@ fun WorkerProfileScreen(
                                 if (isLoggedIn) openProfileDetails()
                                 else {
                                     pendingMenuAction = "profile"
-                                    showLoginBottomSheet = true
+                                    rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_PROFILE_DETAILS))
                                 }
                             },
                         shape = RoundedCornerShape(16.dp),
@@ -659,7 +662,7 @@ fun WorkerProfileScreen(
                                 localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY)
                             } else {
                                 pendingMenuAction = "applications"
-                                showLoginBottomSheet = true
+                                rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_HISTORY))
                             }
                         },
                         onEarnings = {
@@ -667,7 +670,7 @@ fun WorkerProfileScreen(
                                 localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
                             } else {
                                 pendingMenuAction = "earnings"
-                                showLoginBottomSheet = true
+                                rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_EARNINGS))
                             }
                         },
                         onReferEarn = {
@@ -675,7 +678,7 @@ fun WorkerProfileScreen(
                                 localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
                             } else {
                                 pendingMenuAction = "refer_earn"
-                                showLoginBottomSheet = true
+                                rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_REFER_EARN))
                             }
                         },
                         onBookServices = {
@@ -781,35 +784,7 @@ fun WorkerProfileScreen(
         onImageSelected = { uri -> handleImageUpload(uri) }
     )
 
-    // Guest Mode - Login Bottom Sheet
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = {
-            showLoginBottomSheet = false
-            pendingMenuAction = null
-        },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            // Execute the pending action after successful login
-            when (pendingMenuAction) {
-                "profile" -> rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
-                "applications" -> localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY)
-                "earnings" -> localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
-                "refer_earn" -> localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
-            }
-            pendingMenuAction = null
-        },
-        role = com.example.dutype.models.UserRole.WORKER,
-        navController = rootNavController,
-        title = stringResource(R.string.login_required),
-        subtitle = when (pendingMenuAction) {
-            "profile" -> stringResource(R.string.login_to_view_profile)
-            "applications" -> stringResource(R.string.login_to_view_applications)
-            "earnings" -> stringResource(R.string.login_to_view_earnings)
-            "refer_earn" -> stringResource(R.string.login_to_refer_earn)
-            else -> stringResource(R.string.login_to_access_feature)
-        }
-    )
+
 
     if (showLanguageSheet) {
         com.example.dutype.components.LanguageSelectionBottomSheet(
@@ -1246,7 +1221,7 @@ private fun ProfileSettingsCard(
             title = stringResource(R.string.refer_earn),
             onClick = onReferEarn,
             iconRes = R.drawable.ic_profile_gift,
-            pill = "₹100"
+            pill = stringResource(R.string.refer_up_to_500)
         )
 
         // Section Divider

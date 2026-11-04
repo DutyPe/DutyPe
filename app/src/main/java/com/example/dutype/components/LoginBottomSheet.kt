@@ -20,6 +20,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -106,6 +109,35 @@ import timber.log.Timber
 /**
  * Login Result - Contains login outcome and profile status
  */
+private data class LoginOnboardingSlide(
+    val imageRes: Int,
+    val titleRes: Int,
+    val descRes: Int
+)
+
+private val loginOnboardingSlides = listOf(
+    LoginOnboardingSlide(
+        imageRes = R.drawable.onboarding1,
+        titleRes = R.string.onboarding_title_1,
+        descRes = R.string.onboarding_desc_1
+    ),
+    LoginOnboardingSlide(
+        imageRes = R.drawable.onboarding2,
+        titleRes = R.string.onboarding_title_2,
+        descRes = R.string.onboarding_desc_2
+    ),
+    LoginOnboardingSlide(
+        imageRes = R.drawable.onboarding3,
+        titleRes = R.string.onboarding_title_3,
+        descRes = R.string.onboarding_desc_3
+    ),
+    LoginOnboardingSlide(
+        imageRes = R.drawable.onboarding4,
+        titleRes = R.string.onboarding_title_4,
+        descRes = R.string.onboarding_desc_4
+    )
+)
+
 data class LoginResult(
     val isSuccess: Boolean,
     val userId: String? = null,
@@ -199,6 +231,9 @@ fun LoginBottomSheet(
                                     name = resolvedName,
                                     role = role
                                 )
+                            }
+                            scope.launch {
+                                runCatching { profileCompletionViewModel.markOnboardingCompleted() }
                             }
                             otpViewModel.signInWithTruecaller(tcResult)
                             isTruecallerBusy = false
@@ -298,6 +333,9 @@ fun LoginBottomSheet(
                                     com.google.firebase.firestore.SetOptions.merge()
                                 )
 
+                            scope.launch {
+                                runCatching { profileCompletionViewModel.markOnboardingCompleted() }
+                            }
                             val shouldGoToProfileSetup =
                                 outcome.destination == OtpViewModel.PostOtpDestination.PROFILE_SETUP &&
                                     onProfileSetupRequired != null
@@ -397,18 +435,19 @@ fun LoginBottomSheet(
         sheetState = sheetState,
         dragHandle = null,
         scrimColor = Color.Black.copy(alpha = 0.45f),
-        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFAFFFF),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         sheetMaxWidth = Dp.Unspecified
     ) {
         val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-        val sheetHeight = configuration.screenHeightDp.dp * 0.50f
+        val sheetHeight = configuration.screenHeightDp.dp * 0.72f
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sheetHeight)
-                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .heightIn(min = sheetHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 6.dp)
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -601,20 +640,93 @@ private fun PhoneInputContent(
             .padding(horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Centered Airbnb Title
-        Text(
-            text = if (title.isNotBlank()) title else (if (isTelugu) "లాగిన్ లేదా సైన్ అప్" else "Log in or sign up"),
-            style = AppTypography.displayTitle.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                letterSpacing = (-0.3).sp
-            ),
-            color = WorkerColors.TextPrimary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // 3 Auto-scrolling Onboarding Slides
+        val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { loginOnboardingSlides.size })
+        LaunchedEffect(pagerState) {
+            while (true) {
+                kotlinx.coroutines.delay(3500L)
+                val nextPage = (pagerState.currentPage + 1) % loginOnboardingSlides.size
+                pagerState.animateScrollToPage(
+                    page = nextPage,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = 650,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                )
+            }
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+        ) { pageIndex ->
+            val slide = loginOnboardingSlides[pageIndex]
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = slide.imageRes),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = androidx.compose.ui.res.stringResource(id = slide.titleRes),
+                    style = AppTypography.displayTitle.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        letterSpacing = (-0.2).sp
+                    ),
+                    color = WorkerColors.TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = androidx.compose.ui.res.stringResource(id = slide.descRes),
+                    style = AppTypography.caption.copy(
+                        fontSize = 12.sp,
+                        color = WorkerColors.TextSecondary,
+                        lineHeight = 15.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
+        }
+
+        // Animated Dot Indicators for the 3 Onboarding Slides
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+        ) {
+            repeat(loginOnboardingSlides.size) { index ->
+                val isSelected = pagerState.currentPage == index
+                val dotWidth by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = if (isSelected) 18.dp else 6.dp,
+                    animationSpec = androidx.compose.animation.core.tween(300),
+                    label = "dot_w"
+                )
+                val dotColor = if (isSelected) (if (isDark) Color.White else Color(0xFF222222)) else (if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1))
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .height(5.5.dp)
+                        .width(dotWidth)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(dotColor)
+                )
+            }
+        }
 
         // Clean Phone Input Field with refined 1.dp border (not thick/shocking)
         // No popup bottom sheet - keyboard displays phone number suggestions natively

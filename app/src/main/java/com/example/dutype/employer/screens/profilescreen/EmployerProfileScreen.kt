@@ -401,12 +401,6 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         )
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_wallet,
-            title = "Services Wallet",
-            pill = "₹${ui.walletBalanceRupees}",
-            onClick = actions.onWallet
-        )
-        EmpMenuRow(
-            iconRes = R.drawable.ic_profile_wallet,
             title = stringResource(R.string.emp_profile_subscription_credits),
             pill = null,
             onClick = actions.onSubscription
@@ -434,8 +428,8 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         )
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_gift,
-            title = stringResource(R.string.emp_profile_refer_employer, EmpReferAmount),
-            pill = null,
+            title = stringResource(R.string.refer_earn),
+            pill = stringResource(R.string.refer_up_to_500),
             onClick = actions.onRefer
         )
 
@@ -639,7 +633,7 @@ fun EmployerProfileScreen(
         fun go(route: String, pendingKey: String?) {
             if (!isLoggedIn) {
                 pendingMenuAction = pendingKey
-                showLoginBottomSheet = true
+                rootNavController.navigate(Routes.loginRoute(role = "EMPLOYER", returnRoute = route))
                 return
             }
             try {
@@ -700,12 +694,12 @@ fun EmployerProfileScreen(
                     showPhotoOptionSheet = true
                 } else {
                     pendingMenuAction = "profile"
-                    showLoginBottomSheet = true
+                    rootNavController.navigate(Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_COMPANY_DETAILS))
                 }
             },
             onLogin = {
                 pendingMenuAction = "profile"
-                showLoginBottomSheet = true
+                rootNavController.navigate(Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.EMPLOYER_COMPANY_DETAILS))
             },
             onCompany = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
             onMyJobs = { go(Routes.EMPLOYER_MY_JOBS, "my_jobs") },
@@ -809,42 +803,7 @@ fun EmployerProfileScreen(
         onImageSelected = { uri -> handleImageUpload(uri) }
     )
 
-    // Guest Mode - Login Bottom Sheet
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = {
-            showLoginBottomSheet = false
-            pendingMenuAction = null
-        },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            // Execute the pending action after successful login
-            when (pendingMenuAction) {
-                "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
-                "my_jobs" -> localNavController?.navigate(Routes.EMPLOYER_MY_JOBS) ?: rootNavController.navigate(Routes.EMPLOYER_MY_JOBS)
-                "wallet" -> localNavController?.navigate(Routes.SERVICE_WALLET) ?: rootNavController.navigate(Routes.SERVICE_WALLET)
-                "subscription" -> localNavController?.navigate(Routes.EMPLOYER_SUBSCRIPTION) ?: rootNavController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
-                "locations" -> runCatching {
-                    localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
-                }.onFailure {
-                    timber.log.Timber.e(it, "Error navigating to pending locations action")
-                }
-                "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
-            }
-            pendingMenuAction = null
-        },
-        role = com.example.dutype.models.UserRole.EMPLOYER,
-        navController = rootNavController,
-        title = androidx.compose.ui.res.stringResource(R.string.login_required),
-        subtitle = when (pendingMenuAction) {
-            "profile" -> androidx.compose.ui.res.stringResource(R.string.login_company_profile)
-            "job_posts" -> androidx.compose.ui.res.stringResource(R.string.login_job_posts)
-            "locations" -> androidx.compose.ui.res.stringResource(R.string.login_manage_work_locations)
-            // "refer_earn" -> stringResource(R.string.login_refer_earn)
-            else -> androidx.compose.ui.res.stringResource(R.string.login_access_feature)
-        }
-    )
+
 }
 
 private const val PLAY_STORE_PACKAGE = "com.dutype.app"

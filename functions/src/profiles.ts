@@ -147,8 +147,21 @@ export const lookupPhoneRole = onCallSecured(
     if (!phone) fail("invalid-argument", "Enter a valid 10-digit mobile number");
     const requested = String(data.requestedRole || "").toUpperCase();
     const doc = await db.collection(PhoneRoles.COLLECTION).doc(phone).get();
-    if (!doc.exists) return { exists: false, roleConflict: false };
-    const existingRole = String(doc.get(PhoneRoles.ROLE) || "");
+    let existingRole = doc.exists ? String(doc.get(PhoneRoles.ROLE) || "") : null;
+    if (!existingRole) {
+      const userByPhone = await db.collection("users").where("phoneNumber", "==", phone).limit(1).get().catch(() => null);
+      if (userByPhone && !userByPhone.empty) {
+        const r = userByPhone.docs[0].get("role");
+        if (r) {
+          existingRole = String(r).toUpperCase();
+          await db.collection(PhoneRoles.COLLECTION).doc(phone).set({
+            [PhoneRoles.ROLE]: existingRole,
+            [PhoneRoles.UID]: userByPhone.docs[0].id
+          }, { merge: true }).catch(() => null);
+        }
+      }
+    }
+    if (!existingRole) return { exists: false, roleConflict: false };
     return {
       exists: true,
       existingRole,

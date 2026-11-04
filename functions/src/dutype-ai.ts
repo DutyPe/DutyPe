@@ -283,8 +283,18 @@ const BUSY: Record<"en" | "te" | "hi", string> = {
 };
 
 function detectLang(message: string, fallback: Lang): Lang {
-  if (/[\u0C00-\u0C7F]/.test(message) || /\b(pani|cheyyi|kaavali|unara|entha|eppudu|naku|mandu|undhi|chesanu|cheyali)\b/i.test(message)) return "te";
-  if (/[\u0900-\u097F]/.test(message) || /\b(chahiye|kaam|karein|kitne|kisko|karo|naukri|rakha|hoga|hai|batao|karna)\b/i.test(message)) return "hi";
+  // 1. Native Indic Unicode Scripts
+  if (/[\u0C00-\u0C7F]/.test(message)) return "te";
+  if (/[\u0900-\u097F]/.test(message)) return "hi";
+
+  // 2. Transliterated / Romanized Telugu Vocabulary
+  const teRegex = /\b(kavali|kaavali|kavalandi|kavalenu|pani|panulu|panivallu|panemanishi|cheyyi|cheyali|cheyyali|cheyandi|cheppu|cheppandi|unara|unnara|undhi|undi|entha|yentha|eppudu|yeppudu|naku|naaku|maaku|maku|chesanu|chudu|chudandi|evaru|yevaru|ela|yela|avunu|ledu|lekapothe|nelaki|rojuki|ippudu|repu|manushulu|urgent|khammam)\b/i;
+  if (teRegex.test(message)) return "te";
+
+  // 3. Transliterated / Romanized Hindi Vocabulary
+  const hiRegex = /\b(chahiye|chahie|kaam|kam|karein|karo|karna|karega|kitne|kitna|kisko|kiske|naukri|rakha|hoga|hai|hain|batao|bataye|aadmi|bande|log|mujhe|hume|humko|kaise|kab|kaha|kahan|madad|dijiye|kholo|band|aaj|kal|parso)\b/i;
+  if (hiRegex.test(message)) return "hi";
+
   return fallback;
 }
 
@@ -312,7 +322,15 @@ export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enf
   }
 
   const prompt = `You are "DutyPe AI", the friendly, natural-sounding hiring and home services assistant inside the DutyPe app for Indian employers.
-Language instruction: The employer said: "${message}". Reply naturally in ${LANG_NAME[l]} (if they spoke Telugu, reply in clean Telugu script; if Hindi, reply in clean Devanagari script; if English, reply in clear English). Speak smoothly, warmly and concisely in 1-3 short sentences designed to sound natural when read aloud by voice text-to-speech. Do not use robotic wording.
+
+CRITICAL LANGUAGE INSTRUCTION:
+The current conversation language is ${LANG_NAME[l]} (code: ${l}).
+- If language is Telugu (te): You MUST reply ENTIRELY in authentic Telugu script (తెలుగు లిపి). NEVER reply in English, even if the employer typed in Romanized Telugu (e.g. "naku panivallu kavali" -> reply in Telugu script: "ఖమ్మంలో మీకు ఎంతమంది పనివారు కావాలి?").
+- If language is Hindi (hi): You MUST reply ENTIRELY in Devanagari Hindi script (हिंदी लिपि). NEVER reply in English, even if the employer typed in Romanized Hindi.
+- If language is English (en): Reply in clear, natural English.
+- Keep the reply concise, warm and natural in 1-3 short sentences designed to sound natural when read aloud by voice text-to-speech.
+
+Employer said: "${message}".
 Use ONLY these facts about this employer (never invent numbers, names or jobs): ${JSON.stringify({ ...facts, stats: undefined, summary: facts.stats })}
 Conversation so far: ${JSON.stringify(history)}
 Employer now says: ${JSON.stringify(message)}

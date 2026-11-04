@@ -145,6 +145,15 @@ object Routes {
         return "employer_profile_setup?returnRoute=${java.net.URLEncoder.encode(returnRoute, "UTF-8")}"
     }
 
+    fun loginRoute(role: String = "WORKER", returnRoute: String? = null): String {
+        return if (!returnRoute.isNullOrBlank()) {
+            val encoded = java.net.URLEncoder.encode(returnRoute, "UTF-8")
+            "$ENHANCED_LOGIN?role=$role&returnRoute=$encoded"
+        } else {
+            "$ENHANCED_LOGIN?role=$role"
+        }
+    }
+
     // ── DutyPe Services (homeservices package) ──
     /** Customer: categories and fixed-price services. Deep link: dutype://services */
     const val SERVICES = "services"

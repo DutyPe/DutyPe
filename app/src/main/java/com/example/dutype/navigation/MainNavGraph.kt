@@ -436,15 +436,38 @@ fun MainNavGraph(
             }
         }
         composable(
-            route = "${Routes.ENHANCED_LOGIN}?role={role}",
-            arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
+            route = "${Routes.ENHANCED_LOGIN}?role={role}&returnRoute={returnRoute}",
+            arguments = listOf(
+                navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" },
+                navArgument("returnRoute") { type = NavType.StringType; defaultValue = ""; nullable = true }
+            )
         ) { backStackEntry ->
             val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
-            androidx.compose.runtime.LaunchedEffect(role) { Timber.d("Enhanced login route accessed with role: $role") }
+            val rawReturn = backStackEntry.arguments?.getString("returnRoute")
+            val returnRoute = if (!rawReturn.isNullOrBlank()) {
+                runCatching { java.net.URLDecoder.decode(rawReturn, "UTF-8") }.getOrDefault(rawReturn)
+            } else null
+            androidx.compose.runtime.LaunchedEffect(role, returnRoute) {
+                Timber.d("Enhanced login route accessed with role: $role, returnRoute: $returnRoute")
+            }
             EnhancedLoginScreen(
                 navController = navController,
                 skipRoleSelection = true,
                 initialRole = role,
+                returnRoute = returnRoute,
+                isRegisterMode = false
+            )
+        }
+        composable(
+            route = "${Routes.ENHANCED_LOGIN}?role={role}",
+            arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
+        ) { backStackEntry ->
+            val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
+            EnhancedLoginScreen(
+                navController = navController,
+                skipRoleSelection = true,
+                initialRole = role,
+                returnRoute = null,
                 isRegisterMode = false
             )
         }

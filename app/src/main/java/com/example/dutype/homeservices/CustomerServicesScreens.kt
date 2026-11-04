@@ -1,5 +1,7 @@
 package com.example.dutype.homeservices
 
+import androidx.compose.material3.Switch
+import androidx.compose.ui.text.input.ImeAction
 import com.example.dutype.components.cascadeEnter
 import com.example.dutype.components.bouncyClickable
 import android.Manifest
@@ -222,7 +224,7 @@ internal val SvcRed = Color(0xFFDC2626)
 internal val SvcMuted = Color(0xFF64748B)
 internal val SvcInk = Color(0xFF0F172A)
 internal val SvcLine = Color(0xFFE2E8F0)
-internal val SvcPage = Color(0xFFFAFFFF)
+internal val SvcPage = Color(0xFFFFFFFF)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
     "CLEANING",
@@ -2271,7 +2273,7 @@ fun ServicesHomeShimmer() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFFFF).bg())
+            .background(Color(0xFFF7F7F7).bg())
             .verticalScroll(rememberScrollState())
     ) {
         // Sleek Header Placeholder
@@ -2585,7 +2587,7 @@ fun ServicesHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFFFF).bg())
+            .background(Color(0xFFF7F7F7).bg())
     ) {
         LazyColumn(
             state = listState,
@@ -2609,7 +2611,7 @@ fun ServicesHomeScreen(
                         onBookingsClick = { nav.navigate(Routes.SERVICES_BOOKINGS) },
                         onProfileClick = { runCatching { nav.navigate(Routes.EMPLOYER_PROFILE) } },
                         walletBalanceRupees = walletBalanceRupees,
-                        onWalletClick = { showWalletTopupSheet = true }
+                        onWalletClick = { nav.navigate(Routes.SERVICE_WALLET) }
                     )
                 }
             }
@@ -2655,6 +2657,44 @@ fun ServicesHomeScreen(
                         onQueryChange = { searchQuery = it },
                         containerColor = if (isScrolled) Color(0xFFF7F7F7) else Color.White
                     )
+                }
+            }
+
+
+            // Promotional banner: only shown when not actively searching AND banners configured
+            if (searchQuery.isBlank() && allCarouselBanners.isNotEmpty()) {
+                item(key = "hero_promo_banner") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .cascadeEnter(index = 0)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        animatedStartColor,
+                                        animatedStartColor.copy(alpha = 0.85f),
+                                        Color(0xFFF7F7F7).bg()
+                                    )
+                                )
+                            )
+                            .padding(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 10.dp)
+                    ) {
+                        ServicesIntegratedHeroBanner(
+                            pagerState = pagerState,
+                            customBanners = allCarouselBanners,
+                            onBookPromo = { targetSvc, targetCat, targetShowcase ->
+                                when {
+                                    !targetShowcase.isNullOrBlank() -> nav.navigate(Routes.promoShowcaseRoute(targetShowcase))
+                                    targetCat == "promote_business" || targetSvc == "promote_business" -> {
+                                        com.example.dutype.utils.DeepLinkHandler.handleAnnouncementAction("promote_business", nav, context)
+                                    }
+                                    !targetSvc.isNullOrBlank() -> nav.navigate(Routes.servicesBookRoute(targetSvc))
+                                    !targetCat.isNullOrBlank() -> nav.navigate(Routes.servicesCategoryRoute(targetCat))
+                                    c.services.isNotEmpty() -> nav.navigate(Routes.servicesBookRoute(c.services.first().id))
+                                }
+                            }
+                        )
+                    }
                 }
             }
 
@@ -2712,43 +2752,6 @@ fun ServicesHomeScreen(
                                 lineHeight = 16.sp
                             )
                         }
-                    }
-                }
-            }
-
-            // Promotional banner: only shown when not actively searching AND banners configured
-            if (searchQuery.isBlank() && allCarouselBanners.isNotEmpty()) {
-                item(key = "hero_promo_banner") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .cascadeEnter(index = 0)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        animatedStartColor,
-                                        animatedStartColor.copy(alpha = 0.85f),
-                                        Color(0xFFF7F7F7).bg()
-                                    )
-                                )
-                            )
-                            .padding(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 10.dp)
-                    ) {
-                        ServicesIntegratedHeroBanner(
-                            pagerState = pagerState,
-                            customBanners = allCarouselBanners,
-                            onBookPromo = { targetSvc, targetCat, targetShowcase ->
-                                when {
-                                    !targetShowcase.isNullOrBlank() -> nav.navigate(Routes.promoShowcaseRoute(targetShowcase))
-                                    targetCat == "promote_business" || targetSvc == "promote_business" -> {
-                                        com.example.dutype.utils.DeepLinkHandler.handleAnnouncementAction("promote_business", nav, context)
-                                    }
-                                    !targetSvc.isNullOrBlank() -> nav.navigate(Routes.servicesBookRoute(targetSvc))
-                                    !targetCat.isNullOrBlank() -> nav.navigate(Routes.servicesCategoryRoute(targetCat))
-                                    c.services.isNotEmpty() -> nav.navigate(Routes.servicesBookRoute(c.services.first().id))
-                                }
-                            }
-                        )
                     }
                 }
             }
@@ -4347,16 +4350,35 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
         }
     }
 
-    // Custom Pricing state (Offer your own price: min ₹49, cannot be 00)
+    // Custom Pricing state (Offer your own price: dynamic diff limits: ₹50 for ~299, ₹100 for ~500, ₹250 for 1000+)
     var isCustomPriceEnabled by remember { mutableStateOf(false) }
     var customPriceInput by remember { mutableStateOf("") }
+    var showLoginSheet by remember { mutableStateOf(false) }
     val parsedCustomPrice = customPriceInput.toIntOrNull()
-    val customPriceError = remember(isCustomPriceEnabled, customPriceInput, parsedCustomPrice) {
+    val basePriceForLimit = catalog?.services?.firstOrNull { it.id == serviceId }?.price ?: 0
+    val maxDiffAllowed = when {
+        basePriceForLimit <= 350 -> 50
+        basePriceForLimit in 351..750 -> 100
+        else -> 250
+    }
+    val minAllowedPrice = maxOf(49, basePriceForLimit - maxDiffAllowed)
+    val maxAllowedPrice = basePriceForLimit + maxDiffAllowed
+
+    val customPriceError = remember(isCustomPriceEnabled, customPriceInput, parsedCustomPrice, basePriceForLimit, maxDiffAllowed) {
         if (!isCustomPriceEnabled) null
-        else if (customPriceInput.isBlank()) "Please enter your proposed price"
-        else if (parsedCustomPrice == null || parsedCustomPrice == 0) "Price cannot be ₹00"
-        else if (parsedCustomPrice < 49) "Price cannot be less than ₹49"
-        else null
+        else if (customPriceInput.isBlank()) {
+            if (lang == "te") "దయచేసి మీ ధరను నమోదు చేయండి" else "Please enter your proposed price"
+        } else if (parsedCustomPrice == null || parsedCustomPrice == 0) {
+            if (lang == "te") "ధర ₹00 కాకూడదు" else "Price cannot be ₹00"
+        } else if (parsedCustomPrice < 49) {
+            if (lang == "te") "ధర ₹49 కంటే తక్కువ ఉండకూడదు" else "Price cannot be less than ₹49"
+        } else if (parsedCustomPrice < minAllowedPrice) {
+            if (lang == "te") "ధర వ్యత్యాసం ₹$maxDiffAllowed కంటే ఎక్కువ ఉండకూడదు (కనీసం ₹$minAllowedPrice)"
+            else "Proposed price cannot be lower than ₹$minAllowedPrice (max difference ₹$maxDiffAllowed)"
+        } else if (parsedCustomPrice > maxAllowedPrice) {
+            if (lang == "te") "ధర వ్యత్యాసం ₹$maxDiffAllowed కంటే ఎక్కువ ఉండకూడదు (గరిష్టం ₹$maxAllowedPrice)"
+            else "Proposed price cannot be higher than ₹$maxAllowedPrice (max difference ₹$maxDiffAllowed)"
+        } else null
     }
 
     // Offers: the server prices the booking (first-booking offer, coupon), the screen only shows it.
@@ -4552,6 +4574,10 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         }
                         Button(
                             onClick = {
+                                if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+                                    navController.navigate(Routes.loginRoute(role = "EMPLOYER", returnRoute = Routes.SERVICES))
+                                    return@Button
+                                }
                                 if (isOutOfArea) {
                                     showLaunchFeedbackSheet = true
                                 } else if (address.trim().length < 5) {
@@ -4644,7 +4670,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                 .fillMaxWidth()
                                 .height(240.dp),
                             error = {
-                                Box(Modifier.fillMaxSize().background(Color(0xFFFAFFFF).bg()), contentAlignment = Alignment.Center) {
+                                Box(Modifier.fillMaxSize().background(Color(0xFFF7F7F7).bg()), contentAlignment = Alignment.Center) {
                                     ServiceClayImage(
                                         service = service,
                                         modifier = Modifier.size(130.dp),
@@ -4655,7 +4681,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             }
                         )
                     } else {
-                        Box(Modifier.fillMaxSize().background(Color(0xFFFAFFFF).bg()), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize().background(Color(0xFFF7F7F7).bg()), contentAlignment = Alignment.Center) {
                             ServiceClayImage(
                                 service = service,
                                 modifier = Modifier.size(130.dp),
@@ -5202,7 +5228,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFFAFFFF).bg())
+                            .background(Color(0xFFF7F7F7).bg())
                             .border(1.dp, SvcLine.bg(), RoundedCornerShape(14.dp))
                             .clickable { showCouponSheet = true }
                             .padding(14.dp),
@@ -5242,6 +5268,104 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                     }
                 }
                 if (q != null && q.couponNote.isNotBlank()) Text(q.couponNote, color = SvcOrange, fontSize = 12.sp)
+            }
+
+            // Name Your Own Price (Custom Offer)
+            SvcSection {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isCustomPriceEnabled) Color(0xFF2563EB) else Color(0xFF94A3B8),
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("₹", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = if (lang == "te") "మీ స్వంత ధరను సూచించండి" else "Name Your Own Price",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.5.sp,
+                                    color = SvcInk.fg()
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFDBEAFE).bg()
+                                ) {
+                                    Text(
+                                        text = "CUSTOM",
+                                        fontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1D4ED8).fg(),
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = if (lang == "te") "సర్వీస్ పార్ట్‌నర్‌కు మీ ఆఫర్‌ను ప్రతిపాదించండి" else "Propose your own offer for this service",
+                                fontSize = 11.5.sp,
+                                color = SvcMuted.fg()
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = isCustomPriceEnabled,
+                        onCheckedChange = { isCustomPriceEnabled = it }
+                    )
+                }
+
+                if (isCustomPriceEnabled) {
+                    val base = service.price
+                    val maxDiff = when {
+                        base <= 350 -> 50
+                        base in 351..750 -> 100
+                        else -> 250
+                    }
+                    val minAllowed = maxOf(49, base - maxDiff)
+                    val maxAllowed = base + maxDiff
+
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = customPriceInput,
+                        onValueChange = { newVal ->
+                            customPriceInput = newVal.filter { it.isDigit() }.take(6)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(if (lang == "te") "మీ ప్రతిపాదిత ధర (₹)" else "Your Proposed Price (₹)") },
+                        placeholder = { Text("e.g. $base") },
+                        prefix = { Text("₹ ", fontWeight = FontWeight.Bold) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        singleLine = true,
+                        isError = customPriceError != null,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    if (customPriceError != null) {
+                        Text(
+                            text = customPriceError!!,
+                            color = Color(0xFFEF4444),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        Text(
+                            text = if (lang == "te")
+                                "ప్రామాణిక ధర: ₹$base • అనుమతించబడిన పరిధి: ₹$minAllowed – ₹$maxAllowed (గరిష్ట వ్యత్యాసం ₹$maxDiff)"
+                            else
+                                "Standard price: ₹$base • Allowed offer: ₹$minAllowed – ₹$maxAllowed (max diff ₹$maxDiff)",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF2563EB)
+                        )
+                    }
+                }
             }
 
             // Bill
@@ -5429,6 +5553,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
             viewModel = viewModel
         )
     }
+
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -6992,7 +7118,7 @@ private fun AssignedPartnerCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFFAFFFF).bg())
+                    .background(Color(0xFFF7F7F7).bg())
                     .border(1.dp, SvcLine.bg(), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
@@ -8090,7 +8216,7 @@ fun ServicesAreaTeaserCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFAFFFF).bg())
+                                .background(Color(0xFFF7F7F7).bg())
                                 .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
                                 .clickable(onClick = onOpenServices)
                                 .padding(vertical = 10.dp, horizontal = 4.dp),
