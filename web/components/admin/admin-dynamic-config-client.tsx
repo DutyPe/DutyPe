@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
@@ -71,6 +71,131 @@ export function AdminDynamicConfigClient() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"worker" | "employer">("worker");
+
+  // Dynamic Campaign / Promo Microsite State
+  const [campaign, setCampaign] = useState({
+    title: "Hungr - Morning Tiffins at Shop Prices",
+    tagline: "Pre-order hot morning breakfast directly from top local Khammam tiffin centers at exact shop counter prices with zero markup.",
+    categoryBadge: "EXCLUSIVE LAUNCH",
+    rating: "4.9",
+    mediaType: "IMAGE" as "IMAGE" | "LOTTIE",
+    heroImageUrl: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=1000&auto=format&fit=crop&q=80",
+    videoUrl: "",
+    aboutDescription: "DutyPe is launching Hungr: a revolutionary community-powered morning food delivery platform. Order your favorite Idli, Dosa, Vada & pure fruit juices the previous evening between 5 PM - 11 PM. Our batch-delivery vehicles deliver straight to your apartment security gate by 7:30 AM at genuine offline shop prices.",
+    address: "Khammam Town & Residential Apartments, Telangana",
+    discountOfferTitle: "Exclusive VIP Member Voucher (₹50 OFF)",
+    discountOfferCode: "HUNGR50",
+    discountOfferTerms: "Valid on first 3 breakfast pre-orders when joining priority waitlist",
+    highlights: [
+      "🥞 Idli, Dosa, Vada & Juices at ₹30 - ₹40 (Exact Offline Shop Rate)",
+      "🛵 Batch Delivery to Apartment Security Gate (0 Delivery Markup)",
+      "⏰ Pre-Order Window: 5:00 PM – 11:00 PM every evening",
+      "✨ 100% Fresh from Top Rated Local Khammam Tiffin Centers"
+    ],
+    primaryButtonLabel: "Join VIP Priority Waitlist",
+    primaryButtonAction: "hungr",
+    secondaryButtonLabel: "WhatsApp Inquiry",
+    secondaryButtonAction: "https://wa.me/918019151847?text=Hi%20DutyPe,%20I%20want%20to%20know%20more%20about%20Hungr",
+    active: true
+  });
+  const [newHighlight, setNewHighlight] = useState("");
+  const [savingCampaign, setSavingCampaign] = useState(false);
+  const [campaignMessage, setCampaignMessage] = useState<string | null>(null);
+
+  // Load Active Dynamic Campaign from Firestore
+  useEffect(() => {
+    if (!services) return;
+    const fetchCampaign = async () => {
+      try {
+        const snap = await getDoc(doc(services.db, "promo_showcases", "active_campaign"));
+        if (snap.exists()) {
+          const d = snap.data();
+          const btns = (d.actionButtons as Array<{ label: string; actionUrl: string; isPrimary: boolean }>) || [];
+          const prim = btns.find((b) => b.isPrimary) || btns[0] || { label: "Join VIP Waitlist", actionUrl: "hungr" };
+          const sec = btns.find((b) => !b.isPrimary) || btns[1] || { label: "WhatsApp Inquiry", actionUrl: "https://wa.me/918019151847" };
+          const isLottie = String(d.heroImageUrl || d.videoUrl || "").includes(".json");
+          setCampaign({
+            title: String(d.title || "Hungr - Morning Tiffins at Shop Prices"),
+            tagline: String(d.tagline || ""),
+            categoryBadge: String(d.categoryBadge || "EXCLUSIVE LAUNCH"),
+            rating: String(d.rating || "4.9"),
+            mediaType: isLottie ? "LOTTIE" : "IMAGE",
+            heroImageUrl: String(d.heroImageUrl || ""),
+            videoUrl: String(d.videoUrl || ""),
+            aboutDescription: String(d.aboutDescription || ""),
+            address: String(d.address || ""),
+            discountOfferTitle: String(d.discountOfferTitle || ""),
+            discountOfferCode: String(d.discountOfferCode || ""),
+            discountOfferTerms: String(d.discountOfferTerms || ""),
+            highlights: Array.isArray(d.highlights) && d.highlights.length > 0 ? d.highlights : [
+              "🥞 Idli, Dosa, Vada & Juices at ₹30 - ₹40 (Exact Offline Shop Rate)",
+              "🛵 Batch Delivery to Apartment Security Gate (0 Delivery Markup)",
+              "⏰ Pre-Order Window: 5:00 PM – 11:00 PM every evening",
+              "✨ 100% Fresh from Top Rated Local Khammam Tiffin Centers"
+            ],
+            primaryButtonLabel: String(prim.label || "Join VIP Priority Waitlist"),
+            primaryButtonAction: String(prim.actionUrl || "hungr"),
+            secondaryButtonLabel: String(sec.label || "WhatsApp Inquiry"),
+            secondaryButtonAction: String(sec.actionUrl || "https://wa.me/918019151847"),
+            active: d.active !== false
+          });
+        }
+      } catch (err) {
+        console.warn("Could not load active_campaign:", err);
+      }
+    };
+    void fetchCampaign();
+  }, [services]);
+
+  async function handleSaveCampaign() {
+    if (!services) return;
+    setSavingCampaign(true);
+    setCampaignMessage(null);
+    try {
+      const payload = {
+        id: "active_campaign",
+        title: campaign.title.trim(),
+        tagline: campaign.tagline.trim(),
+        categoryBadge: campaign.categoryBadge.trim(),
+        rating: campaign.rating.trim(),
+        heroImageUrl: campaign.mediaType === "LOTTIE" ? (campaign.videoUrl.trim() || campaign.heroImageUrl.trim()) : campaign.heroImageUrl.trim(),
+        videoUrl: campaign.mediaType === "LOTTIE" ? campaign.videoUrl.trim() : "",
+        aboutDescription: campaign.aboutDescription.trim(),
+        address: campaign.address.trim(),
+        mapLink: "",
+        discountOfferTitle: campaign.discountOfferTitle.trim(),
+        discountOfferCode: campaign.discountOfferCode.trim(),
+        discountOfferTerms: campaign.discountOfferTerms.trim(),
+        highlights: campaign.highlights.filter((h) => h.trim().length > 0),
+        galleryImages: [],
+        actionButtons: [
+          {
+            label: campaign.primaryButtonLabel.trim(),
+            icon: campaign.primaryButtonAction.includes("hungr") ? "hungr" : campaign.primaryButtonAction.includes("wa.me") ? "whatsapp" : "call",
+            actionUrl: campaign.primaryButtonAction.trim(),
+            isPrimary: true
+          },
+          {
+            label: campaign.secondaryButtonLabel.trim(),
+            icon: campaign.secondaryButtonAction.includes("wa.me") ? "whatsapp" : "call",
+            actionUrl: campaign.secondaryButtonAction.trim(),
+            isPrimary: false
+          }
+        ],
+        district: "ALL",
+        scope: "NATIONAL",
+        active: campaign.active,
+        updatedAt: serverTimestamp()
+      };
+      await setDoc(doc(services.db, "promo_showcases", "active_campaign"), payload, { merge: true });
+      setCampaignMessage("🎉 Dynamic Campaign Landing Page saved & published! All banners and dialogs targeting 'dynamic_campaign' will render this page.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save campaign: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSavingCampaign(false);
+    }
+  }
 
   useEffect(() => {
     if (!services) return;
@@ -564,6 +689,7 @@ async function compressToTarget4GKb(
                 style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
               >
                 <option value="">None (Splash Only / View Only)</option>
+                <option value="dynamic_campaign">🌟 Dynamic Campaign Landing Page (Loads full rich campaign screen)</option>
                 <option value="hungr">🥞 Hungr Pre-Order Survey</option>
                 <option value="services">🛠️ Home Services Catalog</option>
                 <option value="jobs">💼 Browse Jobs (Worker)</option>
@@ -660,6 +786,7 @@ async function compressToTarget4GKb(
               style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
             >
               <option value="">None (View-Only / Informational Flyer with no button)</option>
+              <option value="dynamic_campaign">🌟 Dynamic Campaign Landing Page (Loads full rich campaign screen)</option>
               <option value="hungr">🥞 Hungr Pre-Order Survey</option>
               <option value="services">🛠️ Home Services Catalog</option>
               <option value="jobs">💼 Browse Jobs (Worker)</option>
@@ -669,6 +796,297 @@ async function compressToTarget4GKb(
               <option value="partner">🤝 Join as Service Partner</option>
             </select>
           </label>
+        </div>
+
+        {/* DYNAMIC CAMPAIGN & PROMOTIONAL LANDING PAGE BUILDER */}
+        <div id="campaign" style={{ border: "2px solid #6366f1", borderRadius: 12, padding: 20, background: "#f8fafc", marginBottom: 28 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: 14, marginBottom: 16 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 20 }}>🌟</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e1b4b" }}>
+                  Dynamic Campaign / Ad Landing Screen Builder
+                </h3>
+                <span style={{ fontSize: 11, background: "#e0e7ff", color: "#3730a3", fontWeight: 700, padding: "2px 8px", borderRadius: 12 }}>
+                  SINGLE ROUTE: dynamic_campaign
+                </span>
+              </div>
+              <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#475569" }}>
+                When users tap any banner, dialog, or announcement with route <code>dynamic_campaign</code>, the mobile app opens this full rich landing page. Perfect for introducing new apps (Hungr), local business ads, special wishes, or festival offers.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleSaveCampaign()}
+              disabled={savingCampaign}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 8,
+                background: "#4f46e5",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: 13,
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 2px 4px rgba(79, 70, 229, 0.2)"
+              }}
+            >
+              {savingCampaign ? "Publishing..." : "💾 Save & Publish Campaign"}
+            </button>
+          </div>
+
+          {campaignMessage && (
+            <div style={{ background: "#ecfdf5", border: "1px solid #10b981", borderRadius: 8, padding: 10, fontSize: 13, color: "#065f46", marginBottom: 16, fontWeight: 500 }}>
+              {campaignMessage}
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#334155", fontWeight: 600 }}>Campaign Headline / Title *</span>
+              <input
+                type="text"
+                value={campaign.title}
+                placeholder="e.g. Hungr - Morning Tiffins at Shop Prices"
+                onChange={(e) => setCampaign({ ...campaign, title: e.target.value })}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14, background: "#fff" }}
+              />
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#334155", fontWeight: 600 }}>Category Tag / Badge</span>
+              <input
+                type="text"
+                value={campaign.categoryBadge}
+                placeholder="e.g. EXCLUSIVE LAUNCH, PARTNER AD, SPECIAL WISH"
+                onChange={(e) => setCampaign({ ...campaign, categoryBadge: e.target.value })}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14, background: "#fff" }}
+              />
+            </label>
+          </div>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 14 }}>
+            <span style={{ color: "#334155", fontWeight: 600 }}>Tagline / Catchphrase</span>
+            <input
+              type="text"
+              value={campaign.tagline}
+              placeholder="e.g. Fresh hot breakfast delivered to your apartment security gate at exact offline shop prices."
+              onChange={(e) => setCampaign({ ...campaign, tagline: e.target.value })}
+              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14, background: "#fff" }}
+            />
+          </label>
+
+          {/* Hero Media Type & URL */}
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Hero Media Type:</span>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="campaignMediaType"
+                  checked={campaign.mediaType === "IMAGE"}
+                  onChange={() => setCampaign({ ...campaign, mediaType: "IMAGE" })}
+                />
+                Static Banner Image (Compressed 30-60KB WebP)
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="campaignMediaType"
+                  checked={campaign.mediaType === "LOTTIE"}
+                  onChange={() => setCampaign({ ...campaign, mediaType: "LOTTIE" })}
+                />
+                Lottie Animation (Full-Motion Vector)
+              </label>
+            </div>
+
+            {campaign.mediaType === "IMAGE" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    type="url"
+                    value={campaign.heroImageUrl}
+                    placeholder="e.g. https://cdn.dutype.app/banners/hungr-cover.webp"
+                    onChange={(e) => setCampaign({ ...campaign, heroImageUrl: e.target.value })}
+                    style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      if (e.target.files?.[0] && services) {
+                        try {
+                          const file = e.target.files[0];
+                          const compressed = await compressToTarget4GKb(file);
+                          const fileRef = ref(services.storage, `showcase_media/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "")}.webp`);
+                          await uploadBytes(fileRef, compressed.blob, { contentType: "image/webp" });
+                          const url = await getDownloadURL(fileRef);
+                          setCampaign({ ...campaign, heroImageUrl: url });
+                        } catch (uploadErr) {
+                          alert("Upload failed: " + uploadErr);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                {campaign.heroImageUrl && (
+                  <div style={{ marginTop: 8 }}>
+                    <img src={campaign.heroImageUrl} alt="Hero Preview" style={{ width: 280, height: 130, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                <input
+                  type="url"
+                  value={campaign.videoUrl}
+                  placeholder="e.g. https://assets5.lottiefiles.com/packages/lf20_m6cuL6.json"
+                  onChange={(e) => setCampaign({ ...campaign, videoUrl: e.target.value })}
+                  style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
+                />
+                {campaign.videoUrl && (
+                  <div style={{ marginTop: 8, maxWidth: 220, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+                    <LottiePreview url={campaign.videoUrl} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Highlights / Features list */}
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 14, marginBottom: 14 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#334155", display: "block", marginBottom: 8 }}>
+              Key Highlight Bullets / Offer Cards
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+              {campaign.highlights.map((hl, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>•</span>
+                  <input
+                    type="text"
+                    value={hl}
+                    onChange={(e) => {
+                      const next = [...campaign.highlights];
+                      next[idx] = e.target.value;
+                      setCampaign({ ...campaign, highlights: next });
+                    }}
+                    style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = campaign.highlights.filter((_, i) => i !== idx);
+                      setCampaign({ ...campaign, highlights: next });
+                    }}
+                    style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontSize: 16 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                value={newHighlight}
+                placeholder="e.g. 🎁 Free morning delivery to security gate"
+                onChange={(e) => setNewHighlight(e.target.value)}
+                style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newHighlight.trim()) {
+                    setCampaign({ ...campaign, highlights: [...campaign.highlights, newHighlight.trim()] });
+                    setNewHighlight("");
+                  }
+                }}
+                style={{ padding: "6px 12px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              >
+                + Add Bullet
+              </button>
+            </div>
+          </div>
+
+          {/* Full Story / Description */}
+          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 14 }}>
+            <span style={{ color: "#334155", fontWeight: 600 }}>Detailed Story / About Announcement</span>
+            <textarea
+              rows={4}
+              value={campaign.aboutDescription}
+              placeholder="Write the full story, company intro, birthday wishes, or special event description..."
+              onChange={(e) => setCampaign({ ...campaign, aboutDescription: e.target.value })}
+              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, resize: "vertical" }}
+            />
+          </label>
+
+          {/* Special Voucher Offer Card */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#334155", fontWeight: 600 }}>Voucher Offer Title</span>
+              <input
+                type="text"
+                value={campaign.discountOfferTitle}
+                placeholder="e.g. Exclusive VIP Voucher (₹50 OFF)"
+                onChange={(e) => setCampaign({ ...campaign, discountOfferTitle: e.target.value })}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, background: "#fff" }}
+              />
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#334155", fontWeight: 600 }}>Voucher Coupon Code (1-Tap Copy)</span>
+              <input
+                type="text"
+                value={campaign.discountOfferCode}
+                placeholder="e.g. HUNGR50"
+                onChange={(e) => setCampaign({ ...campaign, discountOfferCode: e.target.value.toUpperCase() })}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, fontFamily: "monospace", background: "#fff" }}
+              />
+            </label>
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#334155", fontWeight: 600 }}>Primary Action Button</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="text"
+                  value={campaign.primaryButtonLabel}
+                  placeholder="Label (e.g. Join VIP Waitlist)"
+                  onChange={(e) => setCampaign({ ...campaign, primaryButtonLabel: e.target.value })}
+                  style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                />
+                <input
+                  type="text"
+                  value={campaign.primaryButtonAction}
+                  placeholder="Route / Link (hungr or https://...)"
+                  onChange={(e) => setCampaign({ ...campaign, primaryButtonAction: e.target.value })}
+                  style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                />
+              </div>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#334155", fontWeight: 600 }}>Secondary Action Button</span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="text"
+                  value={campaign.secondaryButtonLabel}
+                  placeholder="Label (e.g. WhatsApp Us)"
+                  onChange={(e) => setCampaign({ ...campaign, secondaryButtonLabel: e.target.value })}
+                  style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                />
+                <input
+                  type="text"
+                  value={campaign.secondaryButtonAction}
+                  placeholder="WhatsApp or Call (https://wa.me/...)"
+                  onChange={(e) => setCampaign({ ...campaign, secondaryButtonAction: e.target.value })}
+                  style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                />
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* Tab Headers */}

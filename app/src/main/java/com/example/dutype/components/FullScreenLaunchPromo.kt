@@ -192,6 +192,7 @@ private fun handlePromoNavigation(context: Context, navController: NavHostContro
             context.startActivity(intent)
         } else {
             val resolvedRoute = when (target.lowercase().trim()) {
+                "dynamic_campaign", "campaign", "dynamic_screen", "promo_screen", "ad" -> Routes.promoShowcaseRoute("active_campaign")
                 "services", "service" -> Routes.SERVICES
                 "refer", "refer_earn", "referral" -> Routes.WORKER_REFER_EARN
                 "earnings", "wallet" -> Routes.WORKER_EARNINGS

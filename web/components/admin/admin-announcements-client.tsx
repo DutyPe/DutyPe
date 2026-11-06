@@ -57,6 +57,16 @@ const priorityRank: Record<string, number> = {
 
 const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
   {
+    id: "dynamic_campaign_promo",
+    label: "🌟 Dynamic Campaign Landing Screen (Promote Company, App or Wish)",
+    title: "Special Announcement: Check Details",
+    message: "Tap to explore full campaign information, exclusive offers, highlights & WhatsApp ordering.",
+    type: "PROMOTION",
+    priority: "HIGH",
+    targetRole: "ALL",
+    deepLink: "dynamic_campaign"
+  },
+  {
     id: "hungr_survey_launch",
     label: "🥞 Hungr Launch Survey: Morning Tiffins at Shop Prices",
     title: "🥞 Hungr: Morning Tiffins at Shop Prices",
@@ -546,6 +556,7 @@ export function AdminAnnouncementsClient() {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                 {[
+                  { label: "🌟 Dynamic Campaign Page", link: "dynamic_campaign" },
                   { label: "🥞 Hungr Survey", link: "dutype://hungr-survey" },
                   { label: "🛠️ Services", link: "dutype://services" },
                   { label: "💼 Jobs", link: "dutype://jobs" },

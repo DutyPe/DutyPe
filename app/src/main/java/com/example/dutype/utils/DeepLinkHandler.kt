@@ -116,6 +116,20 @@ object DeepLinkHandler {
     ): Boolean {
         val trimmed = deepLinkUrl.trim()
         when {
+            trimmed == "dynamic_campaign" || trimmed == "campaign" || trimmed == "dynamic_screen" || trimmed == "promo_screen" || trimmed == "ad" -> {
+                safeNavigate(navController, Routes.promoShowcaseRoute("active_campaign"), "dynamic-campaign")
+                return true
+            }
+            trimmed.startsWith("dynamic_campaign/") -> {
+                val scId = trimmed.removePrefix("dynamic_campaign/")
+                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "dynamic-campaign-$scId")
+                return true
+            }
+            trimmed.startsWith("campaign/") -> {
+                val scId = trimmed.removePrefix("campaign/")
+                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "campaign-$scId")
+                return true
+            }
             trimmed.startsWith("promo_showcase/") -> {
                 safeNavigate(navController, trimmed, "showcase")
                 return true

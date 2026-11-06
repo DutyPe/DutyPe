@@ -778,8 +778,26 @@ class HomeServicesRepository @Inject constructor(
 
     suspend fun getShowcase(showcaseId: String): PromoShowcase? {
         return runCatching {
-            val doc = firestore.collection("promo_showcases").document(showcaseId).get().await()
-            parseShowcase(doc)
+            val targetId = showcaseId.trim()
+            if (targetId.isBlank() || targetId.equals("active_campaign", ignoreCase = true) || targetId.equals("dynamic_campaign", ignoreCase = true)) {
+                val doc = firestore.collection("promo_showcases").document("active_campaign").get().await()
+                if (doc.exists()) {
+                    parseShowcase(doc)
+                } else {
+                    val list = firestore.collection("promo_showcases").whereEqualTo("active", true).limit(1).get().await()
+                    val fallbackDoc = list.documents.firstOrNull()
+                    if (fallbackDoc != null) parseShowcase(fallbackDoc) else null
+                }
+            } else {
+                val doc = firestore.collection("promo_showcases").document(targetId).get().await()
+                if (doc.exists()) {
+                    parseShowcase(doc)
+                } else {
+                    val list = firestore.collection("promo_showcases").whereEqualTo("active", true).limit(1).get().await()
+                    val fallbackDoc = list.documents.firstOrNull()
+                    if (fallbackDoc != null) parseShowcase(fallbackDoc) else null
+                }
+            }
         }.getOrNull()
     }
 

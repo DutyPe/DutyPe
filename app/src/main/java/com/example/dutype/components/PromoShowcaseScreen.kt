@@ -39,6 +39,11 @@ import com.example.dutype.homeservices.HomeServicesRepository
 import com.example.dutype.homeservices.PromoShowcase
 import com.example.dutype.homeservices.PromoShowcaseButton
 import kotlinx.coroutines.launch
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,7 +92,7 @@ fun PromoShowcaseScreen(
                         sc.actionButtons.forEach { btn ->
                             Button(
                                 onClick = {
-                                    handleShowcaseAction(context, btn.actionUrl)
+                                    handleShowcaseAction(context, btn.actionUrl, navController)
                                 },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
@@ -156,13 +161,27 @@ fun PromoShowcaseScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // 1. Hero Image / Cover
+                    // 1. Hero Image / Lottie Animation Cover
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(260.dp)
+                            .height(280.dp)
                     ) {
-                        if (sc.heroImageUrl.isNotBlank()) {
+                        val isLottie = sc.heroImageUrl.contains(".json", ignoreCase = true) ||
+                                sc.videoUrl.contains(".json", ignoreCase = true)
+                        if (isLottie) {
+                            val lottieUrl = if (sc.heroImageUrl.contains(".json", ignoreCase = true)) sc.heroImageUrl else sc.videoUrl
+                            val composition by rememberLottieComposition(LottieCompositionSpec.Url(lottieUrl.trim()))
+                            val progress by animateLottieCompositionAsState(
+                                composition = composition,
+                                iterations = LottieConstants.IterateForever
+                            )
+                            LottieAnimation(
+                                composition = composition,
+                                progress = { progress },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else if (sc.heroImageUrl.isNotBlank()) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
                                     .data(sc.heroImageUrl)
@@ -196,7 +215,7 @@ fun PromoShowcaseScreen(
                                 )
                         )
 
-                        // Top bar back button
+                        // Top bar: back button + share on WhatsApp & directions
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -221,31 +240,62 @@ fun PromoShowcaseScreen(
                                 )
                             }
 
-                            if (sc.mapLink.isNotBlank()) {
-                                Surface(
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = Color.Black.copy(alpha = 0.5f),
-                                    modifier = Modifier.clickable {
-                                        handleShowcaseAction(context, sc.mapLink)
-                                    }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // WhatsApp / Social Share
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .clickable {
+                                            runCatching {
+                                                val shareText = "Check out ${sc.title} on DutyPe: ${sc.tagline}\n${sc.discountOfferTitle}\nhttps://dutype.in"
+                                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                                }
+                                                context.startActivity(Intent.createChooser(intent, "Share via"))
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Icon(
+                                        imageVector = Icons.Filled.Share,
+                                        contentDescription = "Share",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                if (sc.mapLink.isNotBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = Color.Black.copy(alpha = 0.5f),
+                                        modifier = Modifier.clickable {
+                                            handleShowcaseAction(context, sc.mapLink, navController)
+                                        }
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Directions,
-                                            contentDescription = null,
-                                            tint = Color(0xFF38BDF8),
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            text = "Get Directions",
-                                            color = Color.White,
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Directions,
+                                                contentDescription = null,
+                                                tint = Color(0xFF38BDF8),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = "Directions",
+                                                color = Color.White,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -550,12 +600,29 @@ fun PromoShowcaseScreen(
     }
 }
 
-private fun handleShowcaseAction(context: android.content.Context, actionUrl: String) {
+private fun handleShowcaseAction(context: android.content.Context, actionUrl: String, navController: NavController? = null) {
     if (actionUrl.isBlank()) return
-    runCatching {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(actionUrl))
-        context.startActivity(intent)
-    }.onFailure {
-        Toast.makeText(context, "Could not open link: $actionUrl", Toast.LENGTH_SHORT).show()
+    val trimmed = actionUrl.trim()
+    when {
+        trimmed.contains("hungr", ignoreCase = true) || trimmed == "hungr-survey" -> {
+            com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
+        }
+        trimmed == "services" || trimmed == "jobs" || trimmed == "partner" || trimmed.startsWith("dutype://") -> {
+            if (navController != null) {
+                com.example.dutype.utils.DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+            } else {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(trimmed)))
+                }
+            }
+        }
+        else -> {
+            runCatching {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmed))
+                context.startActivity(intent)
+            }.onFailure {
+                Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }
