@@ -698,7 +698,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
             Spacer(Modifier.height(14.dp))
 
             for (skilled in listOf(true, false)) {
-                val cats = catalog.categories.filter { it.isSkilled == skilled }
+                val cats = catalog.categories.filter { it.id in com.example.dutype.homeservices.DefaultServicesCatalog.ACTIVE_CUSTOMER_CATEGORY_IDS && it.isSkilled == skilled }
                 if (cats.isNotEmpty()) {
                     Text(
                         text = stringResource(if (skilled) R.string.partner_skilled_trades else R.string.partner_general_trades),

@@ -11,13 +11,15 @@
 import { randomInt } from "crypto";
 
 export type CategoryId =
-  | "AC" | "CLEANING" | "ELECTRICIAN" | "PLUMBER" | "APPLIANCE" | "CARPENTER" | "PAINTER" | "HOME_HELP" | "VEHICLE"
+  | "AC" | "CLEANING" | "ELECTRICIAN" | "PLUMBER" | "APPLIANCE" | "CARPENTER" | "PAINTER" | "HOME_HELP" | "PACKERS_MOVERS" | "VEHICLE"
   | "BEAUTICIAN" | "MEHENDI" | "COOK_MAID" | "BABYSITTER" | "ELDERLY_CARE" | "TAILORING";
 
 export const ACTIVE_CUSTOMER_CATEGORY_IDS = new Set<CategoryId>([
   "CLEANING",
+  "AC",
   "ELECTRICIAN",
   "PLUMBER",
+  "PACKERS_MOVERS",
   "CARPENTER",
   "PAINTER",
   "HOME_HELP",
@@ -117,6 +119,7 @@ const CATEGORY_ITEMS: Record<CategoryId, { provide: string[]; bring: string[] }>
   CARPENTER: { provide: ["PARTS", "NEW_ITEM", "CLEAR_SPACE"], bring: ["TOOLKIT", "DRILL"] },
   PAINTER: { provide: ["PAINT", "CLEAR_SPACE", "LADDER"], bring: ["PAINT_TOOLS"] },
   HOME_HELP: { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] },
+  PACKERS_MOVERS: { provide: ["CLEAR_SPACE"], bring: ["ROPES", "GLOVES"] },
   VEHICLE: { provide: ["WATER", "POWER"], bring: ["CAR_KIT"] },
   BEAUTICIAN: { provide: ["POWER", "WATER", "CLEAR_SPACE"], bring: ["TOOLKIT", "GLOVES"] },
   MEHENDI: { provide: ["CLEAR_SPACE"], bring: ["TOOLKIT"] },
@@ -197,6 +200,7 @@ export const CATEGORIES: ServiceCategory[] = [
   { id: "CARPENTER", name: "Carpenter", te: "కార్పెంటర్", hi: "बढ़ई", skill: "SKILLED" },
   { id: "PAINTER", name: "Painting", te: "పెయింటింగ్", hi: "पेंटिंग", skill: "SKILLED" },
   { id: "HOME_HELP", name: "Home Help & Shifting", te: "ఇంటి సహాయం & షిఫ్టింగ్", hi: "घर की मदद और शिफ़्टिंग", skill: "BASIC" },
+  { id: "PACKERS_MOVERS", name: "Packers & Movers", te: "ప్యాకర్స్ & మూవర్స్", hi: "पैकर्स और मूवर्स", skill: "BASIC" },
   { id: "VEHICLE", name: "Car & Bike Wash", te: "కార్ & బైక్ వాష్", hi: "कार और बाइक वॉश", skill: "BASIC" },
   { id: "BEAUTICIAN", name: "Salon & Beautician", te: "బ్యూటీషియన్ & సెలూన్", hi: "ब्यूटीशियन और सैलून", skill: "SKILLED" },
   { id: "MEHENDI", name: "Mehendi & Bridal Art", te: "మెహందీ & బ్రైడల్ డిజైన్", hi: "मेहंदी और ब्राइडल आर्ट", skill: "SKILLED" },
@@ -354,6 +358,18 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "One verified helper for up to 2 hours of home tasks and organizing.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
   s("help_laundry", "HOME_HELP", "Laundry & clothes ironing help (1.5 hrs)", "లాండ్రీ & బట్టల ఇస్త్రీ సహాయం (1.5 గంటలు)", "कपड़े धोना और इस्त्री मदद (1.5 घंटे)", 249, 90,
     "Help with washing machine loads, hanging clothes to dry, and neat ironing.", { provide: ["POWER", "WATER"], bring: ["GLOVES"] }),
+
+  // Packers & Movers (BASIC)
+  s("pm_1bhk", "PACKERS_MOVERS", "1 BHK Local House Shifting", "1 BHK లోకల్ హౌస్ షిఫ్టింగ్", "1 BHK लोकल घर शिफ़्टिंग", 1999, 180,
+    "Complete household packing, careful loading, transport assistance and doorstep unloading by 2 trained helpers.", { originalPrice: 2799, provide: ["CLEAR_SPACE"], bring: ["ROPES", "GLOVES"] }),
+  s("pm_2bhk", "PACKERS_MOVERS", "2 BHK / 3 BHK Local House Shifting", "2 BHK / 3 BHK లోకల్ హౌస్ షిఫ్టింగ్", "2 BHK / 3 BHK लोकल घर शिफ़्टिंग", 3499, 300,
+    "Full house shifting with 3 to 4 strong helpers: fragile packing, furniture dismantle, heavy lifting, loading and unloading.", { originalPrice: 4599, provide: ["CLEAR_SPACE"], bring: ["ROPES", "GLOVES"] }),
+  s("pm_furniture", "PACKERS_MOVERS", "Single Heavy Item / Appliance Shifting", "ఒకే ఒక్క భారీ వస్తువు / ఫర్నిచర్ షిఫ్టింగ్", "एक भारी सामान / फ़र्नीचर शिफ़्टिंग", 699, 60,
+    "2 strong helpers to securely wrap, lift, carry, load and place any single heavy appliance or furniture item.", { originalPrice: 999, provide: ["CLEAR_SPACE"], bring: ["ROPES", "GLOVES"] }),
+  s("pm_helpers", "PACKERS_MOVERS", "Shifting Helpers (2 Helpers for 2 Hours)", "షిఫ్టింగ్ హెల్పర్స్ (2 గంటలకు ఇద్దరు)", "शिफ़्टिंग हेल्पर्स (2 घंटे के लिए 2 हेल्पर्स)", 599, 120,
+    "Two strong, verified laborers to assist you in loading, unloading, carrying boxes or rearranging house furniture.", { originalPrice: 799, provide: ["CLEAR_SPACE"], bring: ["ROPES", "GLOVES"] }),
+  s("pm_quote_visit", "PACKERS_MOVERS", "Shifting Inspection & Moving Quotation Visit", "షిఫ్టింగ్ కొటేషన్ & వస్తువుల పరిశీలన విజిట్", "शिफ़्टिंग जांच और कोटेशन विज़िट", 99, 30,
+    "On-site moving expert visit to assess luggage volume, vehicle size needed and provide an upfront fixed quote.", { ...VISIT, originalPrice: 149, provide: ["CLEAR_SPACE"] }),
 
   // Cook & Maid (BASIC)
   s("cook_meal", "COOK_MAID", "Cook for one meal (up to 6 people)", "ఒక పూట వంట (6 మంది వరకు)", "एक समय का खाना (6 लोगों तक)", 299, 120,

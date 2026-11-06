@@ -39,8 +39,10 @@ type Tab = "partners" | "topups" | "bookings" | "catalog" | "coupons" | "setting
 
 const CATEGORY_IDS = [
   "CLEANING",
+  "AC",
   "ELECTRICIAN",
   "PLUMBER",
+  "PACKERS_MOVERS",
   "CARPENTER",
   "PAINTER",
   "HOME_HELP",

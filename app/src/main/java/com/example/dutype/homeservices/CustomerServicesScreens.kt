@@ -229,8 +229,10 @@ internal val SvcPage = Color(0xFFFFFFFF)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
     "CLEANING",
+    "AC",
     "ELECTRICIAN",
     "PLUMBER",
+    "PACKERS_MOVERS",
     "CARPENTER",
     "PAINTER",
     "HOME_HELP",

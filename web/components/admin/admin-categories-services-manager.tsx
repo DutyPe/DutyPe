@@ -43,8 +43,10 @@ export interface ServiceItemDef {
 
 export const LIVE_CATEGORY_IDS = new Set([
   "CLEANING",
+  "AC",
   "ELECTRICIAN",
   "PLUMBER",
+  "PACKERS_MOVERS",
   "CARPENTER",
   "PAINTER",
   "HOME_HELP",
@@ -54,8 +56,10 @@ export const LIVE_CATEGORY_IDS = new Set([
 
 const DEFAULT_CATEGORIES: CategoryDef[] = [
   { id: "CLEANING", name: "Home Cleaning", te: "ఇంటి క్లీనింగ్", hi: "घर की सफाई", skill: "BASIC" },
+  { id: "AC", name: "AC Service & Repair", te: "AC సర్వీస్ & రిపేర్", hi: "AC सर्विस और रिपेयर", skill: "SKILLED" },
   { id: "ELECTRICIAN", name: "Electrician", te: "ఎలక్ట్రీషియన్", hi: "इलेक्ट्रीशियन", skill: "SKILLED" },
   { id: "PLUMBER", name: "Plumber", te: "ప్లంబర్", hi: "प्लम्बर", skill: "SKILLED" },
+  { id: "PACKERS_MOVERS", name: "Packers & Movers", te: "ప్యాకర్స్ & మూవర్స్", hi: "पैकर्स और मूवर्स", skill: "BASIC" },
   { id: "CARPENTER", name: "Carpenter", te: "కార్పెంటర్", hi: "बढ़ई", skill: "SKILLED" },
   { id: "PAINTER", name: "Painting", te: "పెయింటింగ్", hi: "पेंटिंग", skill: "SKILLED" },
   { id: "HOME_HELP", name: "Home Help & Shifting", te: "హెల్పర్స్ & షిఫ్టింగ్", hi: "हेल्पर्स और शिफ्टिंग", skill: "BASIC" },
@@ -78,6 +82,13 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "clean_windows", category: "CLEANING", name: "Window & mesh cleaning (up to 4 windows)", te: "కిటికీలు & మెష్ క్లీనింగ్", hi: "खिड़कियाँ और जाली सफ़ाई", price: 299, durationMin: 60, includes: "Mesh dusting, grill washing and glass wipe for up to 4 windows.", active: true },
   { id: "clean_kitchen_prep", category: "CLEANING", name: "Kitchen prep & chopping (1 hr)", te: "కిచెన్ ప్రిపరేషన్ & కూరగాయలు తరగడం (1 గంట)", hi: "किचन प्रेप और सब्ज़ी कटिंग (1 घंटा)", price: 149, durationMin: 60, includes: "Vegetable washing, chopping, kneading and kitchen counter organizing.", active: true },
   { id: "clean_wardrobe", category: "CLEANING", name: "Complete wardrobe organization (2 hrs)", te: "వార్డ్‌రోబ్ ఆర్గనైజేషన్ (2 గంటలు)", hi: "वार्डरोब संगठन (2 घंटे)", price: 349, durationMin: 120, includes: "Folding, categorizing and neat organizing of one master wardrobe.", active: true },
+
+  // AC Service & Repair
+  { id: "ac_jet_service", category: "AC", name: "Split AC Deep Jet Foam Service", te: "స్ప్లిట్ AC డీప్ జెట్ ఫోమ్ సర్వీస్", hi: "स्प्लिट AC डीप जेट फोम सर्विस", price: 399, originalPrice: 599, durationMin: 45, includes: "High-pressure jet wash of cooling coils, filter cleaning, blower scrub, tray flush and cooling check.", active: true },
+  { id: "ac_repair_visit", category: "AC", name: "AC Repair & Diagnosis Visit", te: "AC రిపేర్ & సమస్య పరిశీలన", hi: "AC रिपेयर और जांच विज़िट", price: 149, originalPrice: 199, durationMin: 30, includes: "Certified technician visit, root cause diagnosis of cooling/noise/leakage, and upfront fixed quote.", inspection: true, active: true },
+  { id: "ac_gas_refill", category: "AC", name: "AC Gas Refill & Leak Fix", te: "AC గ్యాస్ రీఫిల్ & లీకేజ్ ఫిక్స్", hi: "AC गैस रिफिल और लीकेज ठीक करना", price: 1999, originalPrice: 2500, durationMin: 90, includes: "Complete leak detection, brazing seal, vacuum pump moisture removal and genuine R32/R410/R22 gas charging.", active: true },
+  { id: "ac_install", category: "AC", name: "Split AC Installation", te: "స్ప్లిట్ AC ఇన్‌స్టాలేషన్ (ఫిట్టింగ్)", hi: "स्प्लिट AC इंस्टॉलेशन", price: 1099, originalPrice: 1499, durationMin: 120, includes: "Indoor unit wall plate mounting, core wall hole, outdoor unit bracket placement, copper pipe flaring and vacuum test.", active: true },
+  { id: "ac_uninstall", category: "AC", name: "Split AC Uninstallation", te: "స్ప్లిట్ AC అన్‌ఇన్‌స్టాలేషన్ (తీసివేయడం)", hi: "स्प्लिट AC अनइंस्टॉलेशन", price: 499, originalPrice: 699, durationMin: 45, includes: "Safe gas pump-down into compressor, dismounting indoor & outdoor units and coiling pipes safely.", active: true },
 
   // Electrician
   { id: "elec_fan", category: "ELECTRICIAN", name: "Fan installation / repair", te: "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", hi: "पंखा फिटिंग / रिपेयर", price: 129, originalPrice: 199, durationMin: 30, includes: "One ceiling or wall fan. Parts extra.", active: true },
@@ -116,6 +127,13 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "help_garden", category: "HOME_HELP", name: "Garden / plants cleaning (2 hrs)", te: "గార్డెన్ / మొక్కల క్లీనింగ్ (2 గంటలు)", hi: "बगीचा / पौधों की सफ़ाई (2 घंटे)", price: 349, durationMin: 120, includes: "Weeding, trimming and clearing leaves.", active: true },
   { id: "help_hourly_1hr", category: "HOME_HELP", name: "Hourly home helper (1 hr)", te: "గంటల ప్రాతిపదికన ఇంటి సహాయం (1 గంట)", hi: "प्रति घंटा घरेलू मदद (1 घंटा)", price: 149, durationMin: 60, includes: "One helper for general house work.", active: true },
   { id: "help_hourly_2hr", category: "HOME_HELP", name: "Hourly home helper (2 hrs)", te: "గంటల ప్రాతిపదికన ఇంటి సహాయం (2 గంటలు)", hi: "प्रति घंटा घरेलू मदद (2 घंटे)", price: 249, durationMin: 120, includes: "One helper for up to 2 hours.", active: true },
+
+  // Packers & Movers
+  { id: "pm_1bhk", category: "PACKERS_MOVERS", name: "1 BHK Local House Shifting", te: "1 BHK లోకల్ హౌస్ షిఫ్టింగ్", hi: "1 BHK लोकल घर शिफ़्टिंग", price: 1999, originalPrice: 2799, durationMin: 180, includes: "Complete household packing, careful loading, transport assistance and doorstep unloading by 2 trained helpers.", active: true },
+  { id: "pm_2bhk", category: "PACKERS_MOVERS", name: "2 BHK / 3 BHK Local House Shifting", te: "2 BHK / 3 BHK లోకల్ హౌస్ షిఫ్టింగ్", hi: "2 BHK / 3 BHK लोकल घर शिफ़्टिंग", price: 3499, originalPrice: 4599, durationMin: 300, includes: "Full house shifting with 3 to 4 strong helpers: fragile packing, furniture dismantle, heavy lifting, loading and unloading.", active: true },
+  { id: "pm_furniture", category: "PACKERS_MOVERS", name: "Single Heavy Item / Appliance Shifting", te: "ఒకే ఒక్క భారీ వస్తువు / ఫర్నిచర్ షిఫ్టింగ్", hi: "एक भारी सामान / फ़र्नीचर शिफ़्टिंग", price: 699, originalPrice: 999, durationMin: 60, includes: "2 strong helpers to securely wrap, lift, carry, load and place any single heavy appliance or furniture item.", active: true },
+  { id: "pm_helpers", category: "PACKERS_MOVERS", name: "Shifting Helpers (2 Helpers for 2 Hours)", te: "షిఫ్టింగ్ హెల్పర్స్ (2 గంటలకు ఇద్దరు)", hi: "शिफ़्टिंग हेल्पर्स (2 घंटे के लिए 2 हेल्पर्स)", price: 599, originalPrice: 799, durationMin: 120, includes: "Two strong, verified laborers to assist you in loading, unloading, carrying boxes or rearranging house furniture.", active: true },
+  { id: "pm_quote_visit", category: "PACKERS_MOVERS", name: "Shifting Inspection & Moving Quotation Visit", te: "షిఫ్టింగ్ కొటేషన్ & వస్తువుల పరిశీలన విజిట్", hi: "शिफ़्टिंग जांच और कोटेशन विज़िट", price: 99, originalPrice: 149, durationMin: 30, includes: "On-site moving expert visit to assess luggage volume, vehicle size needed and provide an upfront fixed quote.", inspection: true, active: true },
 
   // Cook & Maid
   { id: "cook_meal", category: "COOK_MAID", name: "Cook for one meal (up to 6 people)", te: "ఒక పూట వంట (6 మంది వరకు)", hi: "एक समय का खाना (6 लोगों तक)", price: 299, originalPrice: 399, durationMin: 120, includes: "Home-style fresh cooking in your kitchen. Vegetables prepped, dishes made, kitchen tidied.", active: true },

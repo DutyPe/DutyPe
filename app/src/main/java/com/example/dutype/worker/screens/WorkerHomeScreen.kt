@@ -1408,14 +1408,14 @@ fun WorkerHomeScreen(
                    ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 88.dp)
+                .padding(bottom = 104.dp)
                 .zIndex(99f)
         ) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(50),
                 color = Color.White,
-                shadowElevation = 1.dp,
-                border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f))
+                shadowElevation = 3.dp,
+                border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.9f))
             ) {
                 Row(
                     modifier = Modifier
@@ -1426,22 +1426,37 @@ fun WorkerHomeScreen(
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
-                        .padding(horizontal = 22.dp, vertical = 14.dp),
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocalOffer,
                         contentDescription = null,
                         tint = Color(0xFFFF385C),
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "Apply free · 0 fee",
+                        text = "Apply jobs for free",
                         color = Color(0xFF222222),
                         fontSize = 14.5.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.2.sp
                     )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFFFFF1F2))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "₹0",
+                            color = Color(0xFFFF385C),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.3.sp
+                        )
+                    }
                 }
             }
         }
