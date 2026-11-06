@@ -654,6 +654,14 @@ fun HomeSectionsContent(
                 }
             }
 
+            // User requirement: Until jobs or empty job state loads, do not show announcements or any feed content.
+            val isContentReady = !isLoadingJobs || jobListings.isNotEmpty() || showEmptyJobsState || jobsFailed
+
+            if (!isContentReady) {
+                item(key = "worker_home_jobs_skeleton_initial") {
+                    HomeJobsSkeleton()
+                }
+            } else {
             // Promotional / announcement carousel: rendered at top of feed matching Employer Home
             item(key = "worker_home_promo_carousel") {
                 Box(modifier = Modifier.cascadeEnter(0)) {
@@ -962,6 +970,7 @@ fun HomeSectionsContent(
             com.example.dutype.components.MadeWithLoveFooter(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)
             )
+        }
         }
 
         item(key = "worker_home_bottom_spacer") {

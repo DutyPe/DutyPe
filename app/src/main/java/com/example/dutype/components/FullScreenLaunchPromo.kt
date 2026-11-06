@@ -12,9 +12,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +56,9 @@ object FullScreenLaunchPromoTracker {
 /**
  * Blinkit/BigBasket/Zepto-style full-screen launch event/deal promo on app open.
  * Takes over the screen immediately when `launchPromoEnabled` is true in dynamic configuration.
+ *
+ * Supports configurable skip duration (3 to 10 seconds), optional floating CTA button,
+ * and exact edge-to-edge full screen display.
  */
 @Composable
 fun FullScreenLaunchPromo(
@@ -59,7 +67,8 @@ fun FullScreenLaunchPromo(
 ) {
     val context = LocalContext.current
     var isVisible by remember { mutableStateOf(false) }
-    var countdown by remember { mutableIntStateOf(3) }
+    val initialDuration = dynamicConfig.launchPromoDurationSec.coerceIn(3, 10)
+    var countdown by remember { mutableIntStateOf(initialDuration) }
 
     val hasMedia = dynamicConfig.launchPromoBannerUrl.isNotBlank() || dynamicConfig.launchPromoAnimationUrl.isNotBlank()
     val isAnimation = dynamicConfig.launchPromoMediaType.equals("ANIMATION", ignoreCase = true) &&
@@ -68,14 +77,15 @@ fun FullScreenLaunchPromo(
     LaunchedEffect(dynamicConfig.launchPromoEnabled, hasMedia) {
         if (dynamicConfig.launchPromoEnabled && hasMedia && !FullScreenLaunchPromoTracker.hasShownThisSession) {
             FullScreenLaunchPromoTracker.hasShownThisSession = true
+            countdown = dynamicConfig.launchPromoDurationSec.coerceIn(3, 10)
             isVisible = true
 
-            // Countdown timer: 3, 2, 1 -> dismiss
+            // Countdown timer: 5s, 4s, 3s, 2s, 1s -> auto dismiss
             while (countdown > 0) {
                 delay(1000L)
                 countdown -= 1
             }
-            delay(300L)
+            delay(250L)
             isVisible = false
         }
     }
@@ -96,8 +106,8 @@ fun FullScreenLaunchPromo(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn(animationSpec = tween(200)),
-        exit = fadeOut(animationSpec = tween(250))
+        enter = fadeIn(animationSpec = tween(180)),
+        exit = fadeOut(animationSpec = tween(220))
     ) {
         Box(
             modifier = Modifier
@@ -109,7 +119,7 @@ fun FullScreenLaunchPromo(
                     onClick = onPromoTap
                 )
         ) {
-            // Full Screen Image / Animation
+            // Full Screen Image / Animation (Edge-to-edge exact screen fill)
             if (isAnimation) {
                 val composition by rememberLottieComposition(
                     LottieCompositionSpec.Url(dynamicConfig.launchPromoAnimationUrl.trim())
@@ -129,13 +139,43 @@ fun FullScreenLaunchPromo(
                         .data(dynamicConfig.launchPromoBannerUrl.ifBlank { dynamicConfig.launchPromoAnimationUrl })
                         .crossfade(true)
                         .build(),
-                    contentDescription = dynamicConfig.launchPromoTitle.ifBlank { "Special Launch Event" },
-                    contentScale = ContentScale.Fit,
+                    contentDescription = "Launch Promo Banner",
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             }
 
-            // Top-right floating "Skip in 3s" pill button (Zepto/Blinkit style)
+            // Optional Floating CTA Button at bottom (only shown if configured)
+            if (dynamicConfig.launchPromoButtonText.isNotBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .navigationBarsPadding()
+                        .padding(bottom = 36.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Button(
+                        onClick = onPromoTap,
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF6B00),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth(0.84f)
+                            .height(52.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    ) {
+                        Text(
+                            text = dynamicConfig.launchPromoButtonText,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Top-right floating "Skip in Xs" pill button (Zepto/Blinkit style)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -175,6 +215,7 @@ private fun handlePromoNavigation(context: Context, navController: NavHostContro
                 "earnings", "wallet" -> Routes.WORKER_EARNINGS
                 "jobs", "browse_jobs" -> Routes.WORKER_ALL_JOBS
                 "post_job", "post-job" -> Routes.EMPLOYER_POST_JOB
+                "partner", "partner-apply" -> Routes.PARTNER
                 "hungr", "hungr-survey" -> {
                     com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
                     return

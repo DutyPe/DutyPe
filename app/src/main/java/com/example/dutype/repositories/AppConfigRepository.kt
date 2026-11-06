@@ -97,6 +97,8 @@ data class DynamicFeaturesConfig(
     val launchPromoAnimationUrl: String = "",
     val launchPromoTitle: String = "",
     val launchPromoActionRoute: String = "",
+    val launchPromoDurationSec: Int = 5,
+    val launchPromoButtonText: String = "",
     val inAppDialogEnabled: Boolean = false,
     val inAppDialogImageUrl: String = "",
     val inAppDialogTitle: String = "",
@@ -226,6 +228,8 @@ class AppConfigRepository @Inject constructor(
                 launchPromoAnimationUrl = (data["launchPromoAnimationUrl"] as? String) ?: "",
                 launchPromoTitle = (data["launchPromoTitle"] as? String) ?: "",
                 launchPromoActionRoute = (data["launchPromoActionRoute"] as? String) ?: "",
+                launchPromoDurationSec = ((data["launchPromoDurationSec"] as? Number)?.toInt() ?: 5).coerceIn(3, 10),
+                launchPromoButtonText = (data["launchPromoButtonText"] as? String) ?: "",
                 inAppDialogEnabled = (data["inAppDialogEnabled"] as? Boolean) ?: false,
                 inAppDialogImageUrl = (data["inAppDialogImageUrl"] as? String) ?: "",
                 inAppDialogTitle = (data["inAppDialogTitle"] as? String) ?: "",
@@ -264,6 +268,8 @@ class AppConfigRepository @Inject constructor(
                 launchPromoAnimationUrl = json.optString("launchPromoAnimationUrl", ""),
                 launchPromoTitle = json.optString("launchPromoTitle", ""),
                 launchPromoActionRoute = json.optString("launchPromoActionRoute", ""),
+                launchPromoDurationSec = json.optInt("launchPromoDurationSec", 5).coerceIn(3, 10),
+                launchPromoButtonText = json.optString("launchPromoButtonText", ""),
                 inAppDialogEnabled = json.optBoolean("inAppDialogEnabled", false),
                 inAppDialogImageUrl = json.optString("inAppDialogImageUrl", ""),
                 inAppDialogTitle = json.optString("inAppDialogTitle", ""),
@@ -298,6 +304,8 @@ class AppConfigRepository @Inject constructor(
         put("launchPromoAnimationUrl", launchPromoAnimationUrl)
         put("launchPromoTitle", launchPromoTitle)
         put("launchPromoActionRoute", launchPromoActionRoute)
+        put("launchPromoDurationSec", launchPromoDurationSec)
+        put("launchPromoButtonText", launchPromoButtonText)
         put("inAppDialogEnabled", inAppDialogEnabled)
         put("inAppDialogImageUrl", inAppDialogImageUrl)
         put("inAppDialogTitle", inAppDialogTitle)

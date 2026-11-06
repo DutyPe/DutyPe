@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens
 
+import androidx.compose.animation.core.animateFloat
+
 import com.example.dutype.ui.theme.fg
 import com.example.dutype.ui.theme.bg
 import com.dutype.app.R
@@ -1385,36 +1387,63 @@ fun WorkerHomeScreen(
             }
         }
 
-        // Floating Bottom Pill: "Apply free · 0 fee" with Slow Fade On
+        // Floating Bottom Pill: "Apply jobs for free · ₹0" with 3D Z-Cascade & Tag Shake Wobble
         var showApplyFreeChip by remember { mutableStateOf(false) }
+        var triggerTextCascade by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
             delay(400L)
             showApplyFreeChip = true
-            delay(6000L)
+            delay(280L)
+            triggerTextCascade = true
+            delay(9000L)
             showApplyFreeChip = false
+            triggerTextCascade = false
         }
+
+        // Left-side Tag Shake / Playful Wobble Animation (runs periodically every ~2.6 seconds)
+        val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "tagShakeTransition")
+        val tagRotation by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 0f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                animation = androidx.compose.animation.core.keyframes {
+                    durationMillis = 2600
+                    0f at 0
+                    0f at 1600
+                    -16f at 1720 with androidx.compose.animation.core.FastOutSlowInEasing
+                    16f at 1840 with androidx.compose.animation.core.FastOutSlowInEasing
+                    -12f at 1960 with androidx.compose.animation.core.FastOutSlowInEasing
+                    10f at 2080 with androidx.compose.animation.core.FastOutSlowInEasing
+                    -5f at 2200 with androidx.compose.animation.core.FastOutSlowInEasing
+                    0f at 2300 with androidx.compose.animation.core.FastOutSlowInEasing
+                    0f at 2800
+                },
+                repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+            ),
+            label = "tagShakeRotation"
+        )
 
         androidx.compose.animation.AnimatedVisibility(
             visible = showApplyFreeChip,
-            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
                     androidx.compose.animation.slideInVertically(
                         initialOffsetY = { fullHeight -> fullHeight },
-                        animationSpec = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                        animationSpec = androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing)
                     ),
-            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutLinearInEasing)) +
+            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutLinearInEasing)) +
                    androidx.compose.animation.slideOutVertically(
                        targetOffsetY = { fullHeight -> fullHeight },
-                       animationSpec = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutLinearInEasing)
+                       animationSpec = androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutLinearInEasing)
                    ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 104.dp)
+                .padding(bottom = 112.dp)
                 .zIndex(99f)
         ) {
             Surface(
                 shape = RoundedCornerShape(50),
                 color = Color.White,
-                shadowElevation = 3.dp,
+                shadowElevation = 4.dp,
                 border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.9f))
             ) {
                 Row(
@@ -1426,7 +1455,7 @@ fun WorkerHomeScreen(
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                        .padding(horizontal = 20.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -1434,25 +1463,29 @@ fun WorkerHomeScreen(
                         imageVector = Icons.Default.LocalOffer,
                         contentDescription = null,
                         tint = Color(0xFFFF385C),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier
+                            .size(19.dp)
+                            .graphicsLayer {
+                                rotationZ = tagRotation
+                            }
                     )
-                    Text(
+                    Cascade3DPositionZText(
                         text = "Apply jobs for free",
+                        isTriggered = triggerTextCascade,
                         color = Color(0xFF222222),
                         fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.2.sp
+                        fontWeight = FontWeight.Bold
                     )
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(Color(0xFFFFF1F2))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 7.dp, vertical = 2.5.dp)
                     ) {
                         Text(
                             text = "₹0",
                             color = Color(0xFFFF385C),
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.3.sp
                         )
@@ -1814,6 +1847,63 @@ internal fun WorkerOutOfAreaBottomSheet(
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+
+@Composable
+fun Cascade3DPositionZText(
+    text: String,
+    isTriggered: Boolean,
+    modifier: Modifier = Modifier,
+    color: Color = Color(0xFF222222),
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.5.sp,
+    fontWeight: FontWeight = FontWeight.Bold
+) {
+    val words = remember(text) { text.split(" ") }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        words.forEachIndexed { index, word ->
+            var startAnimate by remember { mutableStateOf(false) }
+            LaunchedEffect(isTriggered) {
+                if (isTriggered) {
+                    kotlinx.coroutines.delay(120L + (index * 110L))
+                    startAnimate = true
+                } else {
+                    startAnimate = false
+                }
+            }
+
+            val animProgress by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (startAnimate) 1f else 0f,
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.65f,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                ),
+                label = "cascadeZ_$index"
+            )
+
+            Text(
+                text = word,
+                color = color,
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                letterSpacing = 0.2.sp,
+                modifier = Modifier.graphicsLayer {
+                    this.cameraDistance = 16f * density
+                    this.rotationX = (1f - animProgress) * 55f
+                    this.scaleX = 0.6f + (0.4f * animProgress)
+                    this.scaleY = 0.6f + (0.4f * animProgress)
+                    this.translationY = (1f - animProgress) * 20f
+                    this.alpha = animProgress.coerceIn(0f, 1f)
+                }
+            )
         }
     }
 }

@@ -428,6 +428,25 @@ class MainActivity : ComponentActivity() {
                             currentRoute = currentRouteForBars
                         )
 
+                        // Auto-trigger Hungr survey on Home screens after 2.2s delay if not submitted & not dismissed this session
+                        val mainContext = androidx.compose.ui.platform.LocalContext.current
+                        LaunchedEffect(currentRouteForBars, mainNavReady) {
+                            if (mainNavReady && (
+                                    currentRouteForBars == com.example.dutype.navigation.Routes.WORKER_HOME ||
+                                    currentRouteForBars == com.example.dutype.navigation.Routes.EMPLOYER_HOME ||
+                                    currentRouteForBars == com.example.dutype.navigation.Routes.SERVICES
+                                )) {
+                                if (!com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
+                                    !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession) {
+                                    kotlinx.coroutines.delay(2200L)
+                                    if (!com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
+                                        !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession) {
+                                        com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
+                                    }
+                                }
+                            }
+                        }
+
                         // Hungr Pre-Order Survey Bottom Sheet
                         val showHungrSurvey by com.example.dutype.announcements.AnnouncementManager.showHungrBottomSheet.collectAsStateWithLifecycle()
                         if (showHungrSurvey) {

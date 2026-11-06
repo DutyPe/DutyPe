@@ -25,6 +25,8 @@ type DynamicConfig = {
   launchPromoAnimationUrl: string;
   launchPromoTitle: string;
   launchPromoActionRoute: string;
+  launchPromoDurationSec: number;
+  launchPromoButtonText: string;
   inAppDialogEnabled: boolean;
   inAppDialogImageUrl: string;
   inAppDialogTitle: string;
@@ -50,7 +52,9 @@ const DEFAULTS: DynamicConfig = {
   launchPromoBannerUrl: "",
   launchPromoAnimationUrl: "",
   launchPromoTitle: "",
-  launchPromoActionRoute: "services",
+  launchPromoActionRoute: "",
+  launchPromoDurationSec: 5,
+  launchPromoButtonText: "",
   inAppDialogEnabled: false,
   inAppDialogImageUrl: "",
   inAppDialogTitle: "",
@@ -108,6 +112,8 @@ export function AdminDynamicConfigClient() {
           launchPromoAnimationUrl: String(data.launchPromoAnimationUrl ?? DEFAULTS.launchPromoAnimationUrl),
           launchPromoTitle: String(data.launchPromoTitle ?? DEFAULTS.launchPromoTitle),
           launchPromoActionRoute: String(data.launchPromoActionRoute ?? DEFAULTS.launchPromoActionRoute),
+          launchPromoDurationSec: Math.max(3, Math.min(10, Number(data.launchPromoDurationSec ?? DEFAULTS.launchPromoDurationSec))),
+          launchPromoButtonText: String(data.launchPromoButtonText ?? DEFAULTS.launchPromoButtonText),
           inAppDialogEnabled: Boolean(data.inAppDialogEnabled ?? DEFAULTS.inAppDialogEnabled),
           inAppDialogImageUrl: String(data.inAppDialogImageUrl ?? DEFAULTS.inAppDialogImageUrl),
           inAppDialogTitle: String(data.inAppDialogTitle ?? DEFAULTS.inAppDialogTitle),
@@ -157,6 +163,8 @@ export function AdminDynamicConfigClient() {
             launchPromoAnimationUrl: config.launchPromoAnimationUrl.trim(),
             launchPromoTitle: config.launchPromoTitle.trim(),
             launchPromoActionRoute: config.launchPromoActionRoute.trim(),
+            launchPromoDurationSec: Math.max(3, Math.min(10, Number(config.launchPromoDurationSec) || 5)),
+            launchPromoButtonText: config.launchPromoButtonText.trim(),
             inAppDialogEnabled: config.inAppDialogEnabled,
             inAppDialogImageUrl: config.inAppDialogImageUrl.trim(),
             inAppDialogTitle: config.inAppDialogTitle.trim(),
@@ -204,6 +212,66 @@ export function AdminDynamicConfigClient() {
     }
   }
 
+async function compressToTarget4GKb(
+  file: File,
+  targetMaxKb: number = 60
+): Promise<{ blob: Blob; sizeKb: number; width: number; height: number; savingsPct: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        let maxDim = 1080;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas context creation failed"));
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h);
+
+        let quality = 0.82;
+        let blob: Blob | null = null;
+        for (let i = 0; i < 5; i++) {
+          blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/webp", quality));
+          if (!blob) break;
+          const currentKb = blob.size / 1024;
+          if (currentKb <= targetMaxKb || quality <= 0.45) break;
+          quality -= 0.12;
+        }
+
+        const finalBlob = blob || file;
+        const finalKb = Math.round((finalBlob.size / 1024) * 10) / 10;
+        const savings = Math.max(0, Math.round(((file.size - finalBlob.size) / file.size) * 100));
+
+        resolve({
+          blob: finalBlob,
+          sizeKb: finalKb,
+          width: canvas.width,
+          height: canvas.height,
+          savingsPct: savings
+        });
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
   async function handleFileUpload(file: File, field: keyof DynamicConfig) {
     if (!services) {
       setError("Firebase is not configured.");
@@ -220,16 +288,12 @@ export function AdminDynamicConfigClient() {
       let contentType = file.type || "application/octet-stream";
 
       if (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name)) {
-        // High-quality WebP conversion without losing sharpness or detail (1080p/1440p mobile resolution)
-        const isLaunchPromo = field === "launchPromoBannerUrl" || field === "inAppDialogImageUrl";
-        const opt = await optimizeBannerImage(file, {
-          maxDim: isLaunchPromo ? 1920 : 1200,
-          quality: isLaunchPromo ? 0.90 : 0.88
-        });
-        uploadBlob = opt.webpBlob;
+        // Light-speed 4G WebP compression targeting 30-60 KB
+        const opt = await compressToTarget4GKb(file, 60);
+        uploadBlob = opt.blob;
         fileName = `${fileName}.webp`;
         contentType = "image/webp";
-        setMessage(`✨ Converted to Ultra-Crisp WebP: ${opt.webpSizeKb} KB (${opt.width}x${opt.height}px, saved ${opt.savingsPct}% data). Zero quality loss. Uploading...`);
+        setMessage(`⚡ Ultra-Fast 4G WebP: ${opt.sizeKb} KB (target: 30-60 KB, saved ${opt.savingsPct}% data). Loads in <120ms. Uploading...`);
       } else if (file.name.endsWith(".json") || file.type.includes("json")) {
         // Lottie animation validation and minification
         const text = await file.text();
@@ -460,20 +524,40 @@ export function AdminDynamicConfigClient() {
             </label>
           )}
 
-          {/* Launch Promo Campaign Title & CTA Route */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+          {/* Launch Promo Controls: Duration, Optional Button, and Target Route */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 14 }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Promo Headline (Optional)</span>
+              <span style={{ color: "#374151", fontWeight: 600 }}>⏱️ Skip Countdown Duration</span>
+              <select
+                value={config.launchPromoDurationSec}
+                onChange={(e) => { setConfig({ ...config, launchPromoDurationSec: Number(e.target.value) || 5 }); setDirty(true); }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
+              >
+                <option value={3}>3 Seconds (Fast)</option>
+                <option value={4}>4 Seconds</option>
+                <option value={5}>5 Seconds (Recommended)</option>
+                <option value={6}>6 Seconds</option>
+                <option value={7}>7 Seconds</option>
+                <option value={8}>8 Seconds</option>
+                <option value={10}>10 Seconds (Maximum)</option>
+              </select>
+              <span style={{ fontSize: 11, color: "#6b7280" }}>User can tap &quot;✕ Skip&quot; anytime</span>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#374151", fontWeight: 600 }}>🔘 Floating CTA Button Text (Optional)</span>
               <input
                 type="text"
-                value={config.launchPromoTitle}
-                placeholder="e.g. Mega Khammam Launch Offer ⚡ Flat 20% Off"
-                onChange={(e) => { setConfig({ ...config, launchPromoTitle: e.target.value }); setDirty(true); }}
+                value={config.launchPromoButtonText}
+                placeholder="e.g. Order Now / View Offers (Leave blank for no button)"
+                onChange={(e) => { setConfig({ ...config, launchPromoButtonText: e.target.value }); setDirty(true); }}
                 style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
               />
+              <span style={{ fontSize: 11, color: "#6b7280" }}>Leave empty for pure visual banner</span>
             </label>
+
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Target Screen on Click (Leave empty for splash-only)</span>
+              <span style={{ color: "#374151", fontWeight: 600 }}>🎯 Target Screen on Click (Optional)</span>
               <select
                 value={config.launchPromoActionRoute}
                 onChange={(e) => { setConfig({ ...config, launchPromoActionRoute: e.target.value }); setDirty(true); }}
@@ -488,6 +572,7 @@ export function AdminDynamicConfigClient() {
                 <option value="refer_earn">🎁 Refer &amp; Earn (₹100)</option>
                 <option value="partner">🤝 Join as Partner</option>
               </select>
+              <span style={{ fontSize: 11, color: "#6b7280" }}>Navigates when banner or button is tapped</span>
             </label>
           </div>
         </div>

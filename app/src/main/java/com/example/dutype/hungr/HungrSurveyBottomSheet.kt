@@ -77,12 +77,15 @@ private const val PREFS_HUNGR = "dutype_hungr_survey_prefs"
 private const val KEY_HUNGR_SUBMITTED = "hungr_survey_submitted"
 
 object HungrSurveyTracker {
+    var hasDismissedThisSession: Boolean = false
+
     fun hasSubmitted(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_HUNGR, Context.MODE_PRIVATE)
         return prefs.getBoolean(KEY_HUNGR_SUBMITTED, false)
     }
 
     fun markSubmitted(context: Context) {
+        hasDismissedThisSession = true
         val prefs = context.getSharedPreferences(PREFS_HUNGR, Context.MODE_PRIVATE)
         prefs.edit().putBoolean(KEY_HUNGR_SUBMITTED, true).apply()
     }
@@ -152,6 +155,7 @@ fun HungrSurveyBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = {
+            HungrSurveyTracker.hasDismissedThisSession = true
             onDismissRequest()
             AnnouncementManager.closeHungrSurvey()
         },
@@ -210,6 +214,7 @@ fun HungrSurveyBottomSheet(
 
                 IconButton(
                     onClick = {
+                        HungrSurveyTracker.hasDismissedThisSession = true
                         scope.launch { sheetState.hide() }.invokeOnCompletion {
                             onDismissRequest()
                             AnnouncementManager.closeHungrSurvey()
