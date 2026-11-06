@@ -97,6 +97,11 @@ data class DynamicFeaturesConfig(
     val launchPromoAnimationUrl: String = "",
     val launchPromoTitle: String = "",
     val launchPromoActionRoute: String = "",
+    val inAppDialogEnabled: Boolean = false,
+    val inAppDialogImageUrl: String = "",
+    val inAppDialogTitle: String = "",
+    val inAppDialogActionRoute: String = "",
+    val inAppDialogTargetAudience: String = "ALL",
     val supportEmail: String = "support@dutype.in",
     val headerTextColor: String = "#FFFFFF",
     val isRemoteLoaded: Boolean = false
@@ -221,6 +226,11 @@ class AppConfigRepository @Inject constructor(
                 launchPromoAnimationUrl = (data["launchPromoAnimationUrl"] as? String) ?: "",
                 launchPromoTitle = (data["launchPromoTitle"] as? String) ?: "",
                 launchPromoActionRoute = (data["launchPromoActionRoute"] as? String) ?: "",
+                inAppDialogEnabled = (data["inAppDialogEnabled"] as? Boolean) ?: false,
+                inAppDialogImageUrl = (data["inAppDialogImageUrl"] as? String) ?: "",
+                inAppDialogTitle = (data["inAppDialogTitle"] as? String) ?: "",
+                inAppDialogActionRoute = (data["inAppDialogActionRoute"] as? String) ?: "",
+                inAppDialogTargetAudience = (data["inAppDialogTargetAudience"] as? String) ?: "ALL",
                 supportEmail = (data["supportEmail"] as? String) ?: "support@dutype.in",
                 headerTextColor = (data["headerTextColor"] as? String) ?: "#FFFFFF",
                 isRemoteLoaded = true
@@ -254,6 +264,11 @@ class AppConfigRepository @Inject constructor(
                 launchPromoAnimationUrl = json.optString("launchPromoAnimationUrl", ""),
                 launchPromoTitle = json.optString("launchPromoTitle", ""),
                 launchPromoActionRoute = json.optString("launchPromoActionRoute", ""),
+                inAppDialogEnabled = json.optBoolean("inAppDialogEnabled", false),
+                inAppDialogImageUrl = json.optString("inAppDialogImageUrl", ""),
+                inAppDialogTitle = json.optString("inAppDialogTitle", ""),
+                inAppDialogActionRoute = json.optString("inAppDialogActionRoute", ""),
+                inAppDialogTargetAudience = json.optString("inAppDialogTargetAudience", "ALL"),
                 supportEmail = json.optString("supportEmail", "support@dutype.in"),
                 headerTextColor = json.optString("headerTextColor", "#FFFFFF"),
                 isRemoteLoaded = json.optBoolean("isRemoteLoaded", true)
@@ -283,6 +298,11 @@ class AppConfigRepository @Inject constructor(
         put("launchPromoAnimationUrl", launchPromoAnimationUrl)
         put("launchPromoTitle", launchPromoTitle)
         put("launchPromoActionRoute", launchPromoActionRoute)
+        put("inAppDialogEnabled", inAppDialogEnabled)
+        put("inAppDialogImageUrl", inAppDialogImageUrl)
+        put("inAppDialogTitle", inAppDialogTitle)
+        put("inAppDialogActionRoute", inAppDialogActionRoute)
+        put("inAppDialogTargetAudience", inAppDialogTargetAudience)
         put("supportEmail", supportEmail)
         put("headerTextColor", headerTextColor)
         put("isRemoteLoaded", isRemoteLoaded)

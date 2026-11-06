@@ -343,6 +343,7 @@ class MainActivity : ComponentActivity() {
                         if (mainNavReady) {
                             startupOverlayCommitted = true
                             keepSplashOnScreen = false
+                            com.example.dutype.announcements.AnnouncementManager.refreshAnnouncements(this@MainActivity)
                         }
                     }
 
@@ -414,12 +415,28 @@ class MainActivity : ComponentActivity() {
                         // home screen is visible, never during onboarding/login/setup.
                         com.example.dutype.promo.PromoOverlayHost(navController = navController)
 
-                        // Blinkit/Swiggy style Vertical Launch Promo (Admin dynamic config)
+                        // Full-Screen App Launch Takeover Promo (Blinkit/BigBasket/Zepto style on App Open)
+                        com.example.dutype.components.FullScreenLaunchPromo(
+                            dynamicConfig = dynamicFeatures,
+                            navController = navController
+                        )
+
+                        // In-App Targeted Dialog Banner (Emergency alerts, promotions, ads & role redirection)
                         com.example.dutype.components.DynamicLaunchPromoDialog(
                             dynamicConfig = dynamicFeatures,
                             navController = navController,
                             currentRoute = currentRouteForBars
                         )
+
+                        // Hungr Pre-Order Survey Bottom Sheet
+                        val showHungrSurvey by com.example.dutype.announcements.AnnouncementManager.showHungrBottomSheet.collectAsStateWithLifecycle()
+                        if (showHungrSurvey) {
+                            com.example.dutype.hungr.HungrSurveyBottomSheet(
+                                onDismissRequest = {
+                                    com.example.dutype.announcements.AnnouncementManager.closeHungrSurvey()
+                                }
+                            )
+                        }
 
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {

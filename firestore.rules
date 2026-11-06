@@ -275,6 +275,12 @@ service cloud.firestore {
       allow get, list: if true;
     }
 
+    // ───────────────────────── Hungr Food Waitlist & Surveys ─────────────────────────
+    match /hungr_surveys/{surveyId} {
+      allow create: if true;
+      allow read, list, delete, update: if isAdmin();
+    }
+
     // ───────────────────────── DutyPe Services (services.ts writes everything) ─────────────────────────
 
     match /service_bookings/{bookingId} {

@@ -57,6 +57,16 @@ const priorityRank: Record<string, number> = {
 
 const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
   {
+    id: "hungr_survey_launch",
+    label: "🥞 Hungr Launch Survey: Morning Tiffins at Shop Prices",
+    title: "🥞 Hungr: Morning Tiffins at Shop Prices",
+    message: "Pre-order hot tiffins & fresh juices at exact offline shop rates (₹30-₹40). Delivered to your gate! Tap to claim ₹50 voucher.",
+    type: "FEATURE",
+    priority: "URGENT",
+    targetRole: "ALL",
+    deepLink: "dutype://hungr-survey"
+  },
+  {
     id: "custom",
     label: "✏️ Custom (Write your own)",
     title: "",
@@ -530,11 +540,41 @@ export function AdminAnnouncementsClient() {
             </div>
 
             <div className="adm-form-group">
-              <label className="adm-form-label">Action Deeplink (Optional)</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <label className="adm-form-label" style={{ margin: 0 }}>Action Screen / Deeplink</label>
+                <span style={{ fontSize: 11, color: "var(--adm-text-muted)" }}>Click a preset or enter custom URL</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {[
+                  { label: "🥞 Hungr Survey", link: "dutype://hungr-survey" },
+                  { label: "🛠️ Services", link: "dutype://services" },
+                  { label: "💼 Jobs", link: "dutype://jobs" },
+                  { label: "📝 Post Job", link: "dutype://post-job" },
+                  { label: "🎁 Refer", link: "dutype://refer" },
+                  { label: "🤝 Partner", link: "dutype://partner-apply" }
+                ].map((preset) => (
+                  <button
+                    key={preset.link}
+                    type="button"
+                    onClick={() => setForm((cur) => ({ ...cur, deepLink: preset.link }))}
+                    style={{
+                      fontSize: 11,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      border: form.deepLink === preset.link ? "1px solid var(--adm-primary)" : "1px solid var(--adm-border)",
+                      background: form.deepLink === preset.link ? "rgba(37,99,235,0.08)" : "var(--adm-surface)",
+                      color: form.deepLink === preset.link ? "var(--adm-primary)" : "var(--adm-text)",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
               <input
                 type="text"
                 className="adm-input"
-                placeholder="dutype://jobs or dutype://post-job"
+                placeholder="dutype://hungr-survey, dutype://jobs, or https://..."
                 value={form.deepLink}
                 onChange={(e) => setForm((cur) => ({ ...cur, deepLink: e.target.value }))}
               />

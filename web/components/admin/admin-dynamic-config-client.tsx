@@ -25,6 +25,11 @@ type DynamicConfig = {
   launchPromoAnimationUrl: string;
   launchPromoTitle: string;
   launchPromoActionRoute: string;
+  inAppDialogEnabled: boolean;
+  inAppDialogImageUrl: string;
+  inAppDialogTitle: string;
+  inAppDialogActionRoute: string;
+  inAppDialogTargetAudience: "ALL" | "WORKER" | "EMPLOYER" | "SERVICES";
   updatedAt?: Timestamp | null;
   updatedBy?: string | null;
 };
@@ -45,7 +50,12 @@ const DEFAULTS: DynamicConfig = {
   launchPromoBannerUrl: "",
   launchPromoAnimationUrl: "",
   launchPromoTitle: "",
-  launchPromoActionRoute: "services"
+  launchPromoActionRoute: "services",
+  inAppDialogEnabled: false,
+  inAppDialogImageUrl: "",
+  inAppDialogTitle: "",
+  inAppDialogActionRoute: "",
+  inAppDialogTargetAudience: "ALL"
 };
 
 export function AdminDynamicConfigClient() {
@@ -97,7 +107,12 @@ export function AdminDynamicConfigClient() {
           launchPromoBannerUrl: String(data.launchPromoBannerUrl ?? DEFAULTS.launchPromoBannerUrl),
           launchPromoAnimationUrl: String(data.launchPromoAnimationUrl ?? DEFAULTS.launchPromoAnimationUrl),
           launchPromoTitle: String(data.launchPromoTitle ?? DEFAULTS.launchPromoTitle),
-          launchPromoActionRoute: String(data.launchPromoActionRoute ?? DEFAULTS.launchPromoActionRoute)
+          launchPromoActionRoute: String(data.launchPromoActionRoute ?? DEFAULTS.launchPromoActionRoute),
+          inAppDialogEnabled: Boolean(data.inAppDialogEnabled ?? DEFAULTS.inAppDialogEnabled),
+          inAppDialogImageUrl: String(data.inAppDialogImageUrl ?? DEFAULTS.inAppDialogImageUrl),
+          inAppDialogTitle: String(data.inAppDialogTitle ?? DEFAULTS.inAppDialogTitle),
+          inAppDialogActionRoute: String(data.inAppDialogActionRoute ?? DEFAULTS.inAppDialogActionRoute),
+          inAppDialogTargetAudience: ((data.inAppDialogTargetAudience ?? DEFAULTS.inAppDialogTargetAudience) as DynamicConfig["inAppDialogTargetAudience"])
         });
 
         const updatedAt = (data.updatedAt as Timestamp | undefined)?.toDate?.();
@@ -142,6 +157,11 @@ export function AdminDynamicConfigClient() {
             launchPromoAnimationUrl: config.launchPromoAnimationUrl.trim(),
             launchPromoTitle: config.launchPromoTitle.trim(),
             launchPromoActionRoute: config.launchPromoActionRoute.trim(),
+            inAppDialogEnabled: config.inAppDialogEnabled,
+            inAppDialogImageUrl: config.inAppDialogImageUrl.trim(),
+            inAppDialogTitle: config.inAppDialogTitle.trim(),
+            inAppDialogActionRoute: config.inAppDialogActionRoute.trim(),
+            inAppDialogTargetAudience: config.inAppDialogTargetAudience,
             updatedAt: serverTimestamp(),
             updatedBy: services.auth.currentUser?.email ?? services.auth.currentUser?.uid ?? "admin"
           },
@@ -201,7 +221,7 @@ export function AdminDynamicConfigClient() {
 
       if (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name)) {
         // High-quality WebP conversion without losing sharpness or detail (1080p/1440p mobile resolution)
-        const isLaunchPromo = field === "launchPromoBannerUrl";
+        const isLaunchPromo = field === "launchPromoBannerUrl" || field === "inAppDialogImageUrl";
         const opt = await optimizeBannerImage(file, {
           maxDim: isLaunchPromo ? 1920 : 1200,
           quality: isLaunchPromo ? 0.90 : 0.88
@@ -443,7 +463,7 @@ export function AdminDynamicConfigClient() {
           {/* Launch Promo Campaign Title & CTA Route */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Promo Headline / Campaign Name</span>
+              <span style={{ color: "#374151", fontWeight: 500 }}>Promo Headline (Optional)</span>
               <input
                 type="text"
                 value={config.launchPromoTitle}
@@ -453,21 +473,117 @@ export function AdminDynamicConfigClient() {
               />
             </label>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Target Screen on Click (CTA Route)</span>
+              <span style={{ color: "#374151", fontWeight: 500 }}>Target Screen on Click (Leave empty for splash-only)</span>
               <select
                 value={config.launchPromoActionRoute}
                 onChange={(e) => { setConfig({ ...config, launchPromoActionRoute: e.target.value }); setDirty(true); }}
                 style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
               >
-                <option value="services">Home Services Catalog (AC, Cleaning, Repairs)</option>
-                <option value="jobs">Browse Jobs (Worker Vacancies)</option>
-                <option value="post_job">Post a Job (Employer)</option>
-                <option value="urgent_need">Post Urgent Worker Need</option>
-                <option value="refer_earn">Refer &amp; Earn (₹100 Bonus)</option>
-                <option value="profile">Complete Profile</option>
+                <option value="">None (Splash Only / View Only)</option>
+                <option value="hungr">🥞 Hungr Pre-Order Survey</option>
+                <option value="services">🛠️ Home Services Catalog</option>
+                <option value="jobs">💼 Browse Jobs (Worker)</option>
+                <option value="post_job">📝 Post a Job (Employer)</option>
+                <option value="urgent_need">⚡ Urgent Worker Need</option>
+                <option value="refer_earn">🎁 Refer &amp; Earn (₹100)</option>
+                <option value="partner">🤝 Join as Partner</option>
               </select>
             </label>
           </div>
+        </div>
+
+        {/* IN-APP TARGETED DIALOG BANNER (Ads, Alerts, Redirections) */}
+        <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 18 }}>📢</span>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#111827" }}>
+              In-App Targeted Dialog Banner (Flyer, Ads &amp; Alerts)
+            </h3>
+            <span style={{ fontSize: 11, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 700, padding: "2px 8px", borderRadius: 12 }}>
+              UNCROPPED FIT
+            </span>
+          </div>
+          <p style={{ margin: "0 0 14px 0", fontSize: 12, color: "#6b7280" }}>
+            Pops up an uncropped flyer or announcement card on the home screen. The exact image is preserved 100% without cutting any edges. Can be targeted to specific roles and can redirect to any screen or be left empty for view-only.
+          </p>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 16 }}>
+            <input
+              type="checkbox"
+              checked={config.inAppDialogEnabled}
+              onChange={(e) => { setConfig({ ...config, inAppDialogEnabled: e.target.checked }); setDirty(true); }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#1F2937" }}>Enable in-app targeted dialog banner</span>
+          </label>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#374151", fontWeight: 500 }}>Target Audience (Role Selection)</span>
+              <select
+                value={config.inAppDialogTargetAudience}
+                onChange={(e) => { setConfig({ ...config, inAppDialogTargetAudience: e.target.value as DynamicConfig["inAppDialogTargetAudience"] }); setDirty(true); }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
+              >
+                <option value="ALL">🌐 All Roles (Worker, Employer &amp; Services Homes)</option>
+                <option value="WORKER">👷 Workers Only (Worker Home Screen)</option>
+                <option value="EMPLOYER">🏢 Employers Only (Employer Home Screen)</option>
+                <option value="SERVICES">🛠️ Services Customers Only (Home Services Screen)</option>
+              </select>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#374151", fontWeight: 500 }}>Headline / Title (Optional)</span>
+              <input
+                type="text"
+                value={config.inAppDialogTitle}
+                placeholder="e.g. Urgent Update or Refer &amp; Earn ₹100"
+                onChange={(e) => { setConfig({ ...config, inAppDialogTitle: e.target.value }); setDirty(true); }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
+              />
+            </label>
+          </div>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 14 }}>
+            <span style={{ color: "#374151", fontWeight: 500 }}>Poster / Ad Image URL (Uncropped Fit)</span>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                type="url"
+                value={config.inAppDialogImageUrl}
+                placeholder="e.g. https://cdn.dutype.app/ads/festival-offer.webp"
+                onChange={(e) => { setConfig({ ...config, inAppDialogImageUrl: e.target.value }); setDirty(true); }}
+                style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
+              />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "inAppDialogImageUrl"); }}
+              />
+            </div>
+            {config.inAppDialogImageUrl && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <img src={config.inAppDialogImageUrl} alt="Dialog promo preview" style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, objectFit: "contain", border: "1px solid #e5e7eb" }} />
+                <button type="button" onClick={() => { setConfig({ ...config, inAppDialogImageUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer", width: "fit-content" }}>Delete Image</button>
+              </div>
+            )}
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+            <span style={{ color: "#374151", fontWeight: 500 }}>Target Screen on Click (Optional - Leave empty for View-Only Flyer)</span>
+            <select
+              value={config.inAppDialogActionRoute}
+              onChange={(e) => { setConfig({ ...config, inAppDialogActionRoute: e.target.value }); setDirty(true); }}
+              style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
+            >
+              <option value="">None (View-Only / Informational Flyer with no button)</option>
+              <option value="hungr">🥞 Hungr Pre-Order Survey</option>
+              <option value="services">🛠️ Home Services Catalog</option>
+              <option value="jobs">💼 Browse Jobs (Worker)</option>
+              <option value="post_job">📝 Post a Job (Employer)</option>
+              <option value="urgent_need">⚡ Urgent Worker Need</option>
+              <option value="refer_earn">🎁 Refer &amp; Earn Bonus</option>
+              <option value="partner">🤝 Join as Service Partner</option>
+            </select>
+          </label>
         </div>
 
         {/* Tab Headers */}

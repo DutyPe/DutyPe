@@ -41,6 +41,7 @@ import {
   ShieldCheck,
   BookOpen,
   TrendingUp,
+  Utensils,
   LucideIcon
 } from "lucide-react";
 
@@ -95,7 +96,8 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/referral-config", label: "Referral Config", icon: Sliders, summary: "Set reward amounts and limits." },
       { href: "/admin/promotional-banners", label: "Promotional Banners", icon: Sparkles, summary: "Design promotional banners for Services, Worker Home & Employer Home." },
       { href: "/admin/marketing", label: "Marketing Hub", icon: Rocket, summary: "Campaign assets, SEO & playbooks." },
-      { href: "/admin/field-leads", label: "Field Registrations", icon: Users, summary: "Umbrella-desk agents, leads and joins." }
+      { href: "/admin/field-leads", label: "Field Registrations", icon: Users, summary: "Umbrella-desk agents, leads and joins." },
+      { href: "/admin/hungr", label: "Hungr Pre-Orders", icon: Utensils, summary: "Waitlist responses, breakfast demand & Khammam locality heatmap." }
     ]
   },
   {

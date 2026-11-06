@@ -16,10 +16,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -54,18 +54,17 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.dutype.navigation.Routes
 import com.example.dutype.repositories.DynamicFeaturesConfig
 import kotlinx.coroutines.delay
 
 /**
- * Blinkit/Swiggy/Zepto-style vertical poster launch promotion dialog.
- * Appears once per app session when `launchPromoEnabled` is true in dynamic config.
+ * In-App Targeted Dialog Banner for emergency alerts, priority redirection,
+ * special promotions, shop ads, or referral campaigns.
+ *
+ * Supports role-based target audience selection (Worker, Employer, Services, or All).
+ * The image is rendered with ContentScale.Fit so nothing is cut or cropped.
+ * If the action route is left empty, the dialog is purely informational with no CTA button.
  */
 object DynamicLaunchPromoSessionTracker {
     var hasDismissedThisSession: Boolean = false
@@ -80,24 +79,29 @@ fun DynamicLaunchPromoDialog(
     val context = LocalContext.current
     var isVisible by remember { mutableStateOf(false) }
 
-    // Only allow showing on primary landing screens (worker home, employer home, or services)
-    val isEligibleScreen = currentRoute in listOf(
-        Routes.WORKER_HOME,
-        Routes.EMPLOYER_HOME,
-        Routes.SERVICES
-    )
+    // Check if in-app dialog is enabled
+    val isEnabled = dynamicConfig.inAppDialogEnabled ||
+        (!dynamicConfig.launchPromoEnabled && dynamicConfig.launchPromoBannerUrl.isNotBlank())
 
-    val isAnimation = dynamicConfig.launchPromoMediaType.equals("ANIMATION", ignoreCase = true) &&
-        dynamicConfig.launchPromoAnimationUrl.isNotBlank()
-    val hasMedia = dynamicConfig.launchPromoBannerUrl.isNotBlank() || dynamicConfig.launchPromoAnimationUrl.isNotBlank()
+    val imageUrl = dynamicConfig.inAppDialogImageUrl.ifBlank { dynamicConfig.launchPromoBannerUrl }
+    val title = dynamicConfig.inAppDialogTitle.ifBlank { dynamicConfig.launchPromoTitle }
+    val actionRoute = dynamicConfig.inAppDialogActionRoute.ifBlank { dynamicConfig.launchPromoActionRoute }.trim()
+    val targetAudience = dynamicConfig.inAppDialogTargetAudience.trim().uppercase()
 
-    LaunchedEffect(dynamicConfig.launchPromoEnabled, hasMedia, isEligibleScreen) {
-        if (dynamicConfig.launchPromoEnabled &&
-            hasMedia &&
+    // Determine screen eligibility based on target audience
+    val isEligibleScreen = when (targetAudience) {
+        "WORKER" -> currentRoute == Routes.WORKER_HOME
+        "EMPLOYER" -> currentRoute == Routes.EMPLOYER_HOME
+        "SERVICES" -> currentRoute == Routes.SERVICES
+        else -> currentRoute in listOf(Routes.WORKER_HOME, Routes.EMPLOYER_HOME, Routes.SERVICES)
+    }
+
+    LaunchedEffect(isEnabled, imageUrl, isEligibleScreen) {
+        if (isEnabled &&
+            imageUrl.isNotBlank() &&
             isEligibleScreen &&
             !DynamicLaunchPromoSessionTracker.hasDismissedThisSession
         ) {
-            // Short delay after screen transitions so the home screen settles smoothly
             delay(650)
             if (!DynamicLaunchPromoSessionTracker.hasDismissedThisSession) {
                 isVisible = true
@@ -114,9 +118,8 @@ fun DynamicLaunchPromoDialog(
 
     val onActionClick = {
         dismissPromo()
-        val route = dynamicConfig.launchPromoActionRoute.trim()
-        if (route.isNotBlank()) {
-            handleNavigationTarget(context, navController, route)
+        if (actionRoute.isNotBlank()) {
+            handleInAppNavigation(context, navController, actionRoute)
         }
     }
 
@@ -134,7 +137,7 @@ fun DynamicLaunchPromoDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.68f))
+                .background(Color.Black.copy(alpha = 0.72f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -146,18 +149,17 @@ fun DynamicLaunchPromoDialog(
                 visible = isVisible,
                 enter = scaleIn(
                     initialScale = 0.88f,
-                    animationSpec = tween(durationMillis = 320)
-                ) + fadeIn(animationSpec = tween(280)),
+                    animationSpec = tween(durationMillis = 300)
+                ) + fadeIn(animationSpec = tween(250)),
                 exit = scaleOut(
                     targetScale = 0.90f,
                     animationSpec = tween(durationMillis = 200)
                 ) + fadeOut(animationSpec = tween(200))
             ) {
-                // Vertical Poster Card with Floating 'X' Close Button
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth(0.86f)
-                        .widthIn(max = 340.dp)
+                        .fillMaxWidth(0.88f)
+                        .widthIn(max = 350.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -165,7 +167,7 @@ fun DynamicLaunchPromoDialog(
                         ),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Top-right Close Button above card
+                    // Top-right Close Button
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -175,95 +177,90 @@ fun DynamicLaunchPromoDialog(
                         IconButton(
                             onClick = dismissPromo,
                             modifier = Modifier
-                                .size(36.dp)
-                                .shadow(4.dp, CircleShape)
+                                .size(34.dp)
+                                .shadow(6.dp, CircleShape)
                                 .background(Color.White, CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Close,
-                                contentDescription = "Close promo",
+                                contentDescription = "Close",
                                 tint = Color(0xFF1E293B),
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
-                    // Poster Card (WebP image)
+                    // Poster Card (Exact image fit, no edges cut off!)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(16.dp, RoundedCornerShape(22.dp))
-                            .clip(RoundedCornerShape(22.dp))
+                            .shadow(16.dp, RoundedCornerShape(20.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(Color.White)
                     ) {
-                        Column {
-                            if (isAnimation) {
-                                val composition by rememberLottieComposition(
-                                    LottieCompositionSpec.Url(dynamicConfig.launchPromoAnimationUrl.trim())
-                                )
-                                val progress by animateLottieCompositionAsState(
-                                    composition = composition,
-                                    iterations = LottieConstants.IterateForever
-                                )
-                                LottieAnimation(
-                                    composition = composition,
-                                    progress = { progress },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(1f)
-                                        .background(Color.White)
-                                )
-                            } else {
-                                // Vertical Aspect Ratio Poster Image (WebP)
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Image container with ContentScale.Fit so entire flyer/poster is preserved
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 460.dp)
+                                    .background(Color.White),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
-                                        .data(dynamicConfig.launchPromoBannerUrl.ifBlank { dynamicConfig.launchPromoAnimationUrl })
+                                        .data(imageUrl)
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = dynamicConfig.launchPromoTitle.ifBlank { "Special Offer" },
-                                    contentScale = ContentScale.Crop,
+                                    contentDescription = title.ifBlank { "Announcement Flyer" },
+                                    contentScale = ContentScale.Fit,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(3f / 4f)
+                                        .heightIn(max = 460.dp)
                                 )
                             }
 
-                            // Optional Title / CTA Bar below image if configured
-                            if (dynamicConfig.launchPromoTitle.isNotBlank() || dynamicConfig.launchPromoActionRoute.isNotBlank()) {
+                            // Optional Title or CTA Bar (Rendered ONLY if title or route is present)
+                            if (title.isNotBlank() || actionRoute.isNotBlank()) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .background(Color.White)
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    if (dynamicConfig.launchPromoTitle.isNotBlank()) {
+                                    if (title.isNotBlank()) {
                                         Text(
-                                            text = dynamicConfig.launchPromoTitle,
-                                            fontSize = 16.sp,
+                                            text = title,
+                                            fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF0F172A),
                                             textAlign = TextAlign.Center
                                         )
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        if (actionRoute.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                        }
                                     }
 
-                                    Button(
-                                        onClick = onActionClick,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(44.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF0F172A),
-                                            contentColor = Color.White
-                                        )
-                                    ) {
-                                        Text(
-                                            text = "Check Now",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
+                                    // Action button rendered only when route path is NOT empty
+                                    if (actionRoute.isNotBlank()) {
+                                        Button(
+                                            onClick = onActionClick,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(44.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF0F172A),
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Text(
+                                                text = if (actionRoute.contains("hungr", ignoreCase = true)) "Join VIP Waitlist" else "Check Now",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -275,20 +272,24 @@ fun DynamicLaunchPromoDialog(
     }
 }
 
-private fun handleNavigationTarget(context: Context, navController: NavHostController, target: String) {
+private fun handleInAppNavigation(context: Context, navController: NavHostController, target: String) {
     if (target.isBlank()) return
     try {
         if (target.startsWith("http://") || target.startsWith("https://") || target.startsWith("dutype://")) {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(target))
             context.startActivity(intent)
         } else {
-            // Map common shorthand routes
             val resolvedRoute = when (target.lowercase().trim()) {
                 "services", "service" -> Routes.SERVICES
                 "refer", "refer_earn", "referral" -> Routes.WORKER_REFER_EARN
                 "earnings", "wallet" -> Routes.WORKER_EARNINGS
                 "jobs", "browse_jobs" -> Routes.WORKER_ALL_JOBS
-                "post_job" -> Routes.EMPLOYER_POST_JOB
+                "post_job", "post-job" -> Routes.EMPLOYER_POST_JOB
+                "partner", "partner-apply" -> Routes.PARTNER
+                "hungr", "hungr-survey" -> {
+                    com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
+                    return
+                }
                 else -> target
             }
             navController.navigate(resolvedRoute)
