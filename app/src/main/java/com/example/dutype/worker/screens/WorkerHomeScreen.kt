@@ -1387,17 +1387,16 @@ fun WorkerHomeScreen(
             }
         }
 
-        // Floating Bottom Pill: "Apply jobs for free · ₹0" with 3D Z-Cascade & Tag Shake Wobble
+        // Floating Bottom Pill: "Apply jobs for free · ₹0" with Super Character Writing & Tag Wobble
         var showApplyFreeChip by remember { mutableStateOf(false) }
-        var triggerTextCascade by remember { mutableStateOf(false) }
+        var triggerTextWriting by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
-            delay(400L)
+            delay(300L)
             showApplyFreeChip = true
-            delay(280L)
-            triggerTextCascade = true
-            delay(9000L)
+            triggerTextWriting = true
+            delay(2600L) // Badge stays 2-3 seconds as requested (2.6s)
             showApplyFreeChip = false
-            triggerTextCascade = false
+            triggerTextWriting = false
         }
 
         // Left-side Tag Shake / Playful Wobble Animation (runs periodically every ~2.6 seconds)
@@ -1425,15 +1424,15 @@ fun WorkerHomeScreen(
 
         androidx.compose.animation.AnimatedVisibility(
             visible = showApplyFreeChip,
-            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(250, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
                     androidx.compose.animation.slideInVertically(
                         initialOffsetY = { fullHeight -> fullHeight },
-                        animationSpec = androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                        animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)
                     ),
-            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutLinearInEasing)) +
+            exit = androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutLinearInEasing)) +
                    androidx.compose.animation.slideOutVertically(
                        targetOffsetY = { fullHeight -> fullHeight },
-                       animationSpec = androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutLinearInEasing)
+                       animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutLinearInEasing)
                    ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1469,12 +1468,13 @@ fun WorkerHomeScreen(
                                 rotationZ = tagRotation
                             }
                     )
-                    Cascade3DPositionZText(
+                    SuperCharacterWritingText(
                         text = "Apply jobs for free",
-                        isTriggered = triggerTextCascade,
+                        isTriggered = triggerTextWriting,
                         color = Color(0xFF222222),
                         fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        charDelayMs = 18L
                     )
                     Box(
                         modifier = Modifier
@@ -1853,57 +1853,34 @@ internal fun WorkerOutOfAreaBottomSheet(
 
 
 @Composable
-fun Cascade3DPositionZText(
+fun SuperCharacterWritingText(
     text: String,
     isTriggered: Boolean,
     modifier: Modifier = Modifier,
     color: Color = Color(0xFF222222),
     fontSize: androidx.compose.ui.unit.TextUnit = 14.5.sp,
-    fontWeight: FontWeight = FontWeight.Bold
+    fontWeight: FontWeight = FontWeight.Bold,
+    charDelayMs: Long = 18L
 ) {
-    val words = remember(text) { text.split(" ") }
-    val density = androidx.compose.ui.platform.LocalDensity.current.density
-
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        words.forEachIndexed { index, word ->
-            var startAnimate by remember { mutableStateOf(false) }
-            LaunchedEffect(isTriggered) {
-                if (isTriggered) {
-                    kotlinx.coroutines.delay(120L + (index * 110L))
-                    startAnimate = true
-                } else {
-                    startAnimate = false
-                }
+    var visibleCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(isTriggered, text) {
+        if (isTriggered) {
+            visibleCount = 0
+            for (i in 1..text.length) {
+                visibleCount = i
+                kotlinx.coroutines.delay(charDelayMs)
             }
-
-            val animProgress by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (startAnimate) 1f else 0f,
-                animationSpec = androidx.compose.animation.core.spring(
-                    dampingRatio = 0.65f,
-                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
-                ),
-                label = "cascadeZ_$index"
-            )
-
-            Text(
-                text = word,
-                color = color,
-                fontSize = fontSize,
-                fontWeight = fontWeight,
-                letterSpacing = 0.2.sp,
-                modifier = Modifier.graphicsLayer {
-                    this.cameraDistance = 16f * density
-                    this.rotationX = (1f - animProgress) * 55f
-                    this.scaleX = 0.6f + (0.4f * animProgress)
-                    this.scaleY = 0.6f + (0.4f * animProgress)
-                    this.translationY = (1f - animProgress) * 20f
-                    this.alpha = animProgress.coerceIn(0f, 1f)
-                }
-            )
+        } else {
+            visibleCount = text.length
         }
     }
+
+    Text(
+        text = text.take(visibleCount),
+        color = color,
+        fontSize = fontSize,
+        fontWeight = fontWeight,
+        letterSpacing = 0.2.sp,
+        modifier = modifier
+    )
 }

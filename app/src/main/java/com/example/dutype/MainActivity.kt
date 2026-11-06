@@ -428,7 +428,8 @@ class MainActivity : ComponentActivity() {
                             currentRoute = currentRouteForBars
                         )
 
-                        // Auto-trigger Hungr survey on Home screens after 2.2s delay if not submitted & not dismissed this session
+                        // Auto-trigger Hungr survey on Home screens if not submitted yet ("until they gives it ask")
+                        // Bug Fix 1: Wait until full-screen launch banner finishes completely before showing bottom sheet!
                         val mainContext = androidx.compose.ui.platform.LocalContext.current
                         LaunchedEffect(currentRouteForBars, mainNavReady) {
                             if (mainNavReady && (
@@ -436,10 +437,21 @@ class MainActivity : ComponentActivity() {
                                     currentRouteForBars == com.example.dutype.navigation.Routes.EMPLOYER_HOME ||
                                     currentRouteForBars == com.example.dutype.navigation.Routes.SERVICES
                                 )) {
+                                // Sync user auth completion status (guest -> login persistence)
+                                com.example.dutype.hungr.HungrSurveyTracker.checkAndSyncUser(mainContext)
+
+                                // 1. Wait if the full-screen launch banner is currently active on screen
+                                while (com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive) {
+                                    kotlinx.coroutines.delay(350L)
+                                }
+
+                                // 2. Snappy fast trigger (800ms) after home settles if survey not yet submitted
                                 if (!com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
                                     !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession) {
-                                    kotlinx.coroutines.delay(2200L)
-                                    if (!com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
+                                    kotlinx.coroutines.delay(800L)
+                                    // Ensure launch banner didn't activate in the interim
+                                    if (!com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive &&
+                                        !com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
                                         !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession) {
                                         com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
                                     }

@@ -81,13 +81,69 @@ object HungrSurveyTracker {
 
     fun hasSubmitted(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_HUNGR, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_HUNGR_SUBMITTED, false)
+        if (prefs.getBoolean(KEY_HUNGR_SUBMITTED, false)) return true
+
+        // Also check if logged-in user or their phone has submitted record in local cache
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        val uid = user?.uid
+        if (!uid.isNullOrBlank() && prefs.getBoolean("hungr_sub_$uid", false)) return true
+        val phone = user?.phoneNumber?.removePrefix("+91")?.trim()
+        if (!phone.isNullOrBlank() && prefs.getBoolean("hungr_sub_$phone", false)) return true
+
+        return false
     }
 
-    fun markSubmitted(context: Context) {
+    fun markSubmitted(context: Context, phone: String? = null) {
         hasDismissedThisSession = true
         val prefs = context.getSharedPreferences(PREFS_HUNGR, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_HUNGR_SUBMITTED, true).apply()
+        val editor = prefs.edit().putBoolean(KEY_HUNGR_SUBMITTED, true)
+        if (!phone.isNullOrBlank()) {
+            val clean = phone.removePrefix("+91").trim()
+            editor.putString("hungr_phone", clean)
+            editor.putBoolean("hungr_sub_$clean", true)
+        }
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        val uid = user?.uid
+        if (!uid.isNullOrBlank()) {
+            editor.putBoolean("hungr_sub_$uid", true)
+        }
+        val userPhone = user?.phoneNumber?.removePrefix("+91")?.trim()
+        if (!userPhone.isNullOrBlank()) {
+            editor.putBoolean("hungr_sub_$userPhone", true)
+        }
+        editor.apply()
+    }
+
+    fun checkAndSyncUser(context: Context) {
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: return
+        val uid = user.uid
+        val phone = user.phoneNumber?.removePrefix("+91")?.trim() ?: ""
+
+        val prefs = context.getSharedPreferences(PREFS_HUNGR, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_HUNGR_SUBMITTED, false)) {
+            // Ensure remote firestore user record reflects completion
+            FirebaseFirestore.getInstance().collection("users").document(uid)
+                .update("hungrSurveySubmitted", true)
+            return
+        }
+
+        FirebaseFirestore.getInstance().collection("users").document(uid).get()
+            .addOnSuccessListener { doc ->
+                if (doc != null && doc.getBoolean("hungrSurveySubmitted") == true) {
+                    markSubmitted(context, phone)
+                } else if (phone.isNotBlank()) {
+                    FirebaseFirestore.getInstance().collection("hungr_surveys")
+                        .document("hungr_$phone")
+                        .get()
+                        .addOnSuccessListener { surveyDoc ->
+                            if (surveyDoc != null && surveyDoc.exists()) {
+                                markSubmitted(context, phone)
+                                FirebaseFirestore.getInstance().collection("users").document(uid)
+                                    .update("hungrSurveySubmitted", true)
+                            }
+                        }
+                }
+            }
     }
 }
 
@@ -204,10 +260,10 @@ fun HungrSurveyBottomSheet(
                                 color = Color(0xFF9A3412)
                             )
                         }
-                        Text(
+                        SuperCharacterWritingSubtitle(
                             text = "Morning Tiffins at Shop Prices",
-                            fontSize = 11.sp,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B),
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -817,7 +873,12 @@ fun HungrSurveyBottomSheet(
                                     .document(docId)
                                     .set(data, SetOptions.merge())
                                     .addOnSuccessListener {
-                                        HungrSurveyTracker.markSubmitted(context)
+                                        HungrSurveyTracker.markSubmitted(context, cleanPhone)
+                                        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                                        if (!uid.isNullOrBlank()) {
+                                            FirebaseFirestore.getInstance().collection("users").document(uid)
+                                                .update("hungrSurveySubmitted", true)
+                                        }
                                         isSubmitting = false
                                         isSuccess = true
                                     }
@@ -956,4 +1017,31 @@ fun HungrSurveyBottomSheet(
             }
         }
     }
+}
+
+
+@Composable
+fun SuperCharacterWritingSubtitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color(0xFF64748B),
+    fontSize: androidx.compose.ui.unit.TextUnit = 11.sp,
+    charDelayMs: Long = 16L
+) {
+    var visibleCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(text) {
+        visibleCount = 0
+        for (i in 1..text.length) {
+            visibleCount = i
+            kotlinx.coroutines.delay(charDelayMs)
+        }
+    }
+
+    Text(
+        text = text.take(visibleCount),
+        fontSize = fontSize,
+        color = color,
+        fontWeight = FontWeight.Medium,
+        modifier = modifier
+    )
 }

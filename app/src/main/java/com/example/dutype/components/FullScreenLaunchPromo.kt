@@ -51,6 +51,7 @@ import kotlinx.coroutines.delay
 
 object FullScreenLaunchPromoTracker {
     var hasShownThisSession: Boolean = false
+    var isCurrentlyActive: Boolean = false
 }
 
 /**
@@ -77,22 +78,25 @@ fun FullScreenLaunchPromo(
     LaunchedEffect(dynamicConfig.launchPromoEnabled, hasMedia) {
         if (dynamicConfig.launchPromoEnabled && hasMedia && !FullScreenLaunchPromoTracker.hasShownThisSession) {
             FullScreenLaunchPromoTracker.hasShownThisSession = true
+            FullScreenLaunchPromoTracker.isCurrentlyActive = true
             countdown = dynamicConfig.launchPromoDurationSec.coerceIn(3, 10)
             isVisible = true
 
-            // Countdown timer: 5s, 4s, 3s, 2s, 1s -> auto dismiss
+            // Countdown timer: 5s, 4s, 3s, 2s, 1s -> auto dismiss like splash screen
             while (countdown > 0) {
                 delay(1000L)
                 countdown -= 1
             }
             delay(250L)
             isVisible = false
+            FullScreenLaunchPromoTracker.isCurrentlyActive = false
         }
     }
 
     if (!isVisible) return
 
     val dismissPromo = {
+        FullScreenLaunchPromoTracker.isCurrentlyActive = false
         isVisible = false
     }
 
@@ -175,29 +179,7 @@ fun FullScreenLaunchPromo(
                 }
             }
 
-            // Top-right floating "Skip in Xs" pill button (Zepto/Blinkit style)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 16.dp, end = 16.dp),
-                contentAlignment = Alignment.TopEnd
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.Black.copy(alpha = 0.65f))
-                        .clickable { dismissPromo() }
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
-                ) {
-                    Text(
-                        text = if (countdown > 0) "Skip in ${countdown}s" else "✕ Skip",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            // Launch banner behaves like splash screen without a skip button
         }
     }
 }
