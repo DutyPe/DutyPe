@@ -1,5 +1,7 @@
 package com.example.dutype.employer.viewmodels
 
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.NotificationData
@@ -13,8 +15,9 @@ import javax.inject.Inject
 class EmployerNotificationViewModel @Inject constructor(
     notificationService: NotificationService,
     private val authManager: AuthManager,
-    auth: FirebaseAuth
-) : BaseNotificationViewModel(notificationService, auth) {
+    auth: FirebaseAuth,
+    @ApplicationContext context: Context
+) : BaseNotificationViewModel(notificationService, auth, context) {
 
     override val roleLabel = "EMPLOYER"
     override val testNotificationType = NotificationType.JOB_POSTED

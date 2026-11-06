@@ -187,7 +187,6 @@ function chargeForPost(
   const sub = obj(employer.data[EmployerProfiles.SUBSCRIPTION]);
   const expiresAt = sub[S.EXPIRES_AT] instanceof Timestamp ? (sub[S.EXPIRES_AT] as admin.firestore.Timestamp).toMillis() : 0;
   const active = sub[S.STATUS] === "ACTIVE" && (expiresAt === 0 || expiresAt > nowMs);
-  if (active && sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN") return "campaign";
   const normalCredits = Number(obj(sub[S.CREDITS])[S.CREDITS_NORMAL] || 0);
   if (active && normalCredits > 0) {
     tx.update(employer.ref, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));

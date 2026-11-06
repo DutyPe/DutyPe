@@ -252,8 +252,10 @@
     <string name="select_role_subheadline">Choose how you want to use the app</string>
     <string name="select_role_looking_for_work">I want work</string>
     <string name="select_role_worker_desc">Find jobs near you &amp; daily wages</string>
-    <string name="select_role_want_to_hire">I need workers or home services</string>
-    <string name="select_role_employer_desc">Hire staff or book home services</string>
+    <string name="select_role_want_to_hire">I need workers</string>
+    <string name="select_role_employer_desc">Hire staff &amp; post jobs with 0% commission</string>
+    <string name="select_role_home_services">Home Services</string>
+    <string name="select_role_home_services_desc">Book cleaning, repairs &amp; home maintenance</string>
     <string name="auth_enter_mobile_number">Enter your number</string>
     <string name="auth_we_will_send_otp">We\'ll send a 6-digit OTP</string>
     <string name="auth_or_divider">or</string>

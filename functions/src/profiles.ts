@@ -91,7 +91,6 @@ export const completeRegistration = onCallSecured(
       });
     } else {
       const S = EmployerProfiles.Subscription;
-      const campaign = config?.employerUnlimitedJobPostingEnabled === true;
       tx.create(profileRef, {
         [EmployerProfiles.EMPLOYER_TYPE]: employerType,
         ...(employerType === Values.EmployerType.COMPANY ?
@@ -99,9 +98,8 @@ export const completeRegistration = onCallSecured(
           { [EmployerProfiles.OWNER_NAME]: name }),
         [EmployerProfiles.PHONE]: phone,
         [EmployerProfiles.SUBSCRIPTION]: {
-          [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "",
-          [S.STATUS]: campaign ? "ACTIVE" : "NONE",
-          ...(campaign ? { [S.START_AT]: now } : {}),
+          [S.PLAN_ID]: "",
+          [S.STATUS]: "NONE",
           [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 },
         },
         [EmployerProfiles.FREE_URGENT_POSTS_USED]: 0,

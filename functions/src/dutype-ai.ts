@@ -97,7 +97,7 @@ export async function employerFacts(uid: string): Promise<Facts> {
     firstName: owner.split(/\s+/)[0] || "",
     area: String(profile.get(EmployerProfiles.AREA) || ""),
     plan: {
-      aiIncluded: sub[S.AI] === true || sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN",
+      aiIncluded: sub[S.AI] === true,
       freeAiLeft: Math.max(0, FREE_AI_TRIAL - Number(profile.get(EmployerProfiles.AI_TRIAL_USED) || 0)),
       jobCredits: Number(credits[S.CREDITS_NORMAL] || 0),
       urgentCredits: Number(credits[S.CREDITS_INSTANT] || 0),

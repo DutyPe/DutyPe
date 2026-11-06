@@ -35,7 +35,7 @@ function calcDistanceKm(lat1?: number, lon1?: number, lat2 = KHAMMAM_LAT, lon2 =
 }
 
 type Row = Record<string, unknown> & { id: string };
-type Tab = "partners" | "topups" | "bookings" | "catalog" | "settings";
+type Tab = "partners" | "topups" | "bookings" | "catalog" | "coupons" | "settings";
 
 const CATEGORY_IDS = [
   "CLEANING",
@@ -360,7 +360,8 @@ export function AdminServicesClient() {
           ["topups", `Credit top-ups (${pendingTopups} pending)`],
           ["bookings", `Bookings (${openBookings} open)`],
           ["catalog", "📦 Categories & Services"],
-          ["settings", "Prices & settings"],
+          ["coupons", "🏷️ Coupons & Offers"],
+          ["settings", "⚙️ Prices & Settings"],
         ] as Array<[Tab, string]>).map(([id, label]) => (
           <button
             key={id}
@@ -1157,7 +1158,9 @@ export function AdminServicesClient() {
         />
       )}
 
-      {tab === "settings" && <ServicesSettings onSaved={(m) => setMessage(m)} onError={(m) => setError(m)} />}
+      {tab === "coupons" && <ServicesSettings mode="coupons" onSaved={(m) => setMessage(m)} onError={(m) => setError(m)} />}
+
+      {tab === "settings" && <ServicesSettings mode="settings" onSaved={(m) => setMessage(m)} onError={(m) => setError(m)} />}
 
       {/* Modal: Assign Approved Partner with Skills to Booking */}
       {assigningBooking && (
@@ -1759,7 +1762,7 @@ const PRESETS: Array<{ label: string; coupon: Coupon }> = [
   { label: "Welcome (first booking) ₹35", coupon: { code: "WELCOME35", title: "Welcome ₹35 off", type: "FLAT", value: 35, firstBookingOnly: true } },
 ];
 
-function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; onError: (m: string) => void }) {
+function ServicesSettings({ onSaved, onError, mode = "all" }: { onSaved: (m: string) => void; onError: (m: string) => void; mode?: "all" | "coupons" | "settings" }) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [s, setS] = useState<Settings | null>(null);
   const [raw, setRaw] = useState<Record<string, unknown>>({});
@@ -1868,6 +1871,8 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
 
   return (
     <section className="admin-section">
+      {mode !== "coupons" && (
+        <>
       <h2 className="admin-section-title">Prices &amp; settings</h2>
       <p>Partners pay their credit top-ups to this UPI ID. Fees apply to new bookings.</p>
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 10, alignItems: "center", maxWidth: 640 }}>
@@ -1885,6 +1890,11 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
         <label>Minimum top-up (₹)</label>{num("minTopup")}
       </div>
 
+        </>
+      )}
+
+      {mode !== "settings" && (
+        <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 28, flexWrap: "wrap", gap: 10 }}>
         <div>
           <h3 style={{ margin: 0 }}>Coupons &amp; festive offers</h3>
@@ -1985,6 +1995,11 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
       </div>
       <button className="btn btn-approve" onClick={() => void save()} style={{ marginTop: 10, marginBottom: 20 }}>💾 Save Coupons</button>
 
+        </>
+      )}
+
+      {mode !== "coupons" && (
+        <>
       <h3 style={{ marginTop: 24 }}>Service prices &amp; discounts</h3>
       <p style={{ maxWidth: 760, fontSize: 13, color: "#64748b" }}>
         Set offer prices (e.g. ₹199) and original MRP (e.g. ₹299). Customers see the strikethrough price and percentage off in the app.
@@ -2049,6 +2064,8 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
         </table>
       </div>
       <button className="btn btn-approve" onClick={() => void save()} style={{ marginTop: 12 }}>Save settings</button>
+        </>
+      )}
     </section>
   );
 }

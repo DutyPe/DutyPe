@@ -108,7 +108,7 @@ object DefaultServicesCatalog {
                 originalPrice = 499,
                 durationMin = 60,
                 inspection = false,
-                includes = "Tile scrubbing, toilet bowl descaling, tap buffing, floor stains removal and mirror polishing.",
+                includes = "Tile scrubbing, toilet bowl descaling, tap buffing, floor stains removal. (Customer supplies: Harpic/acid/detergent, bucket, mug & brush).",
                 rating = 4.8,
                 ratingCount = "22k+",
                 options = listOf(
@@ -117,15 +117,17 @@ object DefaultServicesCatalog {
                 ),
                 inclusions = listOf(
                     "Deep tile scrubbing & hard water stain removal",
-                    "Toilet bowl & commode acid descaling",
+                    "Toilet bowl & commode acid/liquid descaling",
                     "Tap, shower & chrome fixture buffing",
                     "Mirror polish & exhaust fan surface wipe",
-                    "Floor disinfection & drain trap clearance"
+                    "Floor disinfection & drain trap clearance",
+                    "Dedicated manual labor & deep scrubbing service"
                 ),
                 exclusions = listOf(
+                    "Cleaning materials to be provided by customer (Harpic/acid, detergent, bucket, mug & brush)",
+                    "Running water & electricity supply (customer to provide)",
                     "Plumbing pipe repairs or tap leakage fix",
-                    "Broken tile replacement or regrouting",
-                    "Harsh acid chemicals (eco cleaner brought by partner)"
+                    "Broken tile replacement or regrouting"
                 )
             ),
             ServiceItem(
@@ -212,20 +214,22 @@ object DefaultServicesCatalog {
                 originalPrice = 1299,
                 durationMin = 240,
                 inspection = false,
-                includes = "All rooms, kitchen and bathroom scrubbed, windows, fans and balcony.",
+                includes = "Intensive manual deep cleaning of all rooms, kitchen, bathroom, fans and windows. (No costly machines used; customer supplies household liquids, bucket & mop).",
                 rating = 4.9,
                 ratingCount = "7k+",
                 inclusions = listOf(
                     "Bedroom, living hall & dining deep cleaning",
-                    "Complete bathroom deep scrub & descaling",
+                    "Complete bathroom manual scrub & descaling",
                     "Kitchen countertop, sink & exhaust wiping",
                     "Ceiling fan blades, switchboards & window grill dusting",
-                    "Floor disinfectant mopping & balcony wash"
+                    "Floor disinfectant mopping & balcony wash",
+                    "Affordable manual labor without machine surcharges"
                 ),
                 exclusions = listOf(
+                    "Industrial buffing/single-disc machines (not used to keep prices affordable)",
+                    "Household cleaning liquids (Customer to provide Surf/Lizol/Harpic, bucket & mop)",
                     "Wall repainting or putty patch work",
-                    "Moving heavy almirahs or structural furniture",
-                    "Terrace or outer building facade washing"
+                    "Moving heavy almirahs or structural furniture"
                 )
             ),
             ServiceItem(
@@ -238,7 +242,7 @@ object DefaultServicesCatalog {
                 originalPrice = 1799,
                 durationMin = 300,
                 inspection = false,
-                includes = "2 bedrooms, hall, kitchen, 2 bathrooms scrubbed, floors, fans, windows, balcony.",
+                includes = "2 bedrooms, hall, kitchen, 2 bathrooms scrubbed, floors, fans, windows, balcony. (Manual cleaning only; customer provides household liquids, bucket & mop).",
                 rating = 4.9,
                 ratingCount = "5k+",
                 inclusions = listOf(
@@ -246,12 +250,14 @@ object DefaultServicesCatalog {
                     "2 full bathrooms deep scrubbing & descaling",
                     "Kitchen degreasing, sink, slab & exterior cabinets",
                     "Ceiling fans, switchboards, window glass & balcony",
-                    "Disinfectant floor scrub & trash disposal"
+                    "Disinfectant floor scrub & trash disposal",
+                    "Affordable manual labor without machine surcharges"
                 ),
                 exclusions = listOf(
+                    "Industrial buffing/single-disc machines (not used to keep prices affordable)",
+                    "Household cleaning liquids (Customer to provide Surf/Lizol/Harpic, bucket & mop)",
                     "Wall repainting or putty patch work",
-                    "Moving heavy immovable furniture",
-                    "Terrace or exterior building facade washing"
+                    "Moving heavy immovable furniture"
                 )
             ),
 

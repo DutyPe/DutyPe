@@ -72,7 +72,7 @@ async function employerFacts(uid) {
         firstName: owner.split(/\s+/)[0] || "",
         area: String(profile.get(schema_1.EmployerProfiles.AREA) || ""),
         plan: {
-            aiIncluded: sub[S.AI] === true || sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN",
+            aiIncluded: sub[S.AI] === true,
             freeAiLeft: Math.max(0, ai_hiring_1.FREE_AI_TRIAL - Number(profile.get(schema_1.EmployerProfiles.AI_TRIAL_USED) || 0)),
             jobCredits: Number(credits[S.CREDITS_NORMAL] || 0),
             urgentCredits: Number(credits[S.CREDITS_INSTANT] || 0),

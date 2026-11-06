@@ -245,16 +245,13 @@ exports.getWorkerContact = (0, secure_callable_1.onCallSecured)({}, async (raw, 
         const instantCredits = Number(credits[S.CREDITS_INSTANT] || 0);
         const expiresAt = (_c = (_b = (_a = sub[S.EXPIRES_AT]) === null || _a === void 0 ? void 0 : _a.toMillis) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : Number(sub[S.EXPIRES_AT] || 0);
         const isSubActive = subStatus === "ACTIVE" && (expiresAt === 0 || expiresAt > Date.now());
-        const isUnlimited = isSubActive && planId === "UNLIMITED_CAMPAIGN";
         const hasUnlocks = isSubActive && instantCredits > 0;
-        if (!isUnlimited && !hasUnlocks) {
+        if (!hasUnlocks) {
             (0, input_1.fail)("failed-precondition", "No contact unlocks remaining. Please upgrade your subscription plan.");
         }
-        if (!isUnlimited && hasUnlocks) {
-            await empDoc.ref.update({
-                [`${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`]: FieldValue.increment(-1),
-            });
-        }
+        await empDoc.ref.update({
+            [`${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`]: FieldValue.increment(-1),
+        });
         await unlockRef.set({
             [schema_1.EmployerProfiles.Unlocks.JOB_ID]: jobId,
             [schema_1.EmployerProfiles.Unlocks.CREATED_AT]: Timestamp.now(),

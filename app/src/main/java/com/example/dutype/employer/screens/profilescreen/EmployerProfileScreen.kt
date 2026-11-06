@@ -482,8 +482,6 @@ private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifie
             EmpMenuCard(ui = ui, actions = actions)
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        com.example.dutype.components.MadeWithLoveFooter()
         Spacer(modifier = Modifier.height(72.dp))
     }
 }

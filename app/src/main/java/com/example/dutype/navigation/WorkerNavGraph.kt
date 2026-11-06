@@ -170,6 +170,22 @@ fun WorkerNavGraph(
                 scrollStateManager = scrollStateManager
             )
         }
+        composable(
+            route = "${WorkerBottomRoutes.MY_JOBS}?applicationId={applicationId}",
+            arguments = listOf(
+                navArgument("applicationId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            com.example.dutype.worker.screens.myJobs.MyJobsScreen(
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                scrollStateManager = scrollStateManager
+            )
+        }
 
         // Services Tab (Home Services)
         composable(WorkerBottomRoutes.SERVICES) {

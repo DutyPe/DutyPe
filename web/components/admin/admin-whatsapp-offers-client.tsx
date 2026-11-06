@@ -76,6 +76,8 @@ export function AdminWhatsappOffersClient() {
   const [customCityInput, setCustomCityInput] = useState("");
   const [empLang, setEmpLang] = useState("en");
   const [paramCount, setParamCount] = useState<"0" | "1" | "2">("2");
+  const [headerType, setHeaderType] = useState<"AUTO" | "IMAGE" | "NONE">("AUTO");
+  const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [empName, setEmpName] = useState("Business Owner");
   const [empCity, setEmpCity] = useState("Telangana");
   const [empLink, setEmpLink] = useState("https://dutype.in/employer/post-job");
@@ -193,6 +195,8 @@ export function AdminWhatsappOffersClient() {
         city: empCity.trim(),
         postJobUrl: empLink.trim(),
         params: computedParams,
+        headerType,
+        headerImageUrl: headerImageUrl.trim() || undefined,
         dryRun: false,
       });
       setTestResult(res.data as Result);
@@ -249,6 +253,8 @@ export function AdminWhatsappOffersClient() {
         city: empCity.trim(),
         postJobUrl: empLink.trim(),
         params: computedParams,
+        headerType,
+        headerImageUrl: headerImageUrl.trim() || undefined,
         customPhones: empTarget === "CUSTOM_LIST" ? parsedCustom : [],
         dryRun,
       });
@@ -549,6 +555,33 @@ export function AdminWhatsappOffersClient() {
                       ? "Only targets profiles located in Andhra Pradesh & Telangana."
                       : "Sends using the selected language configuration."}
                   </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="adm-form-group">
+                    <label className="adm-form-label">Header Media (Image)</label>
+                    <select
+                      className="adm-select"
+                      value={headerType}
+                      onChange={(e) => setHeaderType(e.target.value as "AUTO" | "IMAGE" | "NONE")}
+                    >
+                      <option value="AUTO">✨ Auto-Detect (Branded Banner for quick_hire)</option>
+                      <option value="IMAGE">🖼️ Required Image Header (Meta Media Template)</option>
+                      <option value="NONE">🚫 None (Plain Text Template, No Media Header)</option>
+                    </select>
+                    <span style={{ fontSize: "0.72rem", color: "#64748b" }}>Required if template was created with an Image Header (prevents error 132012)</span>
+                  </div>
+                  <div className="adm-form-group">
+                    <label className="adm-form-label">Custom Image URL (Optional)</label>
+                    <input
+                      type="text"
+                      className="adm-input"
+                      value={headerImageUrl}
+                      onChange={(e) => setHeaderImageUrl(e.target.value)}
+                      placeholder="Leave blank for official DutyPe 16:9 banner"
+                    />
+                    <span style={{ fontSize: "0.72rem", color: "#64748b" }}>Defaults to https://dutype-860ac.web.app/dutype_branded_marketing_banner.jpg</span>
+                  </div>
                 </div>
 
                 <div className="adm-form-group">

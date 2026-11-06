@@ -314,16 +314,26 @@ fun EmployerHomeScreen(
 
         // Fetch unread notification count for badge (lightweight - only count)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-        currentUser?.uid?.let { userId ->
+        if (currentUser?.uid != null) {
+            val userId = currentUser.uid
             try {
                 val result = notificationService.getUnreadNotificationCount(
                     userId = userId,
                     activeRole = "EMPLOYER"
                 )
                 result.onSuccess { count ->
-                    unreadNotificationCount = count
+                    val localCount = com.example.dutype.notifications.LocalNotificationStore.getUnreadCount(context)
+                    unreadNotificationCount = count + localCount
                 }
+            } catch (e: Exception) {
+                timber.log.Timber.w(e, "Failed to get employer unread notifications")
+            }
+        } else {
+            unreadNotificationCount = com.example.dutype.notifications.LocalNotificationStore.getUnreadCount(context)
+        }
 
+        currentUser?.uid?.let { userId ->
+            try {
                 //  Check if today is user's birthday
                 if (!birthdayService.hasWishedToday(context, userId)) {
                     val bday = birthdayService.checkIfBirthday(userId)
@@ -338,7 +348,7 @@ fun EmployerHomeScreen(
                     }
                 }
             } catch (e: Exception) {
-                Timber.w(e, "Failed to fetch unread notification count or check birthday")
+                Timber.w(e, "Failed to check birthday")
             }
         }
     }
@@ -1798,19 +1808,6 @@ fun DashboardContent(
                     }
                 }
 
-                // Home Services Section with WebApp Remote Images
-                if (homeServicesViewModel != null) {
-                    item(key = "employer_home_services") {
-                        Box(modifier = Modifier.cascadeEnter(index = 2)) {
-                            EmployerHomeServicesSection(
-                                viewModel = homeServicesViewModel,
-                                onOpenServices = onOpenHomeServices,
-                                modifier = Modifier.padding(bottom = 20.dp)
-                            )
-                        }
-                    }
-                }
-
                 // 5. Referral Free Post Reward (if employer has earned referral posts)
                 if (referralPostsLeft > 0) {
                     item(key = "referral_post") {
@@ -1888,8 +1885,15 @@ fun DashboardContent(
                     }
                 }
 
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
+                // India's #1 local jobs app brand footer on Employer Home
+                item(key = "employer_home_brand_footer") {
+                    com.example.dutype.components.MadeWithLoveFooter(
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)
+                    )
+                }
+
+                item(key = "employer_home_bottom_spacer") {
+                    Spacer(modifier = Modifier.height(64.dp))
                 }
             }
         }

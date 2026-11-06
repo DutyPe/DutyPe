@@ -37,7 +37,8 @@ data class NotificationUiState(
  */
 abstract class BaseNotificationViewModel(
     private val notificationService: NotificationService,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    protected val context: android.content.Context
 ) : ViewModel() {
 
     companion object {
@@ -92,15 +93,33 @@ abstract class BaseNotificationViewModel(
             val userId = auth.currentUser?.uid
 
             if (userId.isNullOrBlank()) {
-                Timber.d("$roleLabel NotificationVM - User not authenticated, skipping")
+                Timber.d("$roleLabel NotificationVM - User not authenticated (guest), loading local & guest notifications")
+                val localNotifs = com.example.dutype.notifications.LocalNotificationStore.getNotifications(context, roleLabel)
+                val roleNotifications = filterRoleNotifications(localNotifs)
+                val converted = roleNotifications.map { data ->
+                    Notification(
+                        id = data.id,
+                        userId = "",
+                        title = data.title,
+                        message = data.message,
+                        type = convertNotificationType(data.type),
+                        isRead = data.isRead,
+                        createdAt = data.createdAt,
+                        actionData = data.data
+                    )
+                }
+                val unreadCount = converted.count { !it.isRead }
                 _uiState.value = _uiState.value.copy(
-                    notifications = emptyList(),
-                    filteredNotifications = emptyList(),
+                    notifications = converted,
+                    filteredNotifications = converted,
                     isLoading = false,
                     isLoadingMore = false,
                     hasMore = false,
-                    unreadCount = 0,
-                    stats = NotificationStats()
+                    unreadCount = unreadCount,
+                    stats = NotificationStats(
+                        totalNotifications = converted.size,
+                        unreadCount = unreadCount
+                    )
                 )
                 return
             }
@@ -131,10 +150,27 @@ abstract class BaseNotificationViewModel(
                             )
                         }
 
+                        // Also include local broadcast notifications on the first page
+                        val localBroadcasts = if (!append) {
+                            val local = com.example.dutype.notifications.LocalNotificationStore.getNotifications(context, roleLabel)
+                            local.filterNot { it.id.startsWith("guest_") }.map { data ->
+                                Notification(
+                                    id = data.id,
+                                    userId = data.recipientId,
+                                    title = data.title,
+                                    message = data.message,
+                                    type = convertNotificationType(data.type),
+                                    isRead = data.isRead,
+                                    createdAt = data.createdAt,
+                                    actionData = data.data
+                                )
+                            }
+                        } else emptyList()
+
                         val merged = if (append) {
                             (_uiState.value.notifications + converted).distinctBy { it.id }
                         } else {
-                            converted
+                            (localBroadcasts + converted).distinctBy { it.id }
                         }
 
                         val unreadCount = merged.count { !it.isRead }
@@ -183,7 +219,15 @@ abstract class BaseNotificationViewModel(
     }
 
     fun markAsRead(notificationId: String) {
+        val userId = auth.currentUser?.uid
+        if (userId.isNullOrBlank() || notificationId.startsWith("guest_")) {
+            com.example.dutype.notifications.LocalNotificationStore.markAsRead(context, notificationId)
+            loadNotifications()
+            return
+        }
+
         viewModelScope.launch {
+            com.example.dutype.notifications.LocalNotificationStore.markAsRead(context, notificationId)
             notificationService.markNotificationAsRead(notificationId)
                 .onSuccess {
                     loadNotifications()
@@ -198,7 +242,15 @@ abstract class BaseNotificationViewModel(
     }
 
     fun deleteNotification(notificationId: String) {
+        val userId = auth.currentUser?.uid
+        if (userId.isNullOrBlank() || notificationId.startsWith("guest_")) {
+            com.example.dutype.notifications.LocalNotificationStore.deleteNotification(context, notificationId)
+            loadNotifications()
+            return
+        }
+
         viewModelScope.launch {
+            com.example.dutype.notifications.LocalNotificationStore.deleteNotification(context, notificationId)
             notificationService.deleteNotification(notificationId)
             loadNotifications()
         }

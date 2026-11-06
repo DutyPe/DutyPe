@@ -957,7 +957,16 @@ fun HomeSectionsContent(
             }
         }
 
+        // India's #1 local jobs app brand footer on Worker Home
+        item(key = "worker_home_brand_footer") {
+            com.example.dutype.components.MadeWithLoveFooter(
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)
+            )
+        }
 
+        item(key = "worker_home_bottom_spacer") {
+            Spacer(modifier = Modifier.height(64.dp))
+        }
 
     }
     }

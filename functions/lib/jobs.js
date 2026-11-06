@@ -151,8 +151,6 @@ function chargeForPost(tx, employer, quota, nowMs, config) {
     const sub = (0, input_1.obj)(employer.data[schema_1.EmployerProfiles.SUBSCRIPTION]);
     const expiresAt = sub[S.EXPIRES_AT] instanceof Timestamp ? sub[S.EXPIRES_AT].toMillis() : 0;
     const active = sub[S.STATUS] === "ACTIVE" && (expiresAt === 0 || expiresAt > nowMs);
-    if (active && sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN")
-        return "campaign";
     const normalCredits = Number((0, input_1.obj)(sub[S.CREDITS])[S.CREDITS_NORMAL] || 0);
     if (active && normalCredits > 0) {
         tx.update(employer.ref, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));

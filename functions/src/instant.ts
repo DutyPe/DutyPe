@@ -106,9 +106,9 @@ export const postInstantRequest = onCallSecured({}, async (raw: unknown, context
     const credits = obj(sub[S.CREDITS]);
     const freeUsed = Number(employer.get(EmployerProfiles.FREE_URGENT_POSTS_USED) || 0);
     let paid: Charge;
-    if (active && sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN") {
-      paid = "campaign";
-    } else if (freeUsed < FREE_URGENT_POSTS) {
+
+
+    if (freeUsed < FREE_URGENT_POSTS) {
       paid = "free";
       tx.update(employerRef, EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
     } else if (referralPostsLeft(employer.data(), nowMs) > 0) {

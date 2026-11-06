@@ -100,10 +100,7 @@ exports.postInstantRequest = (0, secure_callable_1.onCallSecured)({}, async (raw
         const credits = (0, input_1.obj)(sub[S.CREDITS]);
         const freeUsed = Number(employer.get(schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED) || 0);
         let paid;
-        if (active && sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN") {
-            paid = "campaign";
-        }
-        else if (freeUsed < FREE_URGENT_POSTS) {
+        if (freeUsed < FREE_URGENT_POSTS) {
             paid = "free";
             tx.update(employerRef, schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
         }

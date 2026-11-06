@@ -45,6 +45,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import timber.log.Timber
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
@@ -53,7 +58,7 @@ import com.example.dutype.ui.theme.EmployerColors
 /**
  * Airbnb-style Employer Bottom Navigation Bar.
  * - Flat, flush edge-to-edge layout with top hairline divider (0.75.dp)
- * - 4 cleanly positioned tabs: 1. Hire, 2. Post Job, 3. Services, 4. Account
+ * - 3 cleanly positioned tabs: 1. Hire, 2. Post Job, 3. Account
  * - Exact outline & filled vector icons (25.dp) modeled after Airbnb
  * - Clean typography (10.5.sp) with #222222 active and #717171 inactive
  */
@@ -65,17 +70,36 @@ fun EmployerBottomBar(
     unselectedItemColor: Color = Color(0xFF717171),
     modifier: Modifier = Modifier
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
+    var lastNavTime by remember { mutableLongStateOf(0L) }
 
     fun navigateTo(route: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastNavTime < 400L) return // Debounce rapid consecutive taps
+
+        // Lifecycle check: only navigate if screen is in RESUMED state
+        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            return
+        }
+
         if (currentRoute != route) {
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
+            lastNavTime = now
+            try {
+                if (navController.graph.findNode(route) != null) {
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                } else {
+                    Timber.w("EmployerBottomBar: route %s not found in graph", route)
                 }
-                launchSingleTop = true
-                restoreState = true
+            } catch (e: Exception) {
+                Timber.e(e, "EmployerBottomBar: navigation to %s failed", route)
             }
         }
     }
@@ -88,7 +112,7 @@ fun EmployerBottomBar(
         val isMatchingRoute: (String?) -> Boolean
     )
 
-    // Order: 1. Hire, 2. Post Job, 3. Services, 4. Account
+    // Order: 1. Hire, 2. Post Job, 3. Account
     val navTabs = listOf(
         EmployerNavTab(
             route = Routes.EMPLOYER_DASHBOARD,
@@ -108,16 +132,7 @@ fun EmployerBottomBar(
                 it?.startsWith(Routes.EMPLOYER_POST_URGENT_NEED) == true
             }
         ),
-        EmployerNavTab(
-            route = Routes.SERVICES,
-            title = "Services",
-            filledIconRes = R.drawable.ic_airbnb_nav_services_filled,
-            outlinedIconRes = R.drawable.ic_airbnb_nav_services,
-            isMatchingRoute = {
-                it == Routes.SERVICES ||
-                it?.startsWith("services") == true
-            }
-        ),
+        
         EmployerNavTab(
             route = Routes.EMPLOYER_PROFILE,
             title = stringResource(R.string.bottom_nav_account),

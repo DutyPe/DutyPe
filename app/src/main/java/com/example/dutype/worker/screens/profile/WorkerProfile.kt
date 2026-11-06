@@ -707,9 +707,7 @@ fun WorkerProfileScreen(
 
 
                 item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    com.example.dutype.components.MadeWithLoveFooter()
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
     }

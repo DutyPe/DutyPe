@@ -13,22 +13,27 @@ import {
 } from "@/lib/public-site";
 
 export const metadata: Metadata = {
-  title: "DutyPe - Expert Home Services in 60 Mins & Instant Local Hiring",
-  description: "Book background-verified pros for home cleaning, AC repair, electricians, plumbers, and appliances in 60 minutes. Or hire verified local staff with zero commission.",
+  title: "DutyPe - Find Daily Wage Work, Warehouse Jobs & Same-Day Pay Near You",
+  description: "Find verified daily wage work, same-day warehouse placement, and instant local helper gigs near you. Direct hiring with 0% commission and guaranteed same-day pay.",
   keywords: [
     ...coreSeoKeywords,
+    "how to find daily wage work",
+    "how to work for daily pay",
+    "how can warehouse workers find same-day placement jobs",
+    "where can i find daily-paying shifts",
+    "how to find gig work near me",
+    "warehouse helper jobs",
+    "daily pay jobs near me",
+    "same-day pay jobs",
+    "daily wage work near me",
     "home services khammam",
     "home services hyderabad",
-    "ac repair near me",
-    "plumber near me",
-    "electrician near me",
-    "house cleaning services",
     "instant local hiring",
     "dutype app"
   ],
   openGraph: {
-    title: "DutyPe - Expert Home Services & Local Hiring",
-    description: "Book verified home services in 60 mins or find local jobs near you.",
+    title: "DutyPe - Find Daily Wage Work, Warehouse Jobs & Same-Day Pay Near You",
+    description: "Find verified daily wage work, same-day warehouse placement, and instant local helper gigs near you. Direct hiring with 0% commission.",
     type: "website"
   }
 };
@@ -125,9 +130,80 @@ const SERVICE_CATEGORIES = [
   { id: "vehicle", name: "Vehicle Wash", icon: "car", count: "5 services" }
 ];
 
+
+const HOME_FAQS = [
+  {
+    question: "How to find daily wage work?",
+    answer: "Daily wage work can be found by directly connecting with local businesses, contractors, and retail shops looking for same-day labor. DutyPe eliminates the hassle of waiting at labor addas or dealing with middlemen by listing verified, daily-wage openings within 5 to 10 km of your location with upfront pay rates.",
+    cta: "Download the DutyPe app on the Google Play Store today to browse active daily wage jobs and start working near your home."
+  },
+  {
+    question: "How to work for daily pay?",
+    answer: "Working for daily pay involves taking on short-term gigs, loading/unloading shifts, or helper tasks where wages are disbursed at the end of each completed shift. DutyPe connects you directly to verified local employers and warehouse hubs who guarantee instant, same-day payouts directly via cash or UPI.",
+    cta: "Download the DutyPe app on the Google Play Store now to apply for daily-paying roles and secure your earnings today."
+  },
+  {
+    question: "How to find gig work near me?",
+    answer: "The quickest way to find gig work near you is to look for hyperlocal opportunities in delivery, loading, retail assistance, or event setups that match your current skills. DutyPe uses smart GPS-based matching to instantly show you verified on-demand shifts and gig tasks right in your neighborhood.",
+    cta: "Download the DutyPe app on the Google Play Store to unlock flexible local gigs and start earning on your own schedule."
+  },
+  {
+    question: "Where can I find daily-paying shifts?",
+    answer: "Daily-paying shifts are commonly available across logistics hubs, distribution centers, supermarkets, and construction projects. DutyPe aggregates all verified daily-paying shifts in your area into a single live feed, allowing you to view transparent wages, shift timings, and employer details upfront.",
+    cta: "Download the DutyPe app from the Google Play Store now to claim your first daily-paying shift today."
+  },
+  {
+    question: "How can warehouse workers find same-day placement jobs in their area?",
+    answer: "Finding same-day warehouse placement usually requires contacting multiple staffing agencies or visiting distant industrial zones in person. With DutyPe, warehouse workers can instantly discover verified packing, sorting, and loading shifts near them, skip lengthy paperwork, and get placed on the same day.",
+    cta: "Download the DutyPe app on the Google Play Store today to secure same-day warehouse shifts near you."
+  },
+  {
+    question: "How to find helpers or temporary workers near me?",
+    answer: "Finding reliable temporary workers or helpers is fastest when you post immediate requirements to a hyper-local network of active daily laborers. DutyPe enables shop owners, warehouse supervisors, and event managers to post open requirements in under 60 seconds and hire background-verified helpers with zero commissions.",
+    cta: "Download the DutyPe app from Google Play or post your requirement today to get matched with skilled local helpers within minutes."
+  },
+  {
+    question: "How to apply at Pepu Ahmedabad (or local warehousing hubs)?",
+    answer: "Applying for shifts at prominent warehousing clusters like Pepu in Ahmedabad or major distribution hubs typically requires direct recruiter links or on-site supervisor contacts. DutyPe partners with logistics employers and warehousing networks across major hubs to list instant entry-level helper, sorting, and packing shifts with zero brokerage fees.",
+    cta: "Download the DutyPe app on the Google Play Store now to view open warehouse hub shifts in Ahmedabad and get hired immediately."
+  },
+  {
+    question: "How to apply for warehouse helper jobs instantly?",
+    answer: "To apply for warehouse helper jobs instantly without resume screenings or third-party recruiters, you need a direct-contact mobile hiring platform. DutyPe lets you apply for verified warehouse helper, loader, and inventory shifts with a single tap, connecting you directly with warehouse supervisors via call or WhatsApp.",
+    cta: "Download the DutyPe app on the Google Play Store today to apply and start your warehouse job without delay."
+  },
+  {
+    question: "Do part-time jobs offer daily payouts?",
+    answer: "Yes, many part-time roles—especially in warehouse inventory handling, shop assistance, delivery, and event management—offer same-day or end-of-shift payouts. DutyPe specifically tags all part-time listings that offer daily payouts so you know exactly when and how much you will be paid before accepting a shift.",
+    cta: "Download the DutyPe app on the Google Play Store now to discover part-time jobs with guaranteed daily pay."
+  },
+  {
+    question: "How to get matched with local employers looking for immediate daily staff?",
+    answer: "Getting matched with employers who need immediate daily staff requires a real-time platform that pairs active local job seekers with urgent hiring requests. DutyPe’s location-based matching algorithm connects you instantly with nearby shops, warehouses, and contractors actively hiring for daily shifts right now.",
+    cta: "Download the DutyPe app on Google Play today and turn on availability to start receiving immediate daily job offers."
+  }
+];
+
+const homeFaqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: HOME_FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: `${faq.answer} ${faq.cta}`
+    }
+  }))
+};
+
 export default function HomePage() {
   return (
     <SiteShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeFaqSchema).replace(/</g, "\\u003c") }}
+      />
       {/* HERO SECTION: Dual Pillar (Home Services + Local Work) */}
       <section className="discovery-intro" style={{ textAlign: "center", maxWidth: 960, margin: "0 auto" }}>
         <div className="discovery-context" style={{ justifyContent: "center" }}>
@@ -382,6 +458,72 @@ export default function HomePage() {
           <Link href={PLAY_STORE_URL} className="button" style={{ background: "#ffffff", color: "#0f172a" }}>
             Post a job <SiteIcon name="arrow-up-right" />
           </Link>
+        </div>
+      </section>
+
+      {/* FREQUENTLY ASKED QUESTIONS SECTION (Optimized for Search Featured Snippets & Local Work) */}
+      <section className="discovery-section" id="faq-section" aria-labelledby="faq-heading" style={{ marginTop: 36 }}>
+        <div className="discovery-heading" style={{ textAlign: "center", maxWidth: 760, margin: "0 auto 28px" }}>
+          <span className="section-label" style={{ color: "#087f68", fontWeight: 700 }}>
+            CHOOSE WORK · SAME-DAY EARNINGS
+          </span>
+          <h2 id="faq-heading" style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.2rem)", fontWeight: 800, margin: "8px 0 10px" }}>
+            Frequently Asked Questions
+          </h2>
+          <p style={{ color: "#64748b", fontSize: "0.95rem", margin: 0, lineHeight: 1.6 }}>
+            Quick, direct answers for job seekers looking for daily wage labor, warehouse placement, and instant local hiring.
+          </p>
+        </div>
+
+        <div style={{ maxWidth: 840, margin: "0 auto", display: "grid", gap: 14 }}>
+          {HOME_FAQS.map((faq, idx) => (
+            <details
+              key={faq.question}
+              className="resource-faq-item"
+              open={idx === 0}
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                border: "1px solid #e2e8f0",
+                padding: "6px 18px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+              }}
+            >
+              <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: "1.05rem", color: "#0f172a", minHeight: 52 }}>
+                <h3 style={{ fontSize: "1.02rem", fontWeight: 700, margin: 0, display: "inline" }}>
+                  {faq.question}
+                </h3>
+                <SiteIcon name="chevron-down" />
+              </summary>
+              <div style={{ padding: "8px 4px 16px", color: "#334155", fontSize: "0.93rem", lineHeight: 1.65 }}>
+                <p style={{ margin: "0 0 10px 0" }}>{faq.answer}</p>
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ color: "#166534", fontWeight: 600, fontSize: "0.88rem" }}>
+                    {faq.cta}
+                  </span>
+                  <a
+                    href={PLAY_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="button"
+                    style={{
+                      fontSize: "0.82rem",
+                      padding: "6px 12px",
+                      background: "#087f68",
+                      color: "#ffffff",
+                      borderRadius: 6,
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    Get App <SiteIcon name="arrow-up-right" />
+                  </a>
+                </div>
+              </div>
+            </details>
+          ))}
         </div>
       </section>
 

@@ -91,10 +91,13 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAut
         }
         else {
             const S = schema_1.EmployerProfiles.Subscription;
-            const campaign = (config === null || config === void 0 ? void 0 : config.employerUnlimitedJobPostingEnabled) === true;
             tx.create(profileRef, Object.assign(Object.assign({ [schema_1.EmployerProfiles.EMPLOYER_TYPE]: employerType }, (employerType === schema_1.Values.EmployerType.COMPANY ?
                 { [schema_1.EmployerProfiles.BUSINESS_NAME]: name, [schema_1.EmployerProfiles.OWNER_NAME]: "" } :
-                { [schema_1.EmployerProfiles.OWNER_NAME]: name })), { [schema_1.EmployerProfiles.PHONE]: phone, [schema_1.EmployerProfiles.SUBSCRIPTION]: Object.assign(Object.assign({ [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "", [S.STATUS]: campaign ? "ACTIVE" : "NONE" }, (campaign ? { [S.START_AT]: now } : {})), { [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 } }), [schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED]: 0, [schema_1.EmployerProfiles.VERIFIED]: false, [schema_1.EmployerProfiles.TOTAL_HIRES]: 0, [schema_1.EmployerProfiles.BLOCKED]: false, [schema_1.EmployerProfiles.CREATED_AT]: now, [schema_1.EmployerProfiles.UPDATED_AT]: now }));
+                { [schema_1.EmployerProfiles.OWNER_NAME]: name })), { [schema_1.EmployerProfiles.PHONE]: phone, [schema_1.EmployerProfiles.SUBSCRIPTION]: {
+                    [S.PLAN_ID]: "",
+                    [S.STATUS]: "NONE",
+                    [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 },
+                }, [schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED]: 0, [schema_1.EmployerProfiles.VERIFIED]: false, [schema_1.EmployerProfiles.TOTAL_HIRES]: 0, [schema_1.EmployerProfiles.BLOCKED]: false, [schema_1.EmployerProfiles.CREATED_AT]: now, [schema_1.EmployerProfiles.UPDATED_AT]: now }));
         }
         return true;
     });

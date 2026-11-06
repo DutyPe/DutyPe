@@ -72,18 +72,32 @@ export async function notify(uid: string, notice: Notice): Promise<void> {
     const token = tokenSnap.get(UserTokens.FCM_TOKEN);
     if (typeof token !== "string" || !token) return;
     try {
+      const channelId = HIGH_PRIORITY.has(notice.type) ? "high_priority" : "low_priority";
       await admin.messaging().send({
         token,
+        notification: {
+          title,
+          body,
+        },
         data: {
           ...data,
           notificationId: ref.id,
           title,
           body,
           type: notice.type,
-          channel: HIGH_PRIORITY.has(notice.type) ? "high_priority" : "low_priority",
+          channel: channelId,
           locale,
+          targetRole: notice.role || "",
         },
-        android: { priority: "high" },
+        android: {
+          priority: "high",
+          notification: {
+            channelId,
+            priority: HIGH_PRIORITY.has(notice.type) ? "high" : "default",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
       });
     } catch (error) {
       const code = (error as { code?: string }).code || "";

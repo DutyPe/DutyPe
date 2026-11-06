@@ -225,19 +225,23 @@ function partnerEarning(b: admin.firestore.DocumentData, partnerFee: number): nu
 async function customerOf(uid: string, role: string): Promise<{ name: string; planMember: boolean }> {
   if (role === Values.Role.WORKER) {
     const w = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
-    return { name: String(w.get(WorkerProfiles.NAME) || "Customer"), planMember: false };
+    if (w.exists && w.get(WorkerProfiles.NAME)) {
+      return { name: String(w.get(WorkerProfiles.NAME)), planMember: false };
+    }
   }
   const p = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
-  const S = EmployerProfiles.Subscription;
-  const sub = (p.get(EmployerProfiles.SUBSCRIPTION) || {}) as Record<string, unknown>;
-  const exp = ms(sub[S.EXPIRES_AT]);
-  // A paid plan only (the launch campaign gives everyone free posts, not free bookings).
-  const planMember = sub[S.STATUS] === "ACTIVE" && (exp === 0 || exp > Date.now()) &&
-    Boolean(sub[S.PLAN_ID]) && sub[S.PLAN_ID] !== "UNLIMITED_CAMPAIGN";
-  return {
-    name: String(p.get(EmployerProfiles.OWNER_NAME) || p.get(EmployerProfiles.BUSINESS_NAME) || "Customer"),
-    planMember,
-  };
+  if (p.exists) {
+    const S = EmployerProfiles.Subscription;
+    const sub = (p.get(EmployerProfiles.SUBSCRIPTION) || {}) as Record<string, unknown>;
+    const exp = ms(sub[S.EXPIRES_AT]);
+    const planMember = sub[S.STATUS] === "ACTIVE" && (exp === 0 || exp > Date.now()) &&
+      Boolean(sub[S.PLAN_ID]) && sub[S.PLAN_ID] !== "UNLIMITED_CAMPAIGN";
+    const name = String(p.get(EmployerProfiles.OWNER_NAME) || p.get(EmployerProfiles.BUSINESS_NAME) || "");
+    if (name) return { name, planMember };
+  }
+  const u = await db.collection("users").doc(uid).get();
+  const userName = String(u.get("name") || u.get("displayName") || "Customer");
+  return { name: userName, planMember: false };
 }
 
 /** True when the customer has never had a booking that was not cancelled. */
@@ -415,9 +419,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
   const uid = context.auth!.uid;
   // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
   const role = String(context.auth?.token.role || "");
-  if (role !== Values.Role.EMPLOYER && role !== Values.Role.WORKER) {
-    fail("permission-denied", "Finish registration to book services");
-  }
+  // Anyone with a verified DutyPe account can book home services
   let phone = e164(context.auth?.token.phone_number);
   if (!phone) {
     const uSnap = await db.collection("users").doc(uid).get();
@@ -432,10 +434,16 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
   if (!service || !ACTIVE_CUSTOMER_CATEGORY_IDS.has(service.category)) {
     fail("not-found", "This service is currently paused or not available in Khammam");
   }
+  const originalCatalogPrice = service.price;
   const clientPrice = Number(data.clientPrice || data.servicePrice);
-  if (Number.isFinite(clientPrice)) {
+  const hasCustomPrice = Number.isFinite(clientPrice) && clientPrice > 0;
+  if (hasCustomPrice) {
     if (clientPrice < 49) {
       fail("invalid-argument", "Custom price cannot be less than ₹49");
+    }
+    const maxDiff = 50;
+    if (clientPrice < originalCatalogPrice - maxDiff) {
+      fail("invalid-argument", `Custom price cannot be lower than ₹${originalCatalogPrice - maxDiff} (maximum ₹50 discount from catalog price ₹${originalCatalogPrice})`);
     }
     service.price = Math.round(clientPrice);
   }
@@ -484,12 +492,30 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
   const who = await customerOf(uid, role);
   const customerName = who.name;
   const firstBooking = await isFirstBooking(uid);
-  const q = quote(config, service, firstBooking, str(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
-  if (q.couponError) fail("failed-precondition", q.couponError);
+  // When custom price is chosen, coupons cannot be applied and platform service fee is charged!
+  const effectiveCoupon = hasCustomPrice ? "" : str(data, "couponCode", { max: 20, optional: true });
+  const q = quote(config, service, firstBooking, effectiveCoupon, now, who.planMember);
+  if (q.couponError && !hasCustomPrice) fail("failed-precondition", q.couponError);
 
-  // Platform fee policy: 1st booking is FREE of platform fee; 2nd booking onwards requires the platform booking fee (₹9 - ₹19)
-  const isFreePlatformFee = (firstBooking && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree);
-  const effectiveBookingFee = isFreePlatformFee ? 0 : q.bookingFee;
+  // Check if admin has granted dedicated Free Platform Fee privilege to this user
+  const uDoc = await db.collection("users").doc(uid).get();
+  const hasVipFreeBooking = uDoc.get("freePlatformBooking") === true || uDoc.get("vipFreeBooking") === true;
+
+  if (q.couponCode) {
+    const rawCoupon = (config.coupons || []).find((c) => c.code === q.couponCode);
+    const targetPhone = String((rawCoupon as unknown as Record<string, unknown>)?.targetPhone || "");
+    const targetUid = String((rawCoupon as unknown as Record<string, unknown>)?.targetUid || "");
+    if (targetPhone && phone !== targetPhone && !phone.endsWith(targetPhone)) {
+      fail("permission-denied", "This coupon code is exclusive to another user account.");
+    }
+    if (targetUid && uid !== targetUid) {
+      fail("permission-denied", "This coupon code is exclusive to another user account.");
+    }
+  }
+
+  // Platform fee policy: 1st booking or VIP granted is FREE of platform fee only for standard prices; custom price always pays platform fee!
+  const isFreePlatformFee = !hasCustomPrice && (hasVipFreeBooking || (firstBooking && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree));
+  const effectiveBookingFee = isFreePlatformFee ? 0 : (q.bookingFee > 0 ? q.bookingFee : (config.bookingFee || 19));
 
   // Ensure customer has a closed-loop micro-wallet
   await ensureWallet(uid);
@@ -536,9 +562,19 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
   let remainingWalletBalanceRupees = 0;
 
   await db.runTransaction(async (tx) => {
+    const w = await readWallet(tx, uid);
+    if (w.data[Wallets.BLOCKED] === true) {
+      fail("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+    }
+    // Every service booking customer must add wallet top-up money to initiate service booking
+    if (w.balancePaise <= 0) {
+      fail(
+        "failed-precondition",
+        "LOW_WALLET_BALANCE: Please add wallet top-up money (minimum ₹50) to start your booking."
+      );
+    }
     // If platform fee is required (>0), check micro-wallet balance and auto-debit atomically
     if (effectiveBookingFee > 0) {
-      const w = await readWallet(tx, uid);
       if (w.data[Wallets.BLOCKED] === true) {
         fail("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
       }
@@ -633,10 +669,16 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10, enforceAp
   const config = await loadConfig();
   const service = findService(config, str(data, "serviceId", { max: 60 }));
   if (!service) fail("not-found", "This service is not available");
+  const originalCatalogPrice = service.price;
   const clientPrice = Number(data.clientPrice || data.servicePrice);
-  if (Number.isFinite(clientPrice)) {
+  const hasCustomPrice = Number.isFinite(clientPrice) && clientPrice > 0;
+  if (hasCustomPrice) {
     if (clientPrice < 49) {
       fail("invalid-argument", "Custom price cannot be less than ₹49");
+    }
+    const maxDiff = 50;
+    if (clientPrice < originalCatalogPrice - maxDiff) {
+      fail("invalid-argument", `Custom price cannot be lower than ₹${originalCatalogPrice - maxDiff} (maximum ₹50 discount from catalog price ₹${originalCatalogPrice})`);
     }
     service.price = Math.round(clientPrice);
   }
@@ -680,10 +722,26 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10, enforceAp
       }
     }
   }
+  const uSnap = await db.collection("users").doc(context.auth!.uid).get();
+  const hasVipFreeBooking = uSnap.get("freePlatformBooking") === true || uSnap.get("vipFreeBooking") === true;
+
+  if (q.couponCode) {
+    const rawCoupon = (config.coupons || []).find((c) => c.code === q.couponCode);
+    const targetPhone = String((rawCoupon as unknown as Record<string, unknown>)?.targetPhone || "");
+    const targetUid = String((rawCoupon as unknown as Record<string, unknown>)?.targetUid || "");
+    const userPhone = e164(context.auth?.token.phone_number) || String(uSnap.get("phone") || "");
+    if (targetPhone && userPhone !== targetPhone && !userPhone.endsWith(targetPhone)) {
+      couponError = "This coupon code is exclusive to another user account.";
+    }
+    if (targetUid && context.auth!.uid !== targetUid) {
+      couponError = "This coupon code is exclusive to another user account.";
+    }
+  }
+
   const walletSnap = await walletRef(context.auth!.uid).get();
   const walletBalPaise = Number(walletSnap.data()?.[Wallets.BALANCE_PAISE] || 0);
   const walletBalRupees = walletBalPaise / 100;
-  const isFree = (first && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree);
+  const isFree = !hasCustomPrice && (hasVipFreeBooking || (first && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree));
   const bookingFee = isFree ? 0 : q.bookingFee;
   const hasEnoughWalletBalance = isFree || walletBalPaise >= bookingFee * 100;
 

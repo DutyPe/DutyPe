@@ -36,17 +36,64 @@ function pick(pool, slot) {
     return fitting[day % fitting.length];
 }
 async function sendToTopics(baseTopic, templateId, deepLink) {
-    await Promise.all(notification_i18n_1.SUPPORTED_LOCALES.map((locale) => admin.messaging().send({
-        topic: (0, notification_i18n_1.localizedTopic)(baseTopic, locale),
+    const role = baseTopic.toUpperCase();
+    // Localized sends for each language
+    const localizedSends = notification_i18n_1.SUPPORTED_LOCALES.map((locale) => {
+        const title = (0, notification_i18n_1.tTitle)(templateId, locale, { recipient: "" }).replace(/\s+,/, ",").replace(/^(\S+) ,/, "$1,");
+        const body = (0, notification_i18n_1.tBody)(templateId, locale, {});
+        return admin.messaging().send({
+            topic: (0, notification_i18n_1.localizedTopic)(baseTopic, locale),
+            notification: {
+                title,
+                body,
+            },
+            data: {
+                type: "SMART_ENGAGEMENT",
+                title,
+                body,
+                deepLink,
+                channel: "medium_priority",
+                targetRole: role,
+            },
+            android: {
+                priority: "high",
+                notification: {
+                    channelId: "medium_priority",
+                    priority: "high",
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                },
+            },
+        }).catch((e) => functions.logger.warn(`topic ${baseTopic}_${locale} failed`, e));
+    });
+    // Base topic send (e.g., "guest_users", "workers", "employers") for clients without language suffix
+    const defaultTitle = (0, notification_i18n_1.tTitle)(templateId, notification_i18n_1.DEFAULT_LOCALE, { recipient: "" }).replace(/\s+,/, ",").replace(/^(\S+) ,/, "$1,");
+    const defaultBody = (0, notification_i18n_1.tBody)(templateId, notification_i18n_1.DEFAULT_LOCALE, {});
+    const baseSend = admin.messaging().send({
+        topic: baseTopic,
+        notification: {
+            title: defaultTitle,
+            body: defaultBody,
+        },
         data: {
             type: "SMART_ENGAGEMENT",
-            title: (0, notification_i18n_1.tTitle)(templateId, locale, { recipient: "" }).replace(/\s+,/, ",").replace(/^(\S+) ,/, "$1,"),
-            body: (0, notification_i18n_1.tBody)(templateId, locale, {}),
+            title: defaultTitle,
+            body: defaultBody,
             deepLink,
             channel: "medium_priority",
+            targetRole: role,
         },
-        android: { priority: "normal" },
-    }).catch((e) => functions.logger.warn(`topic ${baseTopic}_${locale} failed`, e))));
+        android: {
+            priority: "high",
+            notification: {
+                channelId: "medium_priority",
+                priority: "high",
+                defaultSound: true,
+                defaultVibrateTimings: true,
+            },
+        },
+    }).catch((e) => functions.logger.warn(`base topic ${baseTopic} failed`, e));
+    await Promise.all([...localizedSends, baseSend]);
 }
 async function engagement(slot) {
     if (isQuietHours())

@@ -232,12 +232,13 @@ class MainActivity : ComponentActivity() {
                 if (FirebaseAuth.getInstance().currentUser == null) {
                     fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                     fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
+                    fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_ALL_USERS)
+                    fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_ALL_USERS)
                 } else {
                     fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                     fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
                 }
             }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
-
         }
 
         // Initialize AdMob asynchronously using applicationContext off the startup critical path

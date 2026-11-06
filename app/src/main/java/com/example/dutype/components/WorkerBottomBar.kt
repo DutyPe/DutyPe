@@ -35,6 +35,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import timber.log.Timber
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
@@ -56,8 +61,10 @@ fun WorkerBottomBar(
     unselectedItemColor: Color = Color(0xFF717171),
     modifier: Modifier = Modifier
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
+    var lastNavTime by remember { mutableLongStateOf(0L) }
 
     data class WorkerNavTab(
         val route: String,
@@ -145,7 +152,16 @@ fun WorkerBottomBar(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                onClick = { navigateToWorkerTab(navController, tab.route) }
+                                onClick = {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastNavTime < 400L) return@clickable
+                                    if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                        return@clickable
+                                    }
+                                    if (tab.isMatchingRoute(currentRoute)) return@clickable
+                                    lastNavTime = now
+                                    navigateToWorkerTab(navController, tab.route)
+                                }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -184,17 +200,34 @@ fun WorkerBottomBar(
  * Switch worker tabs (Home / Jobs / My Jobs / Account) cleanly from the bottom bar.
  */
 fun navigateToWorkerTab(navController: NavController, route: String, restoreState: Boolean = true) {
-    val startId = navController.graph.findStartDestination().id
-    if (route == WorkerBottomRoutes.HOME) {
-        if (!navController.popBackStack(startId, inclusive = false, saveState = true)) {
-            navController.navigate(route) { launchSingleTop = true }
+    try {
+        if (navController.graph.findNode(route) != null) {
+            val startId = navController.graph.findStartDestination().id
+            if (route == WorkerBottomRoutes.HOME) {
+                if (!navController.popBackStack(startId, inclusive = false, saveState = true)) {
+                    navController.navigate(route) { launchSingleTop = true }
+                }
+                return
+            }
+            val shouldRestore = restoreState && (route != WorkerBottomRoutes.JOBS)
+            navController.navigate(route) {
+                popUpTo(startId) { saveState = true }
+                launchSingleTop = true
+                this.restoreState = shouldRestore
+            }
+            return
         }
-        return
+    } catch (e: Exception) {
+        Timber.w(e, "navigateToWorkerTab: inner graph navigation check failed for %s", route)
     }
-    val shouldRestore = restoreState && (route != WorkerBottomRoutes.JOBS)
-    navController.navigate(route) {
-        popUpTo(startId) { saveState = true }
-        launchSingleTop = true
-        this.restoreState = shouldRestore
+
+    // Fallback: If route is not in this navController's graph (e.g. called from rootNavController/MainNavGraph):
+    try {
+        com.example.dutype.navigation.WorkerInnerNavQueue.setPending(route)
+        navController.navigate(com.example.dutype.navigation.Routes.WORKER_HOME) {
+            launchSingleTop = true
+        }
+    } catch (e: Exception) {
+        Timber.e(e, "navigateToWorkerTab: fallback navigation to WORKER_HOME failed for %s", route)
     }
 }

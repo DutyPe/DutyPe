@@ -273,18 +273,15 @@ export const getWorkerContact = onCallSecured({}, async (raw: unknown, context) 
     const expiresAt = (sub[S.EXPIRES_AT] as admin.firestore.Timestamp)?.toMillis?.() ?? Number(sub[S.EXPIRES_AT] || 0);
 
     const isSubActive = subStatus === "ACTIVE" && (expiresAt === 0 || expiresAt > Date.now());
-    const isUnlimited = isSubActive && planId === "UNLIMITED_CAMPAIGN";
     const hasUnlocks = isSubActive && instantCredits > 0;
 
-    if (!isUnlimited && !hasUnlocks) {
+    if (!hasUnlocks) {
       fail("failed-precondition", "No contact unlocks remaining. Please upgrade your subscription plan.");
     }
 
-    if (!isUnlimited && hasUnlocks) {
-      await empDoc.ref.update({
+    await empDoc.ref.update({
         [`${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`]: FieldValue.increment(-1),
       });
-    }
 
     await unlockRef.set({
       [EmployerProfiles.Unlocks.JOB_ID]: jobId,

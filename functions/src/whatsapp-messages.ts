@@ -245,6 +245,8 @@ export const sendWhatsappEmployerBroadcast = onCallSecured(
     const defaultName = str(data, "name", { max: 80, optional: true }) || "Sir/Madam";
     const defaultCity = str(data, "city", { max: 80, optional: true }) || "Khammam";
     const postJobUrl = str(data, "postJobUrl", { max: 200, optional: true }) || "https://dutype.in/employer/post-job";
+    const headerType = str(data, "headerType", { max: 30, optional: true }) || "AUTO";
+    const headerImageUrl = str(data, "headerImageUrl", { max: 500, optional: true });
     const customPhones = Array.isArray(data.customPhones)
       ? (data.customPhones as unknown[]).map((p) => String(p ?? "").trim()).filter(Boolean)
       : [];
@@ -266,17 +268,41 @@ export const sendWhatsappEmployerBroadcast = onCallSecured(
       if (dryRun) {
         return { ok: true, dryRun: true, phone: formatted, template, params };
       }
-      let res = await sendWaTemplate(formatted, template, lang, params);
+
+      const shouldIncludeHeader = headerType === "IMAGE" ||
+        (headerType === "AUTO" && (!!headerImageUrl || template === "dutype_employer_quick_hire" || template.includes("quick_hire")));
+
+      const defaultBanner = lang === "te"
+        ? "https://dutype-860ac.web.app/dutype_branded_marketing_banner_telugu.jpg"
+        : "https://dutype-860ac.web.app/dutype_branded_marketing_banner.jpg";
+      const activeHeaderUrl = headerImageUrl || defaultBanner;
+
+      let sendOpts = shouldIncludeHeader ? { headerImageUrl: activeHeaderUrl } : undefined;
+      let res = await sendWaTemplate(formatted, template, lang, params, process.env, sendOpts);
+
+      // Auto-fallback if Meta reports 132012 (header format mismatch)
+      if (!res.ok && res.error && (res.error.includes("132012") || res.error.includes("header"))) {
+        if (sendOpts?.headerImageUrl) {
+          functions.logger.warn("WhatsApp 132012 header mismatch, auto-retrying without header...");
+          sendOpts = undefined;
+          res = await sendWaTemplate(formatted, template, lang, params, process.env, undefined);
+        } else {
+          functions.logger.warn("WhatsApp 132012 header mismatch, auto-retrying with image header...");
+          sendOpts = { headerImageUrl: activeHeaderUrl };
+          res = await sendWaTemplate(formatted, template, lang, params, process.env, sendOpts);
+        }
+      }
+
       // Auto-fallback if Meta reports 132000 (parameter count mismatch)
       if (!res.ok && res.error && res.error.includes("132000")) {
         functions.logger.warn("WhatsApp 132000 parameter mismatch, auto-retrying with 0 parameters (static template)...");
-        const retryRes0 = await sendWaTemplate(formatted, template, lang, []);
+        const retryRes0 = await sendWaTemplate(formatted, template, lang, [], process.env, sendOpts);
         if (retryRes0.ok) {
           res = retryRes0;
           params = [];
         } else if (params.length !== 1) {
           functions.logger.warn("WhatsApp 132000 parameter mismatch, auto-retrying with 1 parameter (name only)...");
-          const retryRes1 = await sendWaTemplate(formatted, template, lang, [defaultName]);
+          const retryRes1 = await sendWaTemplate(formatted, template, lang, [defaultName], process.env, sendOpts);
           if (retryRes1.ok) {
             res = retryRes1;
             params = [defaultName];
@@ -574,14 +600,41 @@ export const sendWhatsappEmployerBroadcast = onCallSecured(
             params = [t.name, t.city];
           }
 
-          let r = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, params);
+          const shouldIncludeHeader = headerType === "IMAGE" ||
+            (headerType === "AUTO" && (!!headerImageUrl || recipientTemplate === "dutype_employer_quick_hire" || recipientTemplate.includes("quick_hire")));
+
+          const defaultBanner = recipientLang === "te"
+            ? "https://dutype-860ac.web.app/dutype_branded_marketing_banner_telugu.jpg"
+            : "https://dutype-860ac.web.app/dutype_branded_marketing_banner.jpg";
+          const activeHeaderUrl = headerImageUrl || defaultBanner;
+
+          let sendOpts = shouldIncludeHeader ? { headerImageUrl: activeHeaderUrl } : undefined;
+          let r = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, params, process.env, sendOpts);
+
+          // Auto-fallback if Meta reports 132012 (header format mismatch)
+          if (!r.ok && r.error && (r.error.includes("132012") || r.error.includes("header"))) {
+            if (sendOpts?.headerImageUrl) {
+              const retryNoHeader = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, params, process.env, undefined);
+              if (retryNoHeader.ok) {
+                r = retryNoHeader;
+                sendOpts = undefined;
+              }
+            } else {
+              const retryWithHeader = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, params, process.env, { headerImageUrl: activeHeaderUrl });
+              if (retryWithHeader.ok) {
+                r = retryWithHeader;
+                sendOpts = { headerImageUrl: activeHeaderUrl };
+              }
+            }
+          }
+
+          // Auto-fallback if Meta reports 132000 (parameter count mismatch)
           if (!r.ok && r.error && r.error.includes("132000")) {
-            // Auto retry with 0 params or 1 param
-            const retry0 = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, []);
+            const retry0 = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, [], process.env, sendOpts);
             if (retry0.ok) {
               r = retry0;
             } else {
-              const retry1 = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, [t.name]);
+              const retry1 = await sendWaTemplate(t.phone, recipientTemplate, recipientLang, [t.name], process.env, sendOpts);
               if (retry1.ok) r = retry1;
             }
           }

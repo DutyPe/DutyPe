@@ -974,15 +974,13 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Fetch unread notification count after initial load
+    // Fetch unread notification count after initial load (both signed-in and guest users)
     LaunchedEffect(currentUser) {
-        currentUser?.uid?.let { userId ->
-            delay(3000)
-            try {
-                unreadNotificationCount = notificationRepository.unreadCount()
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to fetch unread notification count")
-            }
+        delay(2000)
+        try {
+            unreadNotificationCount = notificationRepository.unreadCount()
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to fetch unread notification count")
         }
     }
 
@@ -1326,13 +1324,11 @@ fun WorkerHomeScreen(
                                             isLocationLoading = isLocationLoading && currentLocation == null,
                                             unreadNotificationCount = unreadNotificationCount,
                                             onNotificationClick = {
-                                                currentUser?.uid?.let { userId ->
-                                                    scope.launch {
-                                                        try {
-                                                            unreadNotificationCount = notificationRepository.unreadCount()
-                                                        } catch (e: Exception) {
-                                                            Timber.w(e, "Failed to fetch unread notification count")
-                                                        }
+                                                scope.launch {
+                                                    try {
+                                                        unreadNotificationCount = notificationRepository.unreadCount()
+                                                    } catch (e: Exception) {
+                                                        Timber.w(e, "Failed to fetch unread notification count")
                                                     }
                                                 }
                                                 navController.navigate(Routes.WORKER_NOTIFICATIONS)

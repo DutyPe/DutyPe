@@ -1,9 +1,11 @@
 package com.example.dutype.notifications
 
+import android.content.Context
 import com.example.dutype.firestore.FirestoreSchema.Notifications
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,12 +14,16 @@ import javax.inject.Singleton
 @Singleton
 class NotificationRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    @ApplicationContext private val context: Context
 ) {
-    /** Unread badge count: one aggregation read, no documents downloaded. */
+    /** Unread badge count: returns server unread for signed in users, local store count for guests. */
     suspend fun unreadCount(): Int {
-        val uid = auth.currentUser?.uid ?: return 0
-        return runCatching {
+        val uid = auth.currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            return LocalNotificationStore.getUnreadCount(context)
+        }
+        val serverCount = runCatching {
             firestore.collection(Notifications.COLLECTION)
                 .whereEqualTo(Notifications.RECIPIENT_ID, uid)
                 .whereEqualTo(Notifications.READ, false)
@@ -26,5 +32,9 @@ class NotificationRepository @Inject constructor(
                 .await()
                 .count.toInt()
         }.getOrDefault(0)
+
+        // Also check any unread local broadcast push notifications
+        val localCount = LocalNotificationStore.getUnreadCount(context)
+        return serverCount + localCount
     }
 }

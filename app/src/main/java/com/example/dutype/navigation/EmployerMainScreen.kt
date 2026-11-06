@@ -197,8 +197,7 @@ fun EmployerMainScreen(
                 return when {
                     base == Routes.EMPLOYER_DASHBOARD || base == Routes.EMPLOYER_HOME || base.startsWith("employer_dashboard") -> 0
                     base == Routes.EMPLOYER_POST_JOB || base.startsWith(Routes.EMPLOYER_POST_JOB) || base.startsWith(Routes.EMPLOYER_POST_URGENT_NEED) -> 1
-                    base == Routes.SERVICES || base.startsWith("services") -> 2
-                    base == Routes.EMPLOYER_PROFILE || base.startsWith("employer_profile") -> 3
+                    base == Routes.EMPLOYER_PROFILE || base.startsWith("employer_profile") -> 2
                     else -> -1
                 }
             }

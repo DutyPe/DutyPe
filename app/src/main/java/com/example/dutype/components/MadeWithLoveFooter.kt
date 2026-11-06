@@ -44,28 +44,32 @@ fun ProfileFollowUsRow(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isDark = com.example.dutype.ui.theme.LocalDarkMode.current
+    val itemTextColor = if (isDark) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)
+    val itemIconTint = if (isDark) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF2B2B2B)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.5.dp, vertical = 13.dp),
+            .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_profile_globe),
                 contentDescription = null,
-                tint = Color(0xFF717171).fg(),
-                modifier = Modifier.size(20.dp)
+                tint = itemIconTint,
+                modifier = Modifier.size(24.dp)
             )
+            Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = "Follow us",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF222222).fg()
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.Normal,
+                color = itemTextColor
             )
         }
 
@@ -135,38 +139,39 @@ fun ProfileFollowUsRow(
  */
 @Composable
 fun MadeWithLoveFooter(
-    modifier: Modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 32.dp)
+    modifier: Modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 26.dp, bottom = 35.dp)
 ) {
-    val lightGray = Color(0xFFCBD5E1)
+    val isDark = com.example.dutype.ui.theme.LocalDarkMode.current
+    val brandTextColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF334155)
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
             text = "India's #1",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Black,
-            color = lightGray,
-            lineHeight = 36.sp,
+            fontSize = 35.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = brandTextColor,
+            lineHeight = 39.sp,
             letterSpacing = (-0.8).sp
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(3.dp))
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "local jobs app",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
-                color = lightGray,
+                fontSize = 31.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = brandTextColor,
                 letterSpacing = (-0.8).sp
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(9.dp))
             Icon(
                 imageVector = Icons.Filled.Favorite,
                 contentDescription = "DutyPe Blue Heart",
-                tint = Color(0xFF38BDF8).copy(alpha = 0.85f),
-                modifier = Modifier.size(28.dp)
+                tint = Color(0xFFEF4444),
+                modifier = Modifier.size(31.dp)
             )
         }
     }

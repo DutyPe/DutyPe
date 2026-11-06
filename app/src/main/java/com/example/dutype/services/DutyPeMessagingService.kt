@@ -184,6 +184,24 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             ?.hashCode()
             ?: System.currentTimeMillis().toInt()
 
+        // Cache notification locally so in-app inbox displays it (for guest users and topic broadcasts)
+        try {
+            val notifData = com.example.dutype.models.NotificationData(
+                id = data["notificationId"]?.takeIf { it.isNotBlank() } ?: java.util.UUID.randomUUID().toString(),
+                recipientId = runCatching { auth.currentUser?.uid.orEmpty() }.getOrDefault(""),
+                title = title,
+                message = body,
+                type = runCatching { com.example.dutype.models.NotificationType.valueOf(type) }.getOrDefault(com.example.dutype.models.NotificationType.GENERAL),
+                targetRole = data["targetRole"].orEmpty(),
+                data = if (deepLink != null) data + ("deepLink" to deepLink) else data,
+                createdAt = System.currentTimeMillis(),
+                isRead = false
+            )
+            com.example.dutype.notifications.LocalNotificationStore.addNotification(this, notifData)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to cache notification locally in LocalNotificationStore")
+        }
+
         // Create pending intent for deep link
         val intent = createDeepLinkIntent(deepLink, notificationId)
         val pendingIntent = PendingIntent.getActivity(

@@ -233,8 +233,10 @@
     <string name="select_role_subheadline">యాప్‌ని ఎలా ఉపయోగించాలో ఎంచుకోండి</string>
     <string name="select_role_looking_for_work">నాకు పని కావాలి</string>
     <string name="select_role_worker_desc">సమీప ఉద్యోగాలు &amp; రోజువారీ పనులు</string>
-    <string name="select_role_want_to_hire">నాకు మనిషి / ఇంటి సేవ కావాలి</string>
-    <string name="select_role_employer_desc">సిబ్బందిని నియమించుకోండి లేదా సర్వీసులు బుక్ చేయండి</string>
+    <string name="select_role_want_to_hire">నాకు వర్కర్లు కావాలి</string>
+    <string name="select_role_employer_desc">సిబ్బందిని నియమించుకోండి &amp; 0% కమిషన్‌తో ఉద్యోగాలు పోస్ట్ చేయండి</string>
+    <string name="select_role_home_services">ఇంటి సర్వీసులు</string>
+    <string name="select_role_home_services_desc">క్లీనింగ్, రిపేర్లు &amp; మెయింటెనెన్స్ సర్వీసులు బుక్ చేయండి</string>
     <string name="auth_enter_mobile_number">మీ నంబర్ నమోదు చేయండి</string>
     <string name="auth_we_will_send_otp">మేము 6 అంకెల OTP పంపుతాము</string>
     <string name="auth_or_divider">లేదా</string>

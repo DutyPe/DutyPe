@@ -27,7 +27,7 @@ const DEFAULTS: ReferralConfig = {
   signupBonus: 25,
   employerSignupBonus: 10,
   employerSignupBonusEnabled: true,
-  employerUnlimitedJobPostingEnabled: true,
+  employerUnlimitedJobPostingEnabled: false,
   welcomeBonusCampaignId: "welcome_bonus_v1",
   minWithdrawal: 50,
   maxWithdrawalPerDay: 1000,

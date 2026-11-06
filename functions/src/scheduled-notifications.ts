@@ -13,7 +13,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { notify } from "./lib/notify";
 import {
-  NOTIFICATION_TEMPLATES, SE_EMPLOYER_POOL, SE_GUEST_POOL, SE_WORKER_POOL, SUPPORTED_LOCALES,
+  NOTIFICATION_TEMPLATES, SE_EMPLOYER_POOL, SE_GUEST_POOL, SE_WORKER_POOL, SUPPORTED_LOCALES, DEFAULT_LOCALE,
   localizedTopic, tBody, tTitle,
 } from "./notification-i18n";
 import { Applications, Jobs, Values, WorkerCards } from "./schema";
@@ -49,17 +49,67 @@ async function sendToTopics(
   templateId: keyof typeof NOTIFICATION_TEMPLATES,
   deepLink: string,
 ): Promise<void> {
-  await Promise.all(SUPPORTED_LOCALES.map((locale) => admin.messaging().send({
-    topic: localizedTopic(baseTopic, locale),
+  const role = baseTopic.toUpperCase();
+
+  // Localized sends for each language
+  const localizedSends = SUPPORTED_LOCALES.map((locale) => {
+    const title = tTitle(templateId, locale, { recipient: "" }).replace(/\s+,/, ",").replace(/^(\S+) ,/, "$1,");
+    const body = tBody(templateId, locale, {});
+    return admin.messaging().send({
+      topic: localizedTopic(baseTopic, locale),
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        type: "SMART_ENGAGEMENT",
+        title,
+        body,
+        deepLink,
+        channel: "medium_priority",
+        targetRole: role,
+      },
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "medium_priority",
+          priority: "high",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
+    }).catch((e) => functions.logger.warn(`topic ${baseTopic}_${locale} failed`, e));
+  });
+
+  // Base topic send (e.g., "guest_users", "workers", "employers") for clients without language suffix
+  const defaultTitle = tTitle(templateId, DEFAULT_LOCALE, { recipient: "" }).replace(/\s+,/, ",").replace(/^(\S+) ,/, "$1,");
+  const defaultBody = tBody(templateId, DEFAULT_LOCALE, {});
+  const baseSend = admin.messaging().send({
+    topic: baseTopic,
+    notification: {
+      title: defaultTitle,
+      body: defaultBody,
+    },
     data: {
       type: "SMART_ENGAGEMENT",
-      title: tTitle(templateId, locale, { recipient: "" }).replace(/\s+,/, ",").replace(/^(\S+) ,/, "$1,"),
-      body: tBody(templateId, locale, {}),
+      title: defaultTitle,
+      body: defaultBody,
       deepLink,
       channel: "medium_priority",
+      targetRole: role,
     },
-    android: { priority: "normal" },
-  }).catch((e) => functions.logger.warn(`topic ${baseTopic}_${locale} failed`, e))));
+    android: {
+      priority: "high",
+      notification: {
+        channelId: "medium_priority",
+        priority: "high",
+        defaultSound: true,
+        defaultVibrateTimings: true,
+      },
+    },
+  }).catch((e) => functions.logger.warn(`base topic ${baseTopic} failed`, e));
+
+  await Promise.all([...localizedSends, baseSend]);
 }
 
 async function engagement(slot: Slot): Promise<null> {

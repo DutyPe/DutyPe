@@ -494,6 +494,78 @@ fun MainNavGraph(
             )
         }
 
+        // Root-level handling for worker tab routes to prevent IllegalArgumentException when deep links
+        // (e.g. android-app://androidx.navigation/myjobs) or root navigations target worker tabs.
+        composable(
+            route = WorkerBottomRoutes.MY_JOBS,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/myjobs" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/applications" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/myjobs" }
+            )
+        ) {
+            WorkerInnerNavQueue.setPending(WorkerBottomRoutes.MY_JOBS)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        composable(
+            route = "${WorkerBottomRoutes.MY_JOBS}?applicationId={applicationId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("applicationId") {
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/myjobs?applicationId={applicationId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/applications?applicationId={applicationId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/myjobs?applicationId={applicationId}" }
+            )
+        ) { backStackEntry ->
+            val appId = backStackEntry.arguments?.getString("applicationId")
+            val targetRoute = if (!appId.isNullOrBlank()) "${WorkerBottomRoutes.MY_JOBS}?applicationId=$appId" else WorkerBottomRoutes.MY_JOBS
+            WorkerInnerNavQueue.setPending(targetRoute)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        composable(
+            route = WorkerBottomRoutes.JOBS,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/jobs" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/jobs" }
+            )
+        ) {
+            WorkerInnerNavQueue.setPending(WorkerBottomRoutes.JOBS)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        composable(
+            route = WorkerBottomRoutes.PROFILE,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/profile" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/profile" }
+            )
+        ) {
+            WorkerInnerNavQueue.setPending(WorkerBottomRoutes.PROFILE)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
         // DutyPe AI from the home-screen shortcut (deep links are handled on this navController).
         composable(
             route = Routes.DUTYPE_AI,

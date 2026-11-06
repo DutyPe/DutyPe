@@ -57,11 +57,24 @@ async function notify(uid, notice) {
         if (typeof token !== "string" || !token)
             return;
         try {
+            const channelId = HIGH_PRIORITY.has(notice.type) ? "high_priority" : "low_priority";
             await admin.messaging().send({
                 token,
+                notification: {
+                    title,
+                    body,
+                },
                 data: Object.assign(Object.assign({}, data), { notificationId: ref.id, title,
-                    body, type: notice.type, channel: HIGH_PRIORITY.has(notice.type) ? "high_priority" : "low_priority", locale }),
-                android: { priority: "high" },
+                    body, type: notice.type, channel: channelId, locale, targetRole: notice.role || "" }),
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId,
+                        priority: HIGH_PRIORITY.has(notice.type) ? "high" : "default",
+                        defaultSound: true,
+                        defaultVibrateTimings: true,
+                    },
+                },
             });
         }
         catch (error) {

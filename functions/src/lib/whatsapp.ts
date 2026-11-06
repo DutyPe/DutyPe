@@ -38,8 +38,70 @@ export function langList(raw: unknown, fallback = "en"): string[] {
   return out.length ? out : [fallback];
 }
 
-/** Meta Cloud API body for a template with plain text body parameters. */
-export function waTextTemplateBody(toE164: string, template: string, lang: string, params: unknown[]) {
+export interface WaTemplateOptions {
+  headerImageUrl?: string;
+  headerText?: string;
+  buttonUrl?: string;
+}
+
+/** Meta Cloud API body for a template with plain text body parameters and optional media/header. */
+export function waTextTemplateBody(
+  toE164: string,
+  template: string,
+  lang: string,
+  params: unknown[],
+  options?: WaTemplateOptions
+) {
+  const components: any[] = [];
+
+  // Header component if an image or text header is specified
+  if (options?.headerImageUrl) {
+    components.push({
+      type: "header",
+      parameters: [
+        {
+          type: "image",
+          image: {
+            link: options.headerImageUrl,
+          },
+        },
+      ],
+    });
+  } else if (options?.headerText) {
+    components.push({
+      type: "header",
+      parameters: [
+        {
+          type: "text",
+          text: waParam(options.headerText),
+        },
+      ],
+    });
+  }
+
+  // Body component
+  if (params && params.length) {
+    components.push({
+      type: "body",
+      parameters: params.map((p) => ({ type: "text", text: waParam(p) })),
+    });
+  }
+
+  // Button component if a dynamic URL button is specified
+  if (options?.buttonUrl) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: options.buttonUrl,
+        },
+      ],
+    });
+  }
+
   return {
     messaging_product: "whatsapp",
     to: toE164.replace(/^\+/, ""),
@@ -47,16 +109,20 @@ export function waTextTemplateBody(toE164: string, template: string, lang: strin
     template: {
       name: template,
       language: { code: lang },
-      ...(params.length ? {
-        components: [{ type: "body", parameters: params.map((p) => ({ type: "text", text: waParam(p) })) }],
-      } : {}),
+      ...(components.length ? { components } : {}),
     },
   };
 }
 
 /** Sends one template message. True when Meta accepted it. */
-export async function sendWaTemplate(toE164: string, template: string, lang: string, params: unknown[],
-  env: NodeJS.ProcessEnv = process.env): Promise<{ ok: boolean; error?: string }> {
+export async function sendWaTemplate(
+  toE164: string,
+  template: string,
+  lang: string,
+  params: unknown[],
+  env: NodeJS.ProcessEnv = process.env,
+  options?: WaTemplateOptions
+): Promise<{ ok: boolean; error?: string }> {
   if (!/^\+91[6-9]\d{9}$/.test(toE164)) return { ok: false, error: "bad_phone" };
   const version = env.WHATSAPP_API_VERSION || "v21.0";
   const url = `https://graph.facebook.com/${version}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
@@ -66,13 +132,13 @@ export async function sendWaTemplate(toE164: string, template: string, lang: str
     const res = await waNet.fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(env.WHATSAPP_TOKEN || "").trim()}` },
-      body: JSON.stringify(waTextTemplateBody(toE164, template, lang, params)),
+      body: JSON.stringify(waTextTemplateBody(toE164, template, lang, params, options)),
       signal: controller.signal,
     });
     if (res.ok) return { ok: true };
-    return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 200)}` };
+    return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 1500)}` };
   } catch (e) {
-    return { ok: false, error: String((e as Error)?.message || e).slice(0, 200) };
+    return { ok: false, error: String((e as Error)?.message || e).slice(0, 1500) };
   } finally {
     clearTimeout(timer);
   }

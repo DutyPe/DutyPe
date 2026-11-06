@@ -131,7 +131,7 @@ export const jobDirectoryCategories = [
 export type JobDirectoryCategory = (typeof jobDirectoryCategories)[number];
 
 export const jobDirectoryCities = [
-  "Hyderabad", "Bangalore", "Delhi", "Mumbai", "Vijayawada", "Warangal",
+  "Hyderabad", "Bangalore", "Delhi", "Mumbai", "Ahmedabad", "Vijayawada", "Warangal",
   "Tirupati", "Guntur", "Kakinada", "Karimnagar", "Nellore", "Anantapur",
   "Nizamabad", "Rajahmundry", "Khammam"
 ];
@@ -167,6 +167,7 @@ export const cityLandingTargets = [
   "Bangalore",
   "Delhi",
   "Mumbai",
+  "Ahmedabad",
   "Vijayawada",
   "Warangal"
 ];
@@ -290,6 +291,7 @@ const cityNames: Record<string, string> = {
   bangalore: "Bangalore",
   delhi: "Delhi",
   mumbai: "Mumbai",
+  ahmedabad: "Ahmedabad",
   vijayawada: "Vijayawada",
   warangal: "Warangal",
   anantapur: "Anantapur",
@@ -1069,6 +1071,68 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
     blocks: [
       {
         kind: "faq",
+        title: "Daily wage & same-day pay work",
+        items: [
+          {
+            question: "How to find daily wage work?",
+            answer:
+              "Daily wage work can be found by directly connecting with local businesses, contractors, and retail shops looking for same-day labor. DutyPe eliminates the hassle of waiting at labor addas or dealing with middlemen by listing verified, daily-wage openings within 5 to 10 km of your location with upfront pay rates. Download the DutyPe app on the Google Play Store today to browse active daily wage jobs and start working near your home."
+          },
+          {
+            question: "How to work for daily pay?",
+            answer:
+              "Working for daily pay involves taking on short-term gigs, loading/unloading shifts, or helper tasks where wages are disbursed at the end of each completed shift. DutyPe connects you directly to verified local employers and warehouse hubs who guarantee instant, same-day payouts directly via cash or UPI. Download the DutyPe app on the Google Play Store now to apply for daily-paying roles and secure your earnings today."
+          },
+          {
+            question: "How to find gig work near me?",
+            answer:
+              "The quickest way to find gig work near you is to look for hyperlocal opportunities in delivery, loading, retail assistance, or event setups that match your current skills. DutyPe uses smart GPS-based matching to instantly show you verified on-demand shifts and gig tasks right in your neighborhood. Download the DutyPe app on the Google Play Store to unlock flexible local gigs and start earning on your own schedule."
+          },
+          {
+            question: "Where can I find daily-paying shifts?",
+            answer:
+              "Daily-paying shifts are commonly available across logistics hubs, distribution centers, supermarkets, and construction projects. DutyPe aggregates all verified daily-paying shifts in your area into a single live feed, allowing you to view transparent wages, shift timings, and employer details upfront. Download the DutyPe app from the Google Play Store now to claim your first daily-paying shift today."
+          },
+          {
+            question: "Do part-time jobs offer daily payouts?",
+            answer:
+              "Yes, many part-time roles—especially in warehouse inventory handling, shop assistance, delivery, and event management—offer same-day or end-of-shift payouts. DutyPe specifically tags all part-time listings that offer daily payouts so you know exactly when and how much you will be paid before accepting a shift. Download the DutyPe app on the Google Play Store now to discover part-time jobs with guaranteed daily pay."
+          }
+        ]
+      },
+      {
+        kind: "faq",
+        title: "Warehouse, helper & instant placement",
+        items: [
+          {
+            question: "How can warehouse workers find same-day placement jobs in their area?",
+            answer:
+              "Finding same-day warehouse placement usually requires contacting multiple staffing agencies or visiting distant industrial zones in person. With DutyPe, warehouse workers can instantly discover verified packing, sorting, and loading shifts near them, skip lengthy paperwork, and get placed on the same day. Download the DutyPe app on the Google Play Store today to secure same-day warehouse shifts near you."
+          },
+          {
+            question: "How to find helpers or temporary workers near me?",
+            answer:
+              "Finding reliable temporary workers or helpers is fastest when you post immediate requirements to a hyper-local network of active daily laborers. DutyPe enables shop owners, warehouse supervisors, and event managers to post open requirements in under 60 seconds and hire background-verified helpers with zero commissions. Download the DutyPe app from Google Play or post your requirement today to get matched with skilled local helpers within minutes."
+          },
+          {
+            question: "How to apply at Pepu Ahmedabad (or local warehousing hubs)?",
+            answer:
+              "Applying for shifts at prominent warehousing clusters like Pepu in Ahmedabad or major distribution hubs typically requires direct recruiter links or on-site supervisor contacts. DutyPe partners with logistics employers and warehousing networks across major hubs to list instant entry-level helper, sorting, and packing shifts with zero brokerage fees. Download the DutyPe app on the Google Play Store now to view open warehouse hub shifts in Ahmedabad and get hired immediately."
+          },
+          {
+            question: "How to apply for warehouse helper jobs instantly?",
+            answer:
+              "To apply for warehouse helper jobs instantly without resume screenings or third-party recruiters, you need a direct-contact mobile hiring platform. DutyPe lets you apply for verified warehouse helper, loader, and inventory shifts with a single tap, connecting you directly with warehouse supervisors via call or WhatsApp. Download the DutyPe app on the Google Play Store today to apply and start your warehouse job without delay."
+          },
+          {
+            question: "How to get matched with local employers looking for immediate daily staff?",
+            answer:
+              "Getting matched with employers who need immediate daily staff requires a real-time platform that pairs active local job seekers with urgent hiring requests. DutyPe’s location-based matching algorithm connects you instantly with nearby shops, warehouses, and contractors actively hiring for daily shifts right now. Download the DutyPe app on Google Play today and turn on availability to start receiving immediate daily job offers."
+          }
+        ]
+      },
+      {
+        kind: "faq",
         title: "For workers",
         items: [
           {
@@ -1505,33 +1569,65 @@ export function getPublicPageMetadata(slug: string): Metadata {
 
 export function getPublicPageStructuredData(slug: string) {
   const page = resolveLegacyPage(slug);
-  if (!page || (!page.city && !page.category && slug !== "jobs-near-me")) return null;
+  if (!page) return null;
+
   const url = `${SITE_URL}/${slug}`;
   const city = page.city || page.category?.city;
+
+  const faqBlocks = page.blocks.filter((b): b is Extract<LegacyPageBlock, { kind: "faq" }> => b.kind === "faq");
+  const hasFaq = faqBlocks.length > 0;
+
+  if (!page.city && !page.category && slug !== "jobs-near-me" && !hasFaq) return null;
+
   const breadcrumbs = [
     { name: siteMeta.name, item: SITE_URL },
     { name: "Jobs", item: `${SITE_URL}/jobs` },
     ...(page.category?.city ? [{ name: `Jobs in ${city}`, item: `${SITE_URL}/jobs-in-${city!.toLowerCase()}` }] : []),
     { name: page.title, item: url }
   ];
+
+  const graphNodes: any[] = [
+    {
+      "@type": "CollectionPage",
+      "@id": url,
+      url,
+      name: page.title,
+      description: page.description,
+      inLanguage: "en-IN",
+      isPartOf: { "@type": "WebSite", name: siteMeta.name, url: SITE_URL },
+      ...(city ? { spatialCoverage: { "@type": "Place", name: city, address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "IN" } } } : {})
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb }))
+    }
+  ];
+
+  if (hasFaq) {
+    const faqEntities = faqBlocks.flatMap((group) =>
+      group.items.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.answer
+        }
+      }))
+    );
+    graphNodes.push({
+      "@type": "FAQPage",
+      "@id": `${url}#faq`,
+      url,
+      name: page.title,
+      description: page.description,
+      isPartOf: { "@type": "WebSite", name: siteMeta.name, url: SITE_URL },
+      mainEntity: faqEntities
+    });
+  }
+
   return {
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "CollectionPage",
-        "@id": url,
-        url,
-        name: page.title,
-        description: page.description,
-        inLanguage: "en-IN",
-        isPartOf: { "@type": "WebSite", name: siteMeta.name, url: SITE_URL },
-        ...(city ? { spatialCoverage: { "@type": "Place", name: city, address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "IN" } } } : {})
-      },
-      {
-        "@type": "BreadcrumbList",
-        itemListElement: breadcrumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb }))
-      }
-    ]
+    "@graph": graphNodes
   };
 }
 

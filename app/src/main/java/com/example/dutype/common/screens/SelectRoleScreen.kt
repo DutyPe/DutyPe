@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.HomeRepairService
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -86,6 +87,8 @@ private val WorkerIconBg = Color(0xFFECFDF5)
 private val WorkerIconTint = Color(0xFF10B981)
 private val EmployerIconBg = Color(0xFFEFF6FF)
 private val EmployerIconTint = Color(0xFF2563EB)
+private val ServicesIconBg = Color(0xFFF5F3FF)
+private val ServicesIconTint = Color(0xFF7C3AED)
 
 @Composable
 fun SelectRoleScreen(
@@ -121,6 +124,13 @@ fun SelectRoleScreen(
 
         fun applyRole(role: String, asGuest: Boolean = true) {
             Timber.d("🔍 Role selected: $role, asGuest: $asGuest")
+            if (role == "SERVICES") {
+                navController.navigate(Routes.SERVICES) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                    launchSingleTop = true
+                }
+                return
+            }
             val targetRole = if (role == "EMPLOYER")
                 com.example.dutype.models.UserRole.EMPLOYER
             else
@@ -221,11 +231,29 @@ fun SelectRoleScreen(
                 onClick = { selectedRole = "EMPLOYER" }
             )
 
+            Spacer(modifier = Modifier.height(14.dp))
+
+            RoleSelectCard(
+                icon = Icons.Default.HomeRepairService,
+                title = stringResource(R.string.select_role_home_services),
+                subtitle = stringResource(R.string.select_role_home_services_desc),
+                iconBg = ServicesIconBg.bg(),
+                iconTint = ServicesIconTint.fg(),
+                selected = selectedRole == "SERVICES",
+                onClick = { selectedRole = "SERVICES" }
+            )
+
             Spacer(modifier = Modifier.weight(0.85f))
+
+            val buttonText = when (selectedRole) {
+                "WORKER" -> if (isTelugu) "ఉద్యోగాలను అన్వేషించండి" else "Explore Jobs"
+                "EMPLOYER" -> if (isTelugu) "అభ్యర్థులను అన్వేషించండి" else "Explore Candidates"
+                else -> if (isTelugu) "ఇంటి సర్వీసులను చూడండి" else "Explore Home Services"
+            }
 
             ContinueButton(
                 onClick = { applyRole(selectedRole, asGuest = true) },
-                buttonText = if (selectedRole == "WORKER") (if (isTelugu) "ఉద్యోగాలను అన్వేషించండి" else "Explore Jobs") else (if (isTelugu) "అభ్యర్థులను అన్వేషించండి" else "Explore Candidates")
+                buttonText = buttonText
             )
 
 

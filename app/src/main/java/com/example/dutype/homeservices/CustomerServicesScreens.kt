@@ -1,6 +1,7 @@
 package com.example.dutype.homeservices
 
 import androidx.compose.material3.Switch
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.input.ImeAction
 import com.example.dutype.components.cascadeEnter
 import com.example.dutype.components.bouncyClickable
@@ -2387,6 +2388,7 @@ fun ServicesHomeScreen(
     var ratingBookingToPrompt by remember { mutableStateOf<ServiceBooking?>(null) }
     var ratingPromptDismissed by remember { mutableStateOf(false) }
     var showLocalitySheet by remember { mutableStateOf(false) }
+    var servicesCurrentTab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
 
     val localView = androidx.compose.ui.platform.LocalView.current
     if (!localView.isInEditMode) {
@@ -2584,13 +2586,32 @@ fun ServicesHomeScreen(
         isServiceHoursClosedNow(bypassForTesting = isTesting)
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF7F7F7).bg())
-    ) {
-        LazyColumn(
-            state = listState,
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color(0xFFF7F7F7).bg(),
+        bottomBar = {
+            HomeServicesBottomBar(
+                selectedTab = servicesCurrentTab,
+                onTabSelected = { servicesCurrentTab = it },
+                activeBookingsCount = bookings.count { it.isOpen },
+                lang = lang
+            )
+        }
+    ) { scaffoldPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = scaffoldPadding.calculateBottomPadding())
+        ) {
+            when (servicesCurrentTab) {
+                0 -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFF7F7F7).bg())
+                    ) {
+                        LazyColumn(
+                            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
@@ -2608,10 +2629,10 @@ fun ServicesHomeScreen(
                         city = c.city,
                         userLocation = userLocation,
                         onLocationClick = { showLocalitySheet = true },
-                        onBookingsClick = { nav.navigate(Routes.SERVICES_BOOKINGS) },
-                        onProfileClick = { runCatching { nav.navigate(Routes.EMPLOYER_PROFILE) } },
+                        onBookingsClick = { servicesCurrentTab = 1 },
+                        onProfileClick = { servicesCurrentTab = 2 },
                         walletBalanceRupees = walletBalanceRupees,
-                        onWalletClick = { nav.navigate(Routes.SERVICE_WALLET) }
+                        onWalletClick = { showWalletTopupSheet = true }
                     )
                 }
             }
@@ -3024,97 +3045,123 @@ fun ServicesHomeScreen(
                     }
                 }
 
+                // India's #1 local jobs / services brand footer
+                item(key = "services_brand_footer") {
+                    com.example.dutype.components.MadeWithLoveFooter(
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)
+                    )
+                }
+
                 // Extra bottom spacer
                 item(key = "bottom_spacer") {
-                    Spacer(Modifier.height(56.dp).navigationBarsPadding())
+                    Spacer(Modifier.height(64.dp).navigationBarsPadding())
                 }
             }
-
         }
 
         // Floating Expanding Voice AI FAB (Liri AI Assistant for voice booking/hiring)
-        LiriExpandingFab(
-            onClick = {
-                nav.navigate(Routes.dutypeAiRoute(listen = true))
-            },
-            expanded = !isScrolled,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 105.dp)
-        )
-
-        if (showLocalitySheet) {
-            LocalityPickerBottomSheet(
-                currentLocation = userLocation,
-                onDismiss = { showLocalitySheet = false },
-                onUseGps = {
-                    showLocalitySheet = false
-                    viewModel.resetToGps()
-                    if (!hasLocationPermission) {
-                        permissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    }
+            LiriExpandingFab(
+                onClick = {
+                    nav.navigate(Routes.dutypeAiRoute(listen = true))
                 },
-                onSelectLocality = { name, lat, lng ->
-                    showLocalitySheet = false
-                    viewModel.setManualLocation(
-                        area = name,
-                        city = if (lat == 17.3850) "Hyderabad" else "Khammam",
-                        lat = lat,
-                        lng = lng
-                    )
-                },
-                onSearchPlaces = { query -> viewModel.searchPlaces(query) }
-            )
-        }
-
-        // Modal Bottom Sheet: Options / Variants Selector
-        variantSheetService?.let { service ->
-            VariantSelectorBottomSheet(
-                service = service,
-                onDismiss = { variantSheetService = null },
-                onSelectOption = { option ->
-                    variantSheetService = null
-                    nav.navigate(Routes.servicesBookRoute(service.id))
-                }
-            )
-        }
-
-        // Modal Bottom Sheet: Service Full Details & Inclusions
-        detailSheetService?.let { service ->
-            ServiceDetailsBottomSheet(
-                service = service,
-                lang = lang,
-                onDismiss = { detailSheetService = null },
-                onBookNow = {
-                    detailSheetService = null
-                    nav.navigate(Routes.servicesBookRoute(service.id))
-                },
-                onOptionsClick = if (service.hasMultipleOptions) {
-                    {
-                        detailSheetService = null
-                        variantSheetService = service
-                    }
-                } else null
-            )
-        }
-
-        // DutyPe Micro-Wallet Deposit Bottom Sheet
-        if (showWalletTopupSheet) {
-            MicroWalletTopupSheet(
-                currentBalanceRupees = walletBalanceRupees,
-                requiredFeeRupees = 9,
-                onDismiss = { showWalletTopupSheet = false },
-                onTopupSuccess = { showWalletTopupSheet = false },
-                navController = nav,
-                viewModel = viewModel
+                expanded = !isScrolled,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 105.dp)
             )
         }
     }
+    1 -> {
+        MyBookingsTabContent(
+            navController = nav,
+            viewModel = viewModel,
+            onBrowseServices = { servicesCurrentTab = 0 }
+        )
+    }
+    2 -> {
+        ServicesCustomerProfileTab(
+            navController = nav,
+            viewModel = viewModel,
+            walletBalanceRupees = walletBalanceRupees,
+            onTopupClick = { showWalletTopupSheet = true },
+            onLocationClick = { showLocalitySheet = true }
+        )
+    }
+}
+
+if (showLocalitySheet) {
+    LocalityPickerBottomSheet(
+        currentLocation = userLocation,
+        onDismiss = { showLocalitySheet = false },
+        onUseGps = {
+            showLocalitySheet = false
+            viewModel.resetToGps()
+            if (!hasLocationPermission) {
+                permissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
+        },
+        onSelectLocality = { name, lat, lng ->
+            showLocalitySheet = false
+            viewModel.setManualLocation(
+                area = name,
+                city = if (lat == 17.3850) "Hyderabad" else "Khammam",
+                lat = lat,
+                lng = lng
+            )
+        },
+        onSearchPlaces = { query -> viewModel.searchPlaces(query) }
+    )
+}
+
+// Modal Bottom Sheet: Options / Variants Selector
+variantSheetService?.let { service ->
+    VariantSelectorBottomSheet(
+        service = service,
+        onDismiss = { variantSheetService = null },
+        onSelectOption = { option ->
+            variantSheetService = null
+            nav.navigate(Routes.servicesBookRoute(service.id))
+        }
+    )
+}
+
+// Modal Bottom Sheet: Service Full Details & Inclusions
+detailSheetService?.let { service ->
+    ServiceDetailsBottomSheet(
+        service = service,
+        lang = lang,
+        onDismiss = { detailSheetService = null },
+        onBookNow = {
+            detailSheetService = null
+            nav.navigate(Routes.servicesBookRoute(service.id))
+        },
+        onOptionsClick = if (service.hasMultipleOptions) {
+            {
+                detailSheetService = null
+                variantSheetService = service
+            }
+        } else null
+    )
+}
+
+// DutyPe Micro-Wallet Deposit Bottom Sheet
+if (showWalletTopupSheet) {
+    MicroWalletTopupSheet(
+        currentBalanceRupees = walletBalanceRupees,
+        requiredFeeRupees = 9,
+        onDismiss = { showWalletTopupSheet = false },
+        onTopupSuccess = { showWalletTopupSheet = false },
+        navController = nav,
+        viewModel = viewModel
+    )
+}
+}
+}
 }
 
 @Composable
@@ -4354,13 +4401,10 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     var isCustomPriceEnabled by remember { mutableStateOf(false) }
     var customPriceInput by remember { mutableStateOf("") }
     var showLoginSheet by remember { mutableStateOf(false) }
+    var showQuickProfileSheet by remember { mutableStateOf(false) }
     val parsedCustomPrice = customPriceInput.toIntOrNull()
     val basePriceForLimit = catalog?.services?.firstOrNull { it.id == serviceId }?.price ?: 0
-    val maxDiffAllowed = when {
-        basePriceForLimit <= 350 -> 50
-        basePriceForLimit in 351..750 -> 100
-        else -> 250
-    }
+    val maxDiffAllowed = 50
     val minAllowedPrice = maxOf(49, basePriceForLimit - maxDiffAllowed)
     val maxAllowedPrice = basePriceForLimit + maxDiffAllowed
 
@@ -4373,11 +4417,11 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
         } else if (parsedCustomPrice < 49) {
             if (lang == "te") "ధర ₹49 కంటే తక్కువ ఉండకూడదు" else "Price cannot be less than ₹49"
         } else if (parsedCustomPrice < minAllowedPrice) {
-            if (lang == "te") "ధర వ్యత్యాసం ₹$maxDiffAllowed కంటే ఎక్కువ ఉండకూడదు (కనీసం ₹$minAllowedPrice)"
-            else "Proposed price cannot be lower than ₹$minAllowedPrice (max difference ₹$maxDiffAllowed)"
+            if (lang == "te") "ధర వ్యత్యాసం గరిష్టంగా ₹50 మాత్రమే అనుమతించబడుతుంది (కనీసం ₹$minAllowedPrice)"
+            else "Maximum allowable discount is ₹50 (minimum proposed price ₹$minAllowedPrice)"
         } else if (parsedCustomPrice > maxAllowedPrice) {
-            if (lang == "te") "ధర వ్యత్యాసం ₹$maxDiffAllowed కంటే ఎక్కువ ఉండకూడదు (గరిష్టం ₹$maxAllowedPrice)"
-            else "Proposed price cannot be higher than ₹$maxAllowedPrice (max difference ₹$maxDiffAllowed)"
+            if (lang == "te") "ధర వ్యత్యాసం గరిష్టంగా ₹50 మాత్రమే అనుమతించబడుతుంది (గరిష్టం ₹$maxAllowedPrice)"
+            else "Proposed price cannot exceed ₹$maxAllowedPrice (difference within ₹50)"
         } else null
     }
 
@@ -4588,9 +4632,24 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     }
                                 } else {
                                     val walletBal = (wallet?.balancePaise ?: 0L) / 100
-                                    val isFirstFree = q?.firstBooking == true || q?.bookingFee == 0 || (c.firstBookingFeeFree && (q?.firstBooking ?: false))
-                                    val reqFee = q?.bookingFee ?: 9
-                                    if (!isFirstFree && walletBal < reqFee) {
+                                    val isFirstFree = !isCustomPriceEnabled && (q?.firstBooking == true || q?.bookingFee == 0 || (c.firstBookingFeeFree && (q?.firstBooking ?: false)))
+                                    val reqFee = if (isCustomPriceEnabled) (q?.bookingFee ?: 19) else (q?.bookingFee ?: 9)
+                                    // Requirement 3: Every service booking person must add wallet top-up money to start/confirm booking
+                                    if (walletBal <= 0) {
+                                        Toast.makeText(
+                                            context,
+                                            if (lang == "te") "బుకింగ్ ప్రారంభించడానికి దయచేసి వాలెట్ టాప్-అప్ (కనీసం ₹50) చేయండి"
+                                            else "Please add wallet money (minimum ₹50) to start your service booking",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        showWalletTopupSheet = true
+                                    } else if (!isFirstFree && walletBal < reqFee) {
+                                        Toast.makeText(
+                                            context,
+                                            if (lang == "te") "ప్లాట్‌ఫారమ్ ఫీజు ₹$reqFee కోసం దయచేసి వాలెట్ టాప్-అప్ చేయండి"
+                                            else "Please top up your wallet for ₹$reqFee booking fee",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                         showWalletTopupSheet = true
                                     } else {
                                         doBook()
@@ -4845,7 +4904,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                 ServiceScopeCard(
                                     title = service.label(lang),
                                     included = if (service.inclusions.isNotEmpty()) service.inclusions else listOf("Toilet seat, tiles scrub & mirror wipe", "Wash basin & tap descaling", "Floor disinfection & stain cleanup"),
-                                    excluded = if (service.exclusions.isNotEmpty()) service.exclusions else listOf("Acid wash & severe scale", "Ceiling / exhaust motor repair"),
+                                    excluded = if (service.exclusions.isNotEmpty()) service.exclusions else listOf("Cleaning chemicals (Harpic/acid), bucket & brush to be provided by customer", "Running water & electricity supply", "Ceiling / exhaust motor repair"),
                                     imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                                 )
                             }
@@ -5551,6 +5610,18 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
             },
             navController = navController,
             viewModel = viewModel
+        )
+    }
+
+    if (showQuickProfileSheet) {
+        ServicesQuickProfileSheet(
+            onDismiss = { showQuickProfileSheet = false },
+            detectedArea = area.ifBlank { "Wyra Road, Khammam" },
+            onSaveSuccess = { newName, newPhone, newAddr ->
+                showQuickProfileSheet = false
+                address = newAddr
+                doBook()
+            }
         )
     }
 
@@ -8418,3 +8489,663 @@ fun HomeServicesShowcase(
 }
 
 internal val NumberKeyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Home Services 3-Tab Experience & Minimal Customer Profile (Requirement 4 & 5)
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+fun HomeServicesBottomBar(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    activeBookingsCount: Int = 0,
+    lang: String = "en"
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.bg(),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Tab 0: Services
+            HomeServicesTabItem(
+                title = if (lang == "te") "సర్వీసులు" else "Services",
+                icon = Icons.Filled.HomeRepairService,
+                selected = selectedTab == 0,
+                badgeCount = 0,
+                onClick = { onTabSelected(0) }
+            )
+
+            // Tab 1: Bookings
+            HomeServicesTabItem(
+                title = if (lang == "te") "బుకింగ్స్" else "Bookings",
+                icon = Icons.Filled.EventAvailable,
+                selected = selectedTab == 1,
+                badgeCount = activeBookingsCount,
+                onClick = { onTabSelected(1) }
+            )
+
+            // Tab 2: Profile
+            HomeServicesTabItem(
+                title = if (lang == "te") "ప్రొఫైల్" else "Profile",
+                icon = Icons.Filled.Person,
+                selected = selectedTab == 2,
+                badgeCount = 0,
+                onClick = { onTabSelected(2) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeServicesTabItem(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    badgeCount: Int,
+    onClick: () -> Unit
+) {
+    val activeColor = Color(0xFF2563EB)
+    val inactiveColor = Color(0xFF64748B)
+
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = if (selected) activeColor else inactiveColor,
+                modifier = Modifier.size(24.dp)
+            )
+            if (badgeCount > 0) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEF4444),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .align(Alignment.TopEnd)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (badgeCount > 9) "9+" else badgeCount.toString(),
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = title,
+            fontSize = 11.5.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) activeColor else inactiveColor
+        )
+    }
+}
+
+@Composable
+fun MyBookingsTabContent(
+    navController: NavController,
+    viewModel: HomeServicesViewModel,
+    onBrowseServices: () -> Unit
+) {
+    val load by viewModel.bookingsLoad.collectAsState()
+    var tab by remember { mutableIntStateOf(0) }
+    val active = load.list.filter { it.isOpen }
+    val past = load.list.filterNot { it.isOpen }
+
+    LaunchedEffect(load.loaded) {
+        if (load.loaded && active.isEmpty() && past.isNotEmpty()) tab = 1
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.svc_my_bookings),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = SvcInk.fg(),
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
+
+        TabRow(
+            selectedTabIndex = tab,
+            containerColor = Color.White.bg(),
+            contentColor = Color(0xFF2563EB)
+        ) {
+            Tab(
+                selected = tab == 0,
+                onClick = { tab = 0 },
+                text = { Text(stringResource(R.string.svc_tab_active) + if (active.isNotEmpty()) " (${active.size})" else "") }
+            )
+            Tab(
+                selected = tab == 1,
+                onClick = { tab = 1 },
+                text = { Text(stringResource(R.string.svc_tab_past) + if (past.isNotEmpty()) " (${past.size})" else "") }
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        val list = if (tab == 0) active else past
+
+        when {
+            !load.loaded -> DutyPeLoadingList(rows = 4, row = { BookingRowShimmer() })
+            load.error != null && load.list.isEmpty() -> DutyPeErrorState(load.error, onRetry = null)
+            list.isEmpty() && tab == 0 -> DutyPeEmptyState(
+                icon = Icons.Filled.HomeRepairService,
+                tone = EmptyTone.BLUE,
+                art = EmptyArt.WAITING,
+                title = stringResource(R.string.svc_no_active_title),
+                message = stringResource(R.string.svc_no_active_body),
+                primary = EmptyStateAction(stringResource(R.string.svc_book_service), Icons.Filled.HomeRepairService) {
+                    onBrowseServices()
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            list.isEmpty() -> DutyPeEmptyState(
+                icon = Icons.Filled.History,
+                tone = EmptyTone.PURPLE,
+                art = EmptyArt.QUIET,
+                title = stringResource(R.string.svc_no_past_title),
+                message = stringResource(R.string.svc_no_past_body),
+                primary = EmptyStateAction(stringResource(R.string.svc_book_service), Icons.Filled.HomeRepairService) {
+                    onBrowseServices()
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(list, key = { it.id }) { b ->
+                    BookingRow(b) { navController.navigate(Routes.servicesBookingRoute(b.id)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ServicesCustomerProfileTab(
+    navController: NavController,
+    viewModel: HomeServicesViewModel,
+    walletBalanceRupees: Long,
+    onTopupClick: () -> Unit,
+    onLocationClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val lang = LocaleHelper.getLanguage(context)
+    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+    val userLocation by viewModel.userLocation.collectAsState()
+
+    val prefs = context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE)
+    val savedName = prefs.getString("cust_name", "")?.takeIf { it.isNotBlank() }
+        ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
+        ?: if (lang == "te") "డ్యూటీపే కస్టమర్" else "DutyPe Customer"
+    val userPhone = currentUser?.phoneNumber ?: prefs.getString("cust_phone", "") ?: "—"
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Customer Header Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.5.dp, Color(0xFFBFDBFE)),
+                    modifier = Modifier.size(54.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = savedName.take(1).uppercase(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1D4ED8)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = savedName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = SvcInk.fg()
+                    )
+                    Text(
+                        text = userPhone,
+                        fontSize = 13.sp,
+                        color = Color(0xFF64748B)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFECFDF5),
+                        border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            text = "✓ Verified Home Customer",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF059669),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Micro-Wallet Balance & Instant Topup Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF0F172A),
+            shadowElevation = 4.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = Color(0xFF60A5FA), modifier = Modifier.size(20.dp))
+                        Text(
+                            text = if (lang == "te") "డ్యూటీపే వాలెట్" else "DutyPe Micro-Wallet",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color.White
+                        )
+                    }
+                    Button(
+                        onClick = onTopupClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("+ Top Up", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "₹$walletBalanceRupees",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White
+                )
+                Text(
+                    text = if (lang == "te") "సర్వీస్ బుకింగ్స్ కోసం సిద్ధంగా ఉంది · 100% మనీబ్యాక్ రక్షణ" else "Ready for service bookings · 100% money-back guarantee",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF94A3B8),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+
+        // Saved Delivery Location
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .clickable(onClick = onLocationClick)
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFFEF3C7),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("📍", fontSize = 18.sp)
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (lang == "te") "సర్వీస్ ప్రాంతం (ఖమ్మం)" else "Service Location (Khammam)",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B)
+                    )
+                    Text(
+                        text = userLocation?.area?.ifBlank { "Wyra Road, Khammam" } ?: "Wyra Road, Khammam",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = SvcInk.fg()
+                    )
+                }
+                Text("Change", color = Color(0xFF2563EB), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Quick Role Switcher (Requirement 5.1: Explore Worker or Employer)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = if (lang == "te") "ఇతర పనుల కోసం డ్యూటీపే ఉపయోగించండి" else "Explore Other Roles on DutyPe",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = SvcInk.fg()
+                )
+
+                // Switch to Worker
+                OutlinedButton(
+                    onClick = { navController.navigate(Routes.WORKER_HOME) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("👷", fontSize = 18.sp)
+                            Text(
+                                text = if (lang == "te") "వర్కర్ మోడ్ (రోజువారీ పనులు)" else "Worker Mode (Daily Wage Jobs)",
+                                color = SvcInk.fg(),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Text("Switch ↗", color = Color(0xFF059669), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Switch to Employer
+                OutlinedButton(
+                    onClick = { navController.navigate(Routes.EMPLOYER_HOME) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("🏢", fontSize = 18.sp)
+                            Text(
+                                text = if (lang == "te") "ఎంప్లాయర్ మోడ్ (సిబ్బందిని నియమించండి)" else "Employer Mode (Hire Staff)",
+                                color = SvcInk.fg(),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Text("Switch ↗", color = Color(0xFF2563EB), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // WhatsApp Customer Help & Support (+91 8019151847)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFFF0FDF4),
+            border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .clickable {
+                        runCatching {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/918019151847?text=Hi%20DutyPe%2C%20I%20need%20help%20with%20Home%20Services"))
+                            context.startActivity(intent)
+                        }
+                    }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("💬", fontSize = 24.sp)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (lang == "te") "కస్టమర్ వాట్సాప్ సపోర్ట్ (+91 8019151847)" else "Customer WhatsApp Support (+91 8019151847)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF166534)
+                    )
+                    Text(
+                        text = if (lang == "te") "బుకింగ్ లేదా పార్ట్‌నర్ సమస్యలకు తక్షణ సహాయం" else "Instant help for booking & service queries",
+                        fontSize = 12.sp,
+                        color = Color(0xFF15803D)
+                    )
+                }
+                Text("Chat ↗", color = Color(0xFF16A34A), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+
+        // Follow us on Flat Menu Card (Instagram & WhatsApp Community)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            com.example.dutype.components.ProfileFollowUsRow()
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Quick Minimal Profile Sheet for Home Services (Requirement 5.2)
+// ══════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ServicesQuickProfileSheet(
+    onDismiss: () -> Unit,
+    detectedArea: String,
+    onSaveSuccess: (name: String, phone: String, address: String) -> Unit
+) {
+    val context = LocalContext.current
+    val lang = LocaleHelper.getLanguage(context)
+    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    val user = auth.currentUser
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    var nameInput by remember { mutableStateOf(user?.displayName.orEmpty()) }
+    var phoneInput by remember { mutableStateOf(user?.phoneNumber.orEmpty().replace("+91", "").trim()) }
+    var addressInput by remember { mutableStateOf(if (detectedArea.isNotBlank()) "Wyra Road, $detectedArea" else "Wyra Road, Khammam") }
+    var emailInput by remember { mutableStateOf(user?.email.orEmpty()) }
+    var saving by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White.bg(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = if (lang == "te") "సర్వీస్ వివరాలు" else "Quick Service Profile",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = SvcInk.fg()
+                    )
+                    Text(
+                        text = if (lang == "te") "టెక్నీషియన్ మీ ఇంటికి రావడానికి ఈ వివరాలు అవసరం" else "Required for technician visit and service dispatch",
+                        fontSize = 12.sp,
+                        color = SvcMuted.fg()
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = null, tint = SvcMuted.fg())
+                }
+            }
+
+            // Name
+            OutlinedTextField(
+                value = nameInput,
+                onValueChange = { nameInput = it },
+                label = { Text(if (lang == "te") "మీ పూర్తి పేరు" else "Your Full Name") },
+                placeholder = { Text("e.g. Ramesh Kumar") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            // Phone
+            OutlinedTextField(
+                value = phoneInput,
+                onValueChange = { phoneInput = it.filter { c -> c.isDigit() }.take(10) },
+                label = { Text(if (lang == "te") "మొబైల్ నంబర్" else "Mobile Number") },
+                prefix = { Text("+91 ", fontWeight = FontWeight.Bold) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            // Address
+            OutlinedTextField(
+                value = addressInput,
+                onValueChange = { addressInput = it },
+                label = { Text(if (lang == "te") "ఇంటి నంబర్, వీధి & లొకేషన్" else "House / Flat No, Street & Location") },
+                placeholder = { Text("e.g. Plot 14, Wyra Road, Khammam") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            // Email (Optional)
+            OutlinedTextField(
+                value = emailInput,
+                onValueChange = { emailInput = it.trim() },
+                label = { Text(if (lang == "te") "ఈమెయిల్ (ఐచ్ఛికం)" else "Email (Optional, for invoice)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Button(
+                onClick = {
+                    if (nameInput.trim().length < 2) {
+                        Toast.makeText(context, if (lang == "te") "దయచేసి మీ పేరు నమోదు చేయండి" else "Please enter your name", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (phoneInput.trim().length < 10) {
+                        Toast.makeText(context, if (lang == "te") "చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ నంబర్ అవసరం" else "Valid 10-digit mobile number required", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (addressInput.trim().length < 5) {
+                        Toast.makeText(context, if (lang == "te") "దయచేసి సర్వీస్ అడ్రస్ నమోదు చేయండి" else "Please enter service address", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    saving = true
+                    scope.launch {
+                        val uid = user?.uid
+                        if (uid != null) {
+                            runCatching {
+                                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                db.collection("users").document(uid).set(
+                                    mapOf(
+                                        "name" to nameInput.trim(),
+                                        "phone" to "+91${phoneInput.trim()}",
+                                        "email" to emailInput.trim(),
+                                        "address" to addressInput.trim(),
+                                        "area" to detectedArea.ifBlank { "Wyra Road, Khammam" },
+                                        "role" to "CUSTOMER",
+                                        "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                                    ),
+                                    com.google.firebase.firestore.SetOptions.merge()
+                                )
+                            }
+                        }
+                        val prefs = context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putString("cust_name", nameInput.trim())
+                            .putString("cust_phone", "+91${phoneInput.trim()}")
+                            .putString("cust_address", addressInput.trim())
+                            .apply()
+                        saving = false
+                        onSaveSuccess(nameInput.trim(), "+91${phoneInput.trim()}", addressInput.trim())
+                        onDismiss()
+                    }
+                },
+                enabled = !saving && nameInput.trim().length >= 2 && phoneInput.trim().length >= 10 && addressInput.trim().length >= 5,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                if (saving) {
+                    com.example.dutype.components.ButtonThreeDotsLoader()
+                } else {
+                    Text(
+                        text = if (lang == "te") "వివరాలను సేవ్ చేసి కొనసాగండి ➔" else "Save & Continue to Book ➔",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}

@@ -44,19 +44,64 @@ function langList(raw, fallback = "en") {
     const out = String(raw || fallback).split(",").map((s) => s.trim().toLowerCase()).filter((s) => /^[a-z]{2}(_[A-Z]{2})?$/i.test(s));
     return out.length ? out : [fallback];
 }
-/** Meta Cloud API body for a template with plain text body parameters. */
-function waTextTemplateBody(toE164, template, lang, params) {
+/** Meta Cloud API body for a template with plain text body parameters and optional media/header. */
+function waTextTemplateBody(toE164, template, lang, params, options) {
+    const components = [];
+    // Header component if an image or text header is specified
+    if (options === null || options === void 0 ? void 0 : options.headerImageUrl) {
+        components.push({
+            type: "header",
+            parameters: [
+                {
+                    type: "image",
+                    image: {
+                        link: options.headerImageUrl,
+                    },
+                },
+            ],
+        });
+    }
+    else if (options === null || options === void 0 ? void 0 : options.headerText) {
+        components.push({
+            type: "header",
+            parameters: [
+                {
+                    type: "text",
+                    text: waParam(options.headerText),
+                },
+            ],
+        });
+    }
+    // Body component
+    if (params && params.length) {
+        components.push({
+            type: "body",
+            parameters: params.map((p) => ({ type: "text", text: waParam(p) })),
+        });
+    }
+    // Button component if a dynamic URL button is specified
+    if (options === null || options === void 0 ? void 0 : options.buttonUrl) {
+        components.push({
+            type: "button",
+            sub_type: "url",
+            index: "0",
+            parameters: [
+                {
+                    type: "text",
+                    text: options.buttonUrl,
+                },
+            ],
+        });
+    }
     return {
         messaging_product: "whatsapp",
         to: toE164.replace(/^\+/, ""),
         type: "template",
-        template: Object.assign({ name: template, language: { code: lang } }, (params.length ? {
-            components: [{ type: "body", parameters: params.map((p) => ({ type: "text", text: waParam(p) })) }],
-        } : {})),
+        template: Object.assign({ name: template, language: { code: lang } }, (components.length ? { components } : {})),
     };
 }
 /** Sends one template message. True when Meta accepted it. */
-async function sendWaTemplate(toE164, template, lang, params, env = process.env) {
+async function sendWaTemplate(toE164, template, lang, params, env = process.env, options) {
     if (!/^\+91[6-9]\d{9}$/.test(toE164))
         return { ok: false, error: "bad_phone" };
     const version = env.WHATSAPP_API_VERSION || "v21.0";
@@ -67,15 +112,15 @@ async function sendWaTemplate(toE164, template, lang, params, env = process.env)
         const res = await exports.waNet.fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(env.WHATSAPP_TOKEN || "").trim()}` },
-            body: JSON.stringify(waTextTemplateBody(toE164, template, lang, params)),
+            body: JSON.stringify(waTextTemplateBody(toE164, template, lang, params, options)),
             signal: controller.signal,
         });
         if (res.ok)
             return { ok: true };
-        return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 200)}` };
+        return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 1500)}` };
     }
     catch (e) {
-        return { ok: false, error: String((e === null || e === void 0 ? void 0 : e.message) || e).slice(0, 200) };
+        return { ok: false, error: String((e === null || e === void 0 ? void 0 : e.message) || e).slice(0, 1500) };
     }
     finally {
         clearTimeout(timer);
