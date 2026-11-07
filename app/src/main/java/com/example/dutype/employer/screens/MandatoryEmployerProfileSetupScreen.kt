@@ -206,6 +206,14 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
 
+    androidx.activity.compose.BackHandler {
+        android.widget.Toast.makeText(
+            context,
+            "Please complete your employer profile details (Name & Location) to continue.",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
     // Dedicated location detection state
     var isDetectingLocation by remember { mutableStateOf(false) }
     var locationErrorText by remember { mutableStateOf<String?>(null) }
@@ -428,6 +436,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     EmployerProfiles.BUSINESS_NAME to if (hasShop) shopOrBusinessName.trim() else "",
                     EmployerProfiles.PHONE to userPhone,
                     EmployerProfiles.ADDRESS to businessAddress.trim(),
+                    EmployerProfiles.AREA to (detectedAreaText ?: businessAddress.take(40)),
                     EmployerProfiles.LAT to finalLat,
                     EmployerProfiles.LNG to finalLng,
                     "geohash" to geohashStr

@@ -182,4 +182,6 @@ object Routes {
 
     const val PROMO_SHOWCASE = "promo_showcase/{showcaseId}"
     fun promoShowcaseRoute(showcaseId: String): String = "promo_showcase/${android.net.Uri.encode(showcaseId)}"
+
+    const val SPIN_AND_WIN = "spin_and_win"
 }

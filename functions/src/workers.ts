@@ -17,6 +17,7 @@ import { onCallSecured } from "./secure-callable";
 import { fail, obj, str, latLng } from "./lib/input";
 import { coarse, coveringCells, decodeGeohash, distanceKm, encodeGeohash } from "./lib/geo";
 import { placeOf } from "./lib/places";
+import { ensureWallet, completeReferral } from "./referrals";
 import {
   Applications, EmployerProfiles, Idempotency, InstantRequests, Jobs, Values, WorkerCards, WorkerProfiles,
 } from "./schema";
@@ -70,6 +71,19 @@ export const onWorkerProfileWritten = functions
       return;
     }
     const before = change.before.data() || {};
+    const workerName = String(after[WorkerProfiles.NAME] || "").trim();
+    if (workerName && workerName.toLowerCase() !== "user" && workerName.length >= 3) {
+      ensureWallet(context.params.uid, Values.Role.WORKER, workerName, true).catch(() => undefined);
+      const latVal = Number(after[WorkerProfiles.LAT]);
+      const lngVal = Number(after[WorkerProfiles.LNG]);
+      const hasCoords = Number.isFinite(latVal) && Number.isFinite(lngVal) && !(latVal === 0 && lngVal === 0);
+      const hasLocation = Boolean(after[WorkerProfiles.ADDRESS] || after[WorkerProfiles.AREA]) && hasCoords;
+      if (hasLocation) {
+        completeReferral(context.params.uid, Values.Role.WORKER).catch((err) =>
+          functions.logger.warn("completeReferral worker trigger failed", err)
+        );
+      }
+    }
     const changed = WATCHED.some((p) => JSON.stringify(before[p]) !== JSON.stringify(after[p]));
     if (!changed && change.before.exists) return;
 

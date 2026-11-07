@@ -162,6 +162,17 @@ exports.onEmployerProfileWritten = functions
         await cardRef.delete();
         return;
     }
+    const employerName = String(after[schema_1.EmployerProfiles.BUSINESS_NAME] || after[schema_1.EmployerProfiles.OWNER_NAME] || "").trim();
+    if (employerName && employerName.toLowerCase() !== "user" && employerName.length >= 3) {
+        (0, referrals_1.ensureWallet)(context.params.uid, schema_1.Values.Role.EMPLOYER, employerName, true).catch(() => undefined);
+        const latVal = Number(after[schema_1.EmployerProfiles.LAT]);
+        const lngVal = Number(after[schema_1.EmployerProfiles.LNG]);
+        const hasCoords = Number.isFinite(latVal) && Number.isFinite(lngVal) && !(latVal === 0 && lngVal === 0);
+        const hasLocation = Boolean(after[schema_1.EmployerProfiles.ADDRESS] || after[schema_1.EmployerProfiles.AREA]) && hasCoords;
+        if (hasLocation) {
+            (0, referrals_1.completeReferral)(context.params.uid, schema_1.Values.Role.EMPLOYER).catch((err) => functions.logger.warn("completeReferral employer trigger failed", err));
+        }
+    }
     const card = employerCard(after);
     const before = change.before.data();
     if (before && before[schema_1.EmployerProfiles.BLOCKED] !== true &&

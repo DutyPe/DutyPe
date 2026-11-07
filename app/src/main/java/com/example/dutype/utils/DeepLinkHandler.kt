@@ -116,6 +116,10 @@ object DeepLinkHandler {
     ): Boolean {
         val trimmed = deepLinkUrl.trim()
         when {
+            trimmed == "spin" || trimmed == "spin_win" || trimmed == "spin_and_win" || trimmed == "game" -> {
+                safeNavigate(navController, Routes.SPIN_AND_WIN, "spin-and-win")
+                return true
+            }
             trimmed == "dynamic_campaign" || trimmed == "campaign" || trimmed == "dynamic_screen" || trimmed == "promo_screen" || trimmed == "ad" -> {
                 safeNavigate(navController, Routes.promoShowcaseRoute("active_campaign"), "dynamic-campaign")
                 return true

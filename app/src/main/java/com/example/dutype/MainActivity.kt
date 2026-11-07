@@ -428,33 +428,52 @@ class MainActivity : ComponentActivity() {
                             currentRoute = currentRouteForBars
                         )
 
-                        // Auto-trigger Hungr survey on Home screens if not submitted yet ("until they gives it ask")
-                        // Bug Fix 1: Wait until full-screen launch banner finishes completely before showing bottom sheet!
+                        // Auto-trigger Hungr survey after 1 MINUTE on ANY bottom nav screen if not submitted yet
+                        // (Worker Home/Jobs/Profile/My Jobs/Map, Employer Home/Jobs/Profile, or Services)
+                        // Prevents any clash with location/notification permission dialogs on cold open.
                         val mainContext = androidx.compose.ui.platform.LocalContext.current
-                        LaunchedEffect(currentRouteForBars, mainNavReady) {
-                            if (mainNavReady && (
-                                    currentRouteForBars == com.example.dutype.navigation.Routes.WORKER_HOME ||
-                                    currentRouteForBars == com.example.dutype.navigation.Routes.EMPLOYER_HOME ||
-                                    currentRouteForBars == com.example.dutype.navigation.Routes.SERVICES
-                                )) {
+                        LaunchedEffect(mainNavReady) {
+                            if (mainNavReady) {
                                 // Sync user auth completion status (guest -> login persistence)
                                 com.example.dutype.hungr.HungrSurveyTracker.checkAndSyncUser(mainContext)
 
-                                // 1. Wait if the full-screen launch banner is currently active on screen
-                                while (com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive) {
-                                    kotlinx.coroutines.delay(350L)
-                                }
+                                // Wait full 1 minute (60 seconds) so user settles and all permissions resolve
+                                kotlinx.coroutines.delay(60_000L)
 
-                                // 2. Snappy fast trigger (800ms) after home settles if survey not yet submitted
-                                if (!com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
-                                    !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession) {
-                                    kotlinx.coroutines.delay(800L)
-                                    // Ensure launch banner didn't activate in the interim
-                                    if (!com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive &&
-                                        !com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
-                                        !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession) {
-                                        com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
+                                // Check loop until user is on an eligible bottom nav screen
+                                while (true) {
+                                    val onEligibleScreen = when (currentRouteForBars) {
+                                        com.example.dutype.navigation.Routes.WORKER_HOME,
+                                        com.example.dutype.navigation.Routes.WORKER_ALL_JOBS,
+                                        com.example.dutype.navigation.Routes.WORKER_JOB_MAP,
+                                        com.example.dutype.navigation.Routes.WORKER_HISTORY,
+                                        com.example.dutype.navigation.Routes.WORKER_PROFILE_DETAILS,
+                                        com.example.dutype.navigation.Routes.EMPLOYER_HOME,
+                                        com.example.dutype.navigation.Routes.EMPLOYER_DASHBOARD,
+                                        com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS,
+                                        com.example.dutype.navigation.Routes.EMPLOYER_PROFILE,
+                                        com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS,
+                                        com.example.dutype.navigation.Routes.SERVICES,
+                                        com.example.dutype.navigation.Routes.SERVICES_BOOKINGS -> true
+                                        else -> false
                                     }
+
+                                    if (onEligibleScreen &&
+                                        !com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive &&
+                                        !com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
+                                        !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession
+                                    ) {
+                                        com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
+                                        break
+                                    }
+
+                                    if (com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) ||
+                                        com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession
+                                    ) {
+                                        break
+                                    }
+
+                                    kotlinx.coroutines.delay(2000L)
                                 }
                             }
                         }

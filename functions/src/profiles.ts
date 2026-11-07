@@ -17,7 +17,7 @@ import * as admin from "firebase-admin";
 import { onCallSecured } from "./secure-callable";
 import { fail, obj, str, oneOf } from "./lib/input";
 import { getReferralConfig } from "./app-config";
-import { ensureWallet, registerReferral } from "./referrals";
+import { ensureWallet, registerReferral, completeReferral } from "./referrals";
 import {
   Applications, EmployerCards, EmployerProfiles, Jobs, OtpCodes, PhoneRoles, ReferralCodes, SavedJobs, UserTokens, Values,
   Wallets, WorkerProfiles,
@@ -177,6 +177,19 @@ export const onEmployerProfileWritten = functions
     if (!after || after[EmployerProfiles.BLOCKED] === true) {
       await cardRef.delete();
       return;
+    }
+    const employerName = String(after[EmployerProfiles.BUSINESS_NAME] || after[EmployerProfiles.OWNER_NAME] || "").trim();
+    if (employerName && employerName.toLowerCase() !== "user" && employerName.length >= 3) {
+      ensureWallet(context.params.uid, Values.Role.EMPLOYER, employerName, true).catch(() => undefined);
+      const latVal = Number(after[EmployerProfiles.LAT]);
+      const lngVal = Number(after[EmployerProfiles.LNG]);
+      const hasCoords = Number.isFinite(latVal) && Number.isFinite(lngVal) && !(latVal === 0 && lngVal === 0);
+      const hasLocation = Boolean(after[EmployerProfiles.ADDRESS] || after[EmployerProfiles.AREA]) && hasCoords;
+      if (hasLocation) {
+        completeReferral(context.params.uid, Values.Role.EMPLOYER).catch((err) =>
+          functions.logger.warn("completeReferral employer trigger failed", err)
+        );
+      }
     }
     const card = employerCard(after);
     const before = change.before.data();

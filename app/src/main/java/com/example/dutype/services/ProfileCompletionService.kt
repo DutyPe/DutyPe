@@ -247,12 +247,14 @@ class ProfileCompletionService @Inject constructor(
         val WORKER_EDITABLE = setOf(
             WorkerProfiles.NAME, WorkerProfiles.PHOTO_URL, WorkerProfiles.GENDER, WorkerProfiles.DATE_OF_BIRTH,
             WorkerProfiles.EDUCATION, WorkerProfiles.EXPERIENCE_YEARS, WorkerProfiles.SKILLS, WorkerProfiles.BIO,
-            WorkerProfiles.ADDRESS, WorkerProfiles.AREA, WorkerProfiles.LAT, WorkerProfiles.LNG, WorkerProfiles.AVAILABLE
+            WorkerProfiles.ADDRESS, WorkerProfiles.AREA, WorkerProfiles.LAT, WorkerProfiles.LNG, WorkerProfiles.AVAILABLE,
+            "geohash", "aadhaarMasked", "aadhaarLast4", "aadhaarVerified", "isAadhaarVerified", "aadhaarVerifiedAt",
+            "verifiedLegalName", "verifiedGender", "verificationSource"
         )
         val EMPLOYER_EDITABLE = setOf(
             EmployerProfiles.EMPLOYER_TYPE, EmployerProfiles.OWNER_NAME, EmployerProfiles.BUSINESS_NAME,
             EmployerProfiles.PHOTO_URL, EmployerProfiles.ADDRESS, EmployerProfiles.AREA,
-            EmployerProfiles.LAT, EmployerProfiles.LNG
+            EmployerProfiles.LAT, EmployerProfiles.LNG, "geohash"
         )
     }
 }

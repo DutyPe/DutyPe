@@ -39,7 +39,7 @@ const { FieldValue, Timestamp } = admin.firestore;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REFERRAL_EXPIRY_MS = 30 * DAY_MS;
 const MAX_REFERRALS_PER_HOUR = 10;
-const MAX_WITHDRAWALS_PER_DAY = 5;
+const MAX_WITHDRAWALS_PER_DAY = 2;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Job-post credits an employer earns at these successful-referral counts. */
 const EMPLOYER_CREDIT_MILESTONES = { 5: 5, 10: 10, 25: 25 };
@@ -361,18 +361,23 @@ async function registerReferral(uid, rawCode, providedPhone, providedName) {
         if (cleanReferrerPhone && cleanRefereePhone && cleanReferrerPhone === cleanRefereePhone) {
             return "You cannot refer an account with the same phone number";
         }
-        const bonusEventId = `referral_${uid}_referee`;
-        const rewardEventId = `referral_${uid}_referrer`;
+        // Anti-fraud: Prevent duplicate referral redemption by the same phone number
+        if (cleanRefereePhone) {
+            const duplicatePhoneSnap = await db.collection(schema_1.Referrals.COLLECTION)
+                .where("refereePhone", "==", refereePhone)
+                .limit(1)
+                .get();
+            if (!duplicatePhoneSnap.empty && duplicatePhoneSnap.docs[0].id !== uid) {
+                return "This mobile number has already redeemed a referral code";
+            }
+        }
         const txResult = await db.runTransaction(async (tx) => {
-            var _a;
             const ref = db.collection(schema_1.Referrals.COLLECTION).doc(uid);
-            const [existing, referrerWallet, refereeWallet, referrerRefDoc, bonusEntry, rewardEntry] = await Promise.all([
+            const [existing, referrerWallet, refereeWallet, referrerRefDoc] = await Promise.all([
                 tx.get(ref),
                 readWallet(tx, referrerUid),
                 readWallet(tx, uid),
                 tx.get(db.collection(schema_1.Referrals.COLLECTION).doc(referrerUid)),
-                tx.get((0, exports.ledgerRef)(bonusEventId)),
-                tx.get((0, exports.ledgerRef)(rewardEventId)),
             ]);
             if (existing.exists) {
                 if (existing.get(schema_1.Referrals.CODE) === code) {
@@ -401,45 +406,21 @@ async function registerReferral(uid, rawCode, providedPhone, providedName) {
                     [schema_1.Wallets.UPDATED_AT]: Timestamp.now(),
                 }, { merge: true });
             }
+            // Referrals always start as PENDING (profile pending).
+            // Zero money/rewards disbursed at sign-up. Rewards unlock strictly upon verified profile completion.
             tx.create(ref, {
                 [schema_1.Referrals.REFERRER_UID]: referrerUid,
                 [schema_1.Referrals.CODE]: code,
-                [schema_1.Referrals.STATUS]: isClean ? schema_1.Values.ReferralStatus.COMPLETED : schema_1.Values.ReferralStatus.REJECTED,
+                [schema_1.Referrals.STATUS]: isClean ? schema_1.Values.ReferralStatus.PENDING : schema_1.Values.ReferralStatus.REJECTED,
                 [schema_1.Referrals.FRAUD_SCORE]: fraudScore,
+                profileCompleted: false,
                 refereeName: refereeName || "DutyPe Friend",
                 refereePhone,
                 referrerName: String(codeDoc.get("name") || "DutyPe Member"),
                 [schema_1.Referrals.CREATED_AT]: Timestamp.fromMillis(now),
-                [schema_1.Referrals.COMPLETED_AT]: isClean ? Timestamp.fromMillis(now) : null,
+                [schema_1.Referrals.COMPLETED_AT]: null,
                 [schema_1.Referrals.EXPIRES_AT]: Timestamp.fromMillis(now + REFERRAL_EXPIRY_MS),
             });
-            if (isClean) {
-                // 1. Instant credit: referee receives their signup bonus immediately upon entering code
-                const bonusPaise = Math.round(config.signupBonus * 100);
-                if (!bonusEntry.exists && bonusPaise > 0) {
-                    postEntry(tx, uid, refereeWallet, bonusEventId, schema_1.Values.LedgerType.SIGNUP_BONUS, bonusPaise, code);
-                }
-                // 2. Instant credit: referrer receives their referral reward immediately upon friend joining
-                const rewardPaise = Math.round(config.rewardPerReferral * 100);
-                if (!rewardEntry.exists && rewardPaise > 0) {
-                    postEntry(tx, referrerUid, referrerWallet, rewardEventId, schema_1.Values.LedgerType.REFERRAL_REWARD, rewardPaise, uid);
-                }
-                // Increment successful referrals count on referrer wallet
-                const successful = Number(referrerWallet.data[schema_1.Wallets.SUCCESSFUL_REFERRALS] || 0) + 1;
-                const awarded = Array.isArray(referrerWallet.data[schema_1.Wallets.AWARDED_MILESTONES]) ?
-                    referrerWallet.data[schema_1.Wallets.AWARDED_MILESTONES].map(Number) : [];
-                const milestoneRupees = Number(((_a = config.milestones) === null || _a === void 0 ? void 0 : _a[String(successful)]) || 0);
-                if (milestoneRupees > 0 && !awarded.includes(successful)) {
-                    const milestonePaise = Math.round(milestoneRupees * 100);
-                    postEntry(tx, referrerUid, referrerWallet, `milestone_${referrerUid}_${successful}`, schema_1.Values.LedgerType.MILESTONE, milestonePaise, String(successful));
-                    awarded.push(successful);
-                }
-                tx.set(referrerWallet.ref, {
-                    [schema_1.Wallets.SUCCESSFUL_REFERRALS]: successful,
-                    [schema_1.Wallets.AWARDED_MILESTONES]: awarded,
-                    [schema_1.Wallets.UPDATED_AT]: Timestamp.now()
-                }, { merge: true });
-            }
             // Mark user record atomically
             tx.set(db.collection("users").doc(uid), {
                 hasUsedReferralCode: true,
@@ -452,18 +433,29 @@ async function registerReferral(uid, rawCode, providedPhone, providedName) {
             return null;
         });
         if (txResult === null && fraudScore === 0) {
-            // Notify referee of instant credit
-            (0, notify_1.notify)(uid, {
-                type: "SIGNUP_BONUS",
-                templateId: "SIGNUP_BONUS",
-                params: { amount: config.signupBonus }
-            }).catch(() => { });
-            // Notify referrer of new friend joining with friend's name
+            // Notify referrer that a friend joined with friend's name (Reward pending profile completion)
             (0, notify_1.notify)(referrerUid, {
                 type: "REFERRAL",
-                templateId: "REFERRAL_REWARD_BASIC",
-                params: { name: refereeName || "Friend", amount: config.rewardPerReferral }
+                templateId: "REFERRAL_LINKED_PENDING",
+                params: { name: refereeName || "Friend" },
+                data: { refereeUid: uid }
             }).catch(() => { });
+            // Check if referee's profile was ALREADY complete prior to entering the code
+            const [wCheck, eCheck] = await Promise.all([
+                db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get(),
+                db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get()
+            ]);
+            const isWorker = wCheck.exists;
+            const role = isWorker ? schema_1.Values.Role.WORKER : schema_1.Values.Role.EMPLOYER;
+            const profData = (isWorker ? wCheck.data() : eCheck.data()) || {};
+            const pName = String((isWorker ? profData.name : (profData.ownerName || profData.businessName)) || "").trim();
+            const pLat = Number(profData.lat);
+            const pLng = Number(profData.lng);
+            const hasCoords = Number.isFinite(pLat) && Number.isFinite(pLng) && !(pLat === 0 && pLng === 0);
+            const hasLoc = Boolean(profData.address || profData.area) && hasCoords;
+            if (pName.length >= 3 && pName.toLowerCase() !== "user" && hasLoc) {
+                await completeReferral(uid, role).catch(() => { });
+            }
         }
         return txResult;
     }
@@ -522,7 +514,7 @@ async function completeReferral(refereeUid, refereeRole) {
         return;
     const config = await (0, app_config_1.getReferralConfig)();
     const paid = await db.runTransaction(async (tx) => {
-        var _a, _b, _c;
+        var _a, _b;
         const referral = await tx.get(refDoc);
         if (referral.get(schema_1.Referrals.STATUS) !== schema_1.Values.ReferralStatus.PENDING)
             return null;
@@ -537,9 +529,8 @@ async function completeReferral(refereeUid, refereeRole) {
         const referrerRole = String((referrerCodeSnap.exists ? referrerCodeSnap.get(schema_1.ReferralCodes.ROLE) : null) ||
             (isEmployer ? schema_1.Values.Role.EMPLOYER : schema_1.Values.Role.WORKER));
         const rewardId = `referral_${refereeUid}_referrer`;
-        const bonusId = `referral_${refereeUid}_referee`;
-        const [referrer, referee, rewardEntry, bonusEntry] = await Promise.all([
-            readWallet(tx, referrerUid), readWallet(tx, refereeUid), tx.get((0, exports.ledgerRef)(rewardId)), tx.get((0, exports.ledgerRef)(bonusId)),
+        const [referrer, referee, rewardEntry] = await Promise.all([
+            readWallet(tx, referrerUid), readWallet(tx, refereeUid), tx.get((0, exports.ledgerRef)(rewardId)),
         ]);
         const employerRef = db.collection(schema_1.EmployerProfiles.COLLECTION).doc(referrerUid);
         const employerSnap = referrerRole === schema_1.Values.Role.EMPLOYER ? await tx.get(employerRef) : null;
@@ -551,22 +542,39 @@ async function completeReferral(refereeUid, refereeRole) {
             tx.update(refDoc, { [schema_1.Referrals.STATUS]: schema_1.Values.ReferralStatus.REJECTED });
             return null;
         }
+        // Verify referee's profile is genuinely complete before rewarding (Anti-Fraud)
+        const refereeProfileDoc = refereeRole === schema_1.Values.Role.EMPLOYER
+            ? await tx.get(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(refereeUid))
+            : await tx.get(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(refereeUid));
+        if (!refereeProfileDoc.exists)
+            return null;
+        const rData = refereeProfileDoc.data() || {};
+        const rName = String((refereeRole === schema_1.Values.Role.EMPLOYER ? (rData.ownerName || rData.businessName) : rData.name) || "").trim();
+        const rLat = Number(rData.lat);
+        const rLng = Number(rData.lng);
+        const rHasCoords = Number.isFinite(rLat) && Number.isFinite(rLng) && !(rLat === 0 && rLng === 0);
+        const rHasLocation = Boolean(rData.address || rData.area) && rHasCoords;
+        const rIsComplete = rName.length >= 3 && rName.toLowerCase() !== "user" && rHasLocation;
+        if (!rIsComplete) {
+            // Profile not complete yet, keep referral as PENDING
+            return null;
+        }
         const successful = Number(referrer.data[schema_1.Wallets.SUCCESSFUL_REFERRALS] || 0) + 1;
         const awarded = Array.isArray(referrer.data[schema_1.Wallets.AWARDED_MILESTONES]) ?
             referrer.data[schema_1.Wallets.AWARDED_MILESTONES].map(Number) : [];
-        tx.update(refDoc, { [schema_1.Referrals.STATUS]: schema_1.Values.ReferralStatus.COMPLETED, [schema_1.Referrals.COMPLETED_AT]: Timestamp.now() });
+        tx.update(refDoc, {
+            [schema_1.Referrals.STATUS]: schema_1.Values.ReferralStatus.COMPLETED,
+            profileCompleted: true,
+            [schema_1.Referrals.COMPLETED_AT]: Timestamp.now()
+        });
         tx.set(referrer.ref, { [schema_1.Wallets.SUCCESSFUL_REFERRALS]: successful }, { merge: true });
         let referrerPaise = 0;
-        if (!rewardEntry.exists) {
-            referrerPaise = Math.round(config.rewardPerReferral * 100);
-            postEntry(tx, referrerUid, referrer, rewardId, schema_1.Values.LedgerType.REFERRAL_REWARD, referrerPaise, refereeUid);
-        }
-        const milestoneRupees = Number(((_c = config.milestones) === null || _c === void 0 ? void 0 : _c[String(successful)]) || 0);
-        if (milestoneRupees > 0 && !awarded.includes(successful)) {
-            const milestonePaise = Math.round(milestoneRupees * 100);
-            postEntry(tx, referrerUid, referrer, `milestone_${referrerUid}_${successful}`, schema_1.Values.LedgerType.MILESTONE, milestonePaise, String(successful));
-            tx.set(referrer.ref, { [schema_1.Wallets.AWARDED_MILESTONES]: FieldValue.arrayUnion(successful) }, { merge: true });
-            referrerPaise += milestonePaise;
+        // Employers NEVER get cash rewards — they only get Free Job Posts. Cash rewards are strictly for Workers.
+        if (referrerRole !== schema_1.Values.Role.EMPLOYER) {
+            if (!rewardEntry.exists) {
+                referrerPaise = Math.round(config.rewardPerReferral * 100);
+                postEntry(tx, referrerUid, referrer, rewardId, schema_1.Values.LedgerType.REFERRAL_REWARD, referrerPaise, refereeUid);
+            }
         }
         if (referrerRole === schema_1.Values.Role.EMPLOYER && EMPLOYER_CREDIT_MILESTONES[successful]) {
             const S = schema_1.EmployerProfiles.Subscription;
@@ -586,11 +594,8 @@ async function completeReferral(refereeUid, refereeRole) {
             });
             freePost = true;
         }
-        let refereePaise = 0;
-        if (refereeRole === schema_1.Values.Role.WORKER && !bonusEntry.exists && config.signupBonus > 0) {
-            refereePaise = Math.round(config.signupBonus * 100);
-            postEntry(tx, refereeUid, referee, bonusId, schema_1.Values.LedgerType.SIGNUP_BONUS, refereePaise, referrerUid);
-        }
+        // Zero signup bonus — abolished
+        const refereePaise = 0;
         return { referrerUid, referrerRole, referrerPaise, refereePaise, freePost };
     });
     if (!paid)
@@ -607,12 +612,6 @@ async function completeReferral(refereeUid, refereeRole) {
             params: {}, data: { action: "post_job" },
         });
     }
-    if (paid.refereePaise > 0) {
-        await (0, notify_1.notify)(refereeUid, {
-            type: "PAYMENT", templateId: "SIGNUP_BONUS", role: schema_1.Values.Role.WORKER,
-            params: { amount: paid.refereePaise / 100 }, data: {},
-        });
-    }
 }
 // ───────────────────────────── withdrawals ─────────────────────────────
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{1,64}$/;
@@ -622,6 +621,15 @@ exports.requestWithdrawal = (0, secure_callable_1.onCallSecured)({ enforceAppChe
     const data = (0, input_1.obj)(raw);
     const upiId = (0, input_1.str)(data, "upiId", { min: 5, max: 100, pattern: UPI_PATTERN });
     const reqId = (0, input_1.str)(data, "requestId", { min: 8, max: 80, pattern: /^[A-Za-z0-9_-]+$/ });
+    // Anti-fraud guard: Ensure user has no pending or processing withdrawal already
+    const pendingSnap = await db.collection(schema_1.Withdrawals.COLLECTION)
+        .where(schema_1.Withdrawals.UID, "==", uid)
+        .where(schema_1.Withdrawals.STATUS, "in", [schema_1.Values.WithdrawalStatus.PENDING, schema_1.Values.WithdrawalStatus.PROCESSING])
+        .limit(1)
+        .get();
+    if (!pendingSnap.empty) {
+        (0, input_1.fail)("failed-precondition", "You already have a withdrawal request under process. Please wait for it to be completed before requesting another.");
+    }
     const config = await (0, app_config_1.getReferralConfig)();
     const minPaise = Math.round(config.minWithdrawal * 100);
     const dailyCapPaise = Math.round(config.maxWithdrawalPerDay * 100);
@@ -649,7 +657,7 @@ exports.requestWithdrawal = (0, secure_callable_1.onCallSecured)({ enforceAppChe
         const dailyPaise = Number(daily.get(schema_1.WithdrawalDaily.AMOUNT_PAISE) || 0);
         const dailyCount = Number(daily.get(schema_1.WithdrawalDaily.REQUEST_COUNT) || 0);
         if (dailyCount >= MAX_WITHDRAWALS_PER_DAY)
-            (0, input_1.fail)("resource-exhausted", "Daily withdrawal limit reached");
+            (0, input_1.fail)("resource-exhausted", `Daily limit reached. You can only request up to ${MAX_WITHDRAWALS_PER_DAY} withdrawals per day. Please try again tomorrow.`);
         // The whole balance, up to what is left of today's cap; the rest can be withdrawn tomorrow.
         const amountPaise = Math.min(wallet.balancePaise, dailyCapPaise - dailyPaise);
         if (wallet.balancePaise < minPaise)

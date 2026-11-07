@@ -113,8 +113,22 @@ object AnnouncementManager {
 
         try {
             when {
+                trimmed.equals("dynamic_campaign", ignoreCase = true) ||
+                trimmed.equals("dutype://dynamic_campaign", ignoreCase = true) ||
+                trimmed.equals("campaign", ignoreCase = true) ||
+                trimmed.equals("dutype://campaign", ignoreCase = true) ||
+                trimmed.startsWith("showcase:", ignoreCase = true) ||
+                (trimmed.contains("hungr", ignoreCase = true) && !trimmed.contains("survey", ignoreCase = true)) -> {
+                    val scId = if (trimmed.startsWith("showcase:", ignoreCase = true)) {
+                        trimmed.substringAfter("showcase:").trim()
+                    } else {
+                        "active_campaign"
+                    }
+                    navController.navigate(Routes.promoShowcaseRoute(scId.ifBlank { "active_campaign" }))
+                }
+
                 trimmed.equals("dutype://hungr-survey", ignoreCase = true) ||
-                trimmed.contains("hungr", ignoreCase = true) -> {
+                trimmed.equals("hungr-survey", ignoreCase = true) -> {
                     openHungrSurvey()
                 }
 

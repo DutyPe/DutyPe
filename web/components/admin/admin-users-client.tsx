@@ -52,6 +52,7 @@ type UserRow = {
   verifiedGender?: string;
   verificationRef?: string;
   verificationSource?: string;
+  profileIncomplete?: boolean;
 };
 
 type Payload = {
@@ -588,7 +589,12 @@ export function AdminUsersClient() {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, color: "var(--adm-text-main)" }}>
-                            {user.name || "Unnamed User"}
+                            <span>{user.name && user.name.toLowerCase() !== "user" ? user.name : "Unnamed User"}</span>
+                            {user.profileIncomplete && (
+                              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#b45309", background: "#fffbeb", border: "1px solid #fef3c7", padding: "1px 5px", borderRadius: 4 }}>
+                                ⚠️ Profile Incomplete
+                              </span>
+                            )}
                           </div>
                           {user.businessName && (
                             <div style={{ fontSize: "0.775rem", color: "var(--adm-text-muted)" }}>
@@ -742,7 +748,11 @@ export function AdminUsersClient() {
                     <td>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.8rem", color: "var(--adm-text-muted)" }}>
                         <MapPin style={{ width: 13, height: 13, color: "var(--adm-text-subtle)" }} />
-                        {user.area || "—"}
+                        {user.area || (
+                          <span style={{ color: "#d97706", fontSize: "0.75rem", fontStyle: "italic" }}>
+                            Missing Location
+                          </span>
+                        )}
                       </span>
                     </td>
 

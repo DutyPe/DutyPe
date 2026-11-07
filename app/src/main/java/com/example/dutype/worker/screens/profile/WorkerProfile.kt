@@ -674,6 +674,9 @@ fun WorkerProfileScreen(
                                 rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_EARNINGS))
                             }
                         },
+                        onSpinWin = {
+                            localNavController?.navigate(Routes.SPIN_AND_WIN) ?: rootNavController.navigate(Routes.SPIN_AND_WIN)
+                        },
                         onReferEarn = {
                             if (isLoggedIn) {
                                 localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
@@ -1177,6 +1180,7 @@ private fun ProfileSettingsCard(
     onEditProfile: () -> Unit,
     onWorkHistory: () -> Unit,
     onEarnings: () -> Unit,
+    onSpinWin: () -> Unit = {},
     onReferEarn: () -> Unit,
     onBookServices: () -> Unit = {},
     onServicesBookings: () -> Unit = {},
@@ -1223,6 +1227,12 @@ private fun ProfileSettingsCard(
             onClick = onReferEarn,
             iconRes = R.drawable.ic_profile_gift,
             pill = stringResource(R.string.refer_up_to_500)
+        )
+        ProfileListRow(
+            title = "Spin & Win 🎡",
+            onClick = onSpinWin,
+            icon = Icons.Outlined.Star,
+            pill = "NEW"
         )
 
         // Section Divider

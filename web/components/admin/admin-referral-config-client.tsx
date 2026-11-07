@@ -93,11 +93,11 @@ export function AdminReferralConfigClient() {
     try {
       const payload = {
         rewardPerReferral: config.rewardPerReferral,
-        signupBonus: config.signupBonus,
-        employerSignupBonus: config.employerSignupBonus,
-        employerSignupBonusEnabled: config.employerSignupBonusEnabled,
-        employerUnlimitedJobPostingEnabled: config.employerUnlimitedJobPostingEnabled,
-        welcomeBonusCampaignId: config.welcomeBonusCampaignId.trim() || DEFAULTS.welcomeBonusCampaignId,
+        signupBonus: 0,
+        employerSignupBonus: 0,
+        employerSignupBonusEnabled: false,
+        employerUnlimitedJobPostingEnabled: false,
+        welcomeBonusCampaignId: "",
         minWithdrawal: config.minWithdrawal,
         maxWithdrawalPerDay: config.maxWithdrawalPerDay,
         milestones: config.milestones,
@@ -152,31 +152,12 @@ export function AdminReferralConfigClient() {
 
       <div className="grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <NumberField
-          label="Reward per successful referral (₹)"
+          label="Worker reward per successful referral (₹)"
           value={config.rewardPerReferral}
           onChange={(v) => { setConfig({ ...config, rewardPerReferral: v }); setDirty(true); }}
         />
         <NumberField
-          label="Worker signup bonus (₹)"
-          value={config.signupBonus}
-          onChange={(v) => { setConfig({ ...config, signupBonus: v }); setDirty(true); }}
-        />
-        <NumberField
-          label="Employer signup bonus (₹)"
-          value={config.employerSignupBonus}
-          onChange={(v) => { setConfig({ ...config, employerSignupBonus: v }); setDirty(true); }}
-        />
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-          <span style={{ color: "#374151", fontWeight: 500 }}>Welcome campaign id</span>
-          <input
-            type="text"
-            value={config.welcomeBonusCampaignId}
-            onChange={(e) => { setConfig({ ...config, welcomeBonusCampaignId: e.target.value }); setDirty(true); }}
-            style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db" }}
-          />
-        </label>
-        <NumberField
-          label="Minimum withdrawal (₹)"
+          label="Minimum withdrawal to UPI (₹)"
           value={config.minWithdrawal}
           onChange={(v) => { setConfig({ ...config, minWithdrawal: v }); setDirty(true); }}
         />
@@ -187,35 +168,13 @@ export function AdminReferralConfigClient() {
         />
       </div>
 
-      <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
-        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={config.employerSignupBonusEnabled}
-            onChange={(e) => { setConfig({ ...config, employerSignupBonusEnabled: e.target.checked }); setDirty(true); }}
-            style={{ marginTop: 3 }}
-          />
-          <span>
-            <strong>Give employer cash signup bonus</strong>
-            <small style={{ display: "block", color: "#6b7280", marginTop: 2 }}>
-              New employers get the current employer amount once. Existing users keep their old credited amount.
-            </small>
-          </span>
-        </label>
-        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={config.employerUnlimitedJobPostingEnabled}
-            onChange={(e) => { setConfig({ ...config, employerUnlimitedJobPostingEnabled: e.target.checked }); setDirty(true); }}
-            style={{ marginTop: 3 }}
-          />
-          <span>
-            <strong>Unlock unlimited job posting for new employers</strong>
-            <small style={{ display: "block", color: "#6b7280", marginTop: 2 }}>
-              Stored on the employer profile and referral stats as a durable welcome entitlement.
-            </small>
-          </span>
-        </label>
+      <div style={{ marginTop: 20, padding: 16, borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+        <h4 style={{ margin: "0 0 6px 0", fontSize: 14, color: "#1e293b" }}>📌 Business Model Rules (Active & Enforced)</h4>
+        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+          <li><strong>No Signup Bonus:</strong> Signup bonuses are abolished (₹0). Cash is only awarded when referring genuine friends.</li>
+          <li><strong>Mandatory Profile Completion:</strong> Referral money is locked as <em>Profile Incomplete</em> until the referred friend completes their real name and GPS location.</li>
+          <li><strong>Employers Earn Job Posts (No Cash):</strong> Employers do not receive cash disbursements. For every 2 referrals, employers unlock 1 Free Job Post.</li>
+        </ul>
       </div>
 
       <div style={{ marginTop: 24, display: "flex", gap: 12, alignItems: "center" }}>

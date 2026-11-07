@@ -20,6 +20,7 @@ const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
 const places_1 = require("./lib/places");
+const referrals_1 = require("./referrals");
 const schema_1 = require("./schema");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
@@ -62,6 +63,17 @@ exports.onWorkerProfileWritten = functions
         return;
     }
     const before = change.before.data() || {};
+    const workerName = String(after[schema_1.WorkerProfiles.NAME] || "").trim();
+    if (workerName && workerName.toLowerCase() !== "user" && workerName.length >= 3) {
+        (0, referrals_1.ensureWallet)(context.params.uid, schema_1.Values.Role.WORKER, workerName, true).catch(() => undefined);
+        const latVal = Number(after[schema_1.WorkerProfiles.LAT]);
+        const lngVal = Number(after[schema_1.WorkerProfiles.LNG]);
+        const hasCoords = Number.isFinite(latVal) && Number.isFinite(lngVal) && !(latVal === 0 && lngVal === 0);
+        const hasLocation = Boolean(after[schema_1.WorkerProfiles.ADDRESS] || after[schema_1.WorkerProfiles.AREA]) && hasCoords;
+        if (hasLocation) {
+            (0, referrals_1.completeReferral)(context.params.uid, schema_1.Values.Role.WORKER).catch((err) => functions.logger.warn("completeReferral worker trigger failed", err));
+        }
+    }
     const changed = WATCHED.some((p) => JSON.stringify(before[p]) !== JSON.stringify(after[p]));
     if (!changed && change.before.exists)
         return;

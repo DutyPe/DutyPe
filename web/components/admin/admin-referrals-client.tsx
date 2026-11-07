@@ -129,25 +129,75 @@ export function AdminReferralsClient() {
 
   useEffect(() => { void load(false, null); }, [load]);
 
-  async function settle(row: WithdrawalRow, next: "PROCESSING" | "COMPLETED" | "FAILED") {
-    if (!services) return;
+  async function settle(row: WithdrawalRow, next: "PROCESSING" | "COMPLETED" | "FAILED" | "ADJUST") {
     let txnRef = "";
     let failureReason = "";
+    let newAmount: number | undefined;
+
     if (next === "COMPLETED") {
       txnRef = window.prompt(`UPI transaction reference for ${rupees(row.amountPaise)} to ${row.upiId}`)?.trim() ?? "";
       if (!txnRef) return;
     }
     if (next === "FAILED") {
-      failureReason = window.prompt("Why did it fail? (the amount goes back to the wallet)")?.trim() ?? "";
+      failureReason = window.prompt("Why did it fail or what was removed? (This message will be shown on the worker's Refer & Earn screen so they can request again):")?.trim() ?? "";
       if (!failureReason) return;
     }
+    if (next === "ADJUST") {
+      const currentRupees = Math.round(row.amountPaise / 100);
+      const newAmountStr = window.prompt(`Enter new corrected withdrawal amount in ₹ (current is ₹${currentRupees}):`, String(currentRupees))?.trim();
+      if (!newAmountStr) return;
+      newAmount = parseFloat(newAmountStr);
+      if (isNaN(newAmount) || newAmount <= 0 || newAmount > currentRupees) {
+        alert("Invalid amount. Must be a number greater than 0 and less than or equal to current amount.");
+        return;
+      }
+      failureReason = window.prompt(`Reason for adjustment / deduction (shown to worker in app):`, "Milestone bonus removed")?.trim() ?? "";
+      if (!failureReason) return;
+    }
+
+    // ⚡ Optimistic UI update: Flip status immediately for instant zero-latency feedback
+    const previousWithdrawals = [...withdrawals];
+    setWithdrawals((prev) =>
+      prev.map((w) =>
+        w.id === row.id
+          ? {
+              ...w,
+              status: next === "ADJUST" ? w.status : next,
+              amountPaise: newAmount !== undefined ? Math.round(newAmount * 100) : w.amountPaise,
+              txnRef: txnRef || (next === "COMPLETED" ? "PAID" : w.txnRef),
+              failureReason: failureReason || w.failureReason,
+              processedAt: new Date().toISOString(),
+            }
+          : w
+      )
+    );
+    setMessage(`✓ Withdrawal ${row.id} ${next === "ADJUST" ? `adjusted to ₹${newAmount}` : `marked as ${next === "COMPLETED" ? "PAID" : next.toLowerCase()}`}. Updating server...`);
+
     setBusyId(row.id);
     setError(null);
     try {
-      await httpsCallable(services.functions, "settleWithdrawal")({ withdrawalId: row.id, status: next, txnRef, failureReason });
-      setMessage(`Withdrawal ${row.id} marked ${next.toLowerCase()}.`);
-      await load(false, null);
+      const res = await adminApiFetch("/api/admin/referrals/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          withdrawalId: row.id,
+          status: next,
+          txnRef,
+          failureReason,
+          newAmount,
+          adjustReason: failureReason,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update withdrawal status");
+      }
+      setMessage(`✓ Withdrawal ${row.id} ${next === "ADJUST" ? `adjusted to ₹${newAmount}` : `marked as ${next === "COMPLETED" ? "PAID" : next.toLowerCase()}`} successfully.`);
+      // Refresh in background to sync any other changes
+      void load(false, null);
     } catch (settleError) {
+      // Revert optimistic update on failure
+      setWithdrawals(previousWithdrawals);
       setError(settleError instanceof Error ? settleError.message : "Failed to update the withdrawal.");
     } finally {
       setBusyId(null);
@@ -231,6 +281,7 @@ export function AdminReferralsClient() {
                         ) : null}
                         <button type="button" className="table-action" disabled={busyId === w.id} onClick={() => void settle(w, "COMPLETED")}>Paid</button>
                         <button type="button" className="table-action danger" disabled={busyId === w.id} onClick={() => void settle(w, "FAILED")}>Failed</button>
+                        <button type="button" className="table-action" style={{ background: "#fef3c7", color: "#b45309", borderColor: "#fde68a" }} disabled={busyId === w.id} onClick={() => void settle(w, "ADJUST")}>✏️ Adjust</button>
                       </>
                     ) : <span className="admin-cell-sub">{when(w.processedAt)}</span>}
                   </td>

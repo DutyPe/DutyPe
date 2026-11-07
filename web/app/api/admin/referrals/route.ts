@@ -155,4 +155,13 @@ async function getUncached(request: NextRequest) {
   }
 }
 
-export const GET = cachedAdminGet(getUncached);
+const cachedGet = cachedAdminGet(getUncached);
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  // Withdrawals are transactional: bypass 5-minute cache so settlements reflect instantly
+  if (url.searchParams.get("view") === "withdrawals" || url.searchParams.has("nocache")) {
+    return getUncached(request);
+  }
+  return cachedGet(request);
+}

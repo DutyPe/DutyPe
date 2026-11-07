@@ -1799,8 +1799,8 @@
     <string name="notification_channel_medium_desc">Job reminders and recommendations</string>
     <string name="notification_channel_low_name">Updates &amp; Tips</string>
     <string name="notification_channel_low_desc">App updates, tips, and re-engagement messages</string>
-    <string name="refer_hero_title">Earn ₹%1$d per friend</string>
-    <string name="refer_hero_subtitle">When they complete their first profile</string>
+    <string name="refer_hero_title">Earn up to ₹50 per friend</string>
+    <string name="refer_hero_subtitle">When they complete their worker profile</string>
     <string name="refer_code_label">Your referral code</string>
     <string name="refer_copy_code">Copy Code</string>
     <string name="refer_share_whatsapp">Share on WhatsApp</string>

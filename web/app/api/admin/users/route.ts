@@ -40,14 +40,18 @@ function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData, walle
   const verificationRef = String(d["verificationRef"] ?? "");
   const verificationSource = String(d["verificationSource"] ?? "");
 
+  const rawName = isEmployer ? String(d[EmployerProfiles.OWNER_NAME] ?? "") : String(d[WorkerProfiles.NAME] ?? "");
+  const resolvedArea = String(d[WorkerProfiles.AREA] ?? d[WorkerProfiles.ADDRESS] ?? d["city"] ?? "");
+  const isProfileIncomplete = !rawName || rawName.trim().toLowerCase() === "user" || !resolvedArea.trim();
+
   return {
     id,
     role,
-    name: isEmployer ? String(d[EmployerProfiles.OWNER_NAME] ?? "") : String(d[WorkerProfiles.NAME] ?? ""),
+    name: rawName,
     businessName: isEmployer ? business : "",
     employerType: isEmployer ? String(d[EmployerProfiles.EMPLOYER_TYPE] ?? "") : "",
     phone: String(d[WorkerProfiles.PHONE] ?? ""),
-    area: String(d[WorkerProfiles.AREA] ?? ""),
+    area: resolvedArea,
     photoUrl: String(d[WorkerProfiles.PHOTO_URL] ?? ""),
     skills: isEmployer ? [] : ((d[WorkerProfiles.SKILLS] ?? []) as string[]),
     blocked: d[WorkerProfiles.BLOCKED] === true,
@@ -62,7 +66,8 @@ function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData, walle
     verifiedDob,
     verifiedGender,
     verificationRef,
-    verificationSource
+    verificationSource,
+    profileIncomplete: isProfileIncomplete
   };
 }
 

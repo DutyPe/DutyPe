@@ -112,16 +112,22 @@ class WorkerHomeViewModel @Inject constructor(
         }
     }
 
-    /** GPS refinement / saved location change. Reloads only after a real move. */
+    /** GPS refinement / saved location change. Reloads only after a real move or when immediate is requested. */
     fun setUserLocation(latitude: Double, longitude: Double, immediate: Boolean = false) {
         if (!GeoUtils.hasValidCoordinates(latitude, longitude)) return
         val movedKm = movedKm(latitude, longitude)
         userLatitude = latitude
         userLongitude = longitude
         if (!hasRequestedLoad) return
-        if (movedKm >= RELOAD_DISTANCE_KM || (immediate && _uiState.value.jobs.isEmpty() && loadJob?.isActive != true)) {
+        if (movedKm >= RELOAD_DISTANCE_KM || immediate) {
             loadJobsSummaryForHome(forceRefresh = true)
         }
+    }
+
+    /** Call immediately when location permission is granted to show shimmer skeletons and prepare for fast jobs query. */
+    fun prepareForLocationResolution() {
+        hasRequestedLoad = true
+        _uiState.update { it.copy(isLoading = true, hasError = false, error = null) }
     }
 
     /** The worker picked another location: drop the old area's jobs and reload. */
@@ -130,7 +136,7 @@ class WorkerHomeViewModel @Inject constructor(
         userLatitude = latitude
         userLongitude = longitude
         hasRequestedLoad = true
-        _uiState.update { it.copy(jobs = emptyList(), urgentJobs = emptyList(), isLoading = true) }
+        _uiState.update { it.copy(jobs = emptyList(), urgentJobs = emptyList(), isLoading = true, hasError = false, error = null) }
         loadJobsSummaryForHome(forceRefresh = true)
     }
 

@@ -74,7 +74,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     type: "FEATURE",
     priority: "URGENT",
     targetRole: "ALL",
-    deepLink: "dutype://hungr-survey"
+    deepLink: "dynamic_campaign"
   },
   {
     id: "custom",
@@ -557,7 +557,7 @@ export function AdminAnnouncementsClient() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                 {[
                   { label: "🌟 Dynamic Campaign Page", link: "dynamic_campaign" },
-                  { label: "🥞 Hungr Survey", link: "dutype://hungr-survey" },
+                  { label: "🥞 Hungr (Dynamic Campaign)", link: "dynamic_campaign" },
                   { label: "🛠️ Services", link: "dutype://services" },
                   { label: "💼 Jobs", link: "dutype://jobs" },
                   { label: "📝 Post Job", link: "dutype://post-job" },

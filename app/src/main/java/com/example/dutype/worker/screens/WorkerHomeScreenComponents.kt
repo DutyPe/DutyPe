@@ -21,6 +21,13 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
@@ -138,7 +145,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.EaseInOutSine
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -655,7 +661,7 @@ fun HomeSectionsContent(
             }
 
             // User requirement: Until jobs or empty job state loads, do not show announcements or any feed content.
-            val isContentReady = !isLoadingJobs || jobListings.isNotEmpty() || showEmptyJobsState || jobsFailed
+            val isContentReady = !isLoadingJobs && (jobListings.isNotEmpty() || showEmptyJobsState || jobsFailed)
 
             if (!isContentReady) {
                 item(key = "worker_home_jobs_skeleton_initial") {
@@ -694,9 +700,20 @@ fun HomeSectionsContent(
             }
 
             // Live Worker Payouts under announcements carousel
-            item(key = "worker_home_top_live_earnings") {
-                WorkerLiveEarningsSection()
+            item(key = "worker_home_spin_win") {
+                SpinAndWinEntryBanner(
+                    onPlayClick = {
+                        navController.navigate(com.example.dutype.navigation.Routes.SPIN_AND_WIN)
+                    }
+                )
             }
+
+            // Sleek Single-Line Floating Ticker Pill: 🟢 Ramesh K. received ₹1,400 (AC Technician · Mamillagudem) 12m ago
+            item(key = "worker_home_payout_ticker") {
+                WorkerPayoutTickerPill()
+            }
+
+
 
             // Hidden for now: the "jobs near you · view map" hero card (the map tab is hidden too).
             // if (showHeroAndCategories) {
@@ -1708,12 +1725,13 @@ data class WorkerEarningsProof(
 )
 
 /**
- * Minimal & Awesome Live Worker Payouts Ticker:
- * Compact, modern card with an auto-sliding live payout proof ticker (cycles every 3.5s).
- * Reassures workers that peers are actively earning with 0% commission and instant payouts.
+ * Sleek Single-Line Floating Ticker Pill:
+ * 🟢 Ramesh K. received ₹1,400 (AC Technician · Mamillagudem) 12m ago
+ * Rotates every 4 seconds. Tap opens "Recent Direct Payouts" bottom sheet.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkerLiveEarningsSection(
+fun WorkerPayoutTickerPill(
     modifier: Modifier = Modifier
 ) {
     val sampleProofs = remember {
@@ -1730,201 +1748,341 @@ fun WorkerLiveEarningsSection(
     }
 
     var activeIndex by remember { mutableIntStateOf(0) }
-
-    // Daytime progressive earnings base calibrated for 5k installs:
-    // Starts fresh in the morning, stays realistically below 1 Lakh (capped at ~₹92,500)
-    val basePaidAmount = remember {
-        val cal = java.util.Calendar.getInstance()
-        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
-        val minute = cal.get(java.util.Calendar.MINUTE)
-        val timeInHours = hour + minute / 60f
-
-        when {
-            timeInHours < 6f -> 8500 + ((timeInHours / 6f) * 4000).toInt() // 00:00 - 06:00: ₹8,500 - ₹12,500
-            timeInHours < 10f -> 14200 + (((timeInHours - 6f) / 4f) * 18000).toInt() // 06:00 - 10:00: ₹14,200 - ₹32,200
-            timeInHours < 14f -> 32200 + (((timeInHours - 10f) / 4f) * 22000).toInt() // 10:00 - 14:00: ₹32,200 - ₹54,200
-            timeInHours < 18f -> 54200 + (((timeInHours - 14f) / 4f) * 19000).toInt() // 14:00 - 18:00: ₹54,200 - ₹73,200
-            timeInHours < 23f -> 73200 + (((timeInHours - 18f) / 5f) * 17000).toInt() // 18:00 - 23:00: ₹73,200 - ₹90,200
-            else -> 90500 + (((timeInHours - 23f) / 1f) * 2000).toInt() // 23:00 - 24:00: ₹90,500 - ₹92,500
-        }
-    }
-
-    // Slow live money accumulation (adds modest ₹50-₹150 only every ~42 seconds, not every 3.5s)
-    var liveBonus by remember { mutableIntStateOf(0) }
+    var showBottomSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val smallIncrements = listOf(50, 100, 50, 150, 100)
-        var incIdx = 0
-        var tickCount = 0
         while (true) {
-            delay(3500L)
+            delay(4000L) // Rotates every 4 seconds
             activeIndex = (activeIndex + 1) % sampleProofs.size
-            tickCount++
-            // Only add money once every 12 cycles (~42s) so total adds gently and naturally
-            if (tickCount % 12 == 0) {
-                liveBonus += smallIncrements[incIdx % smallIncrements.size]
-                incIdx++
-            }
         }
     }
 
     val currentProof = sampleProofs[activeIndex]
-    // Strictly capped under 1 Lakh (₹94,850 max) for DutyPe's 5k install base
-    val currentTotal = (basePaidAmount + liveBonus).coerceAtMost(94850)
-    val totalPaidFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("en-IN"))
-        .format(currentTotal)
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
-            .cascadeEnter(index = 2),
-        shape = RoundedCornerShape(12.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { showBottomSheet = true },
+        shape = RoundedCornerShape(50),
         color = Color.White,
-        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f)),
-        shadowElevation = 1.dp
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0)),
+        shadowElevation = 1.5.dp
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header Row: Live indicator + Total Paid Badge with Money Emoji 💰
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
+                // Pulsing Green Live Dot
+                Box(contentAlignment = Alignment.Center) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "payoutDotPulse")
+                    val pulseScale by infiniteTransition.animateFloat(
+                        initialValue = 0.85f,
+                        targetValue = 1.4f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1100, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "payoutPulseScale"
+                    )
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(13.dp)
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                alpha = 0.35f
+                            }
                             .clip(CircleShape)
                             .background(Color(0xFF10B981))
                     )
-                    Text(
-                        text = "Live Worker Payouts",
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A).fg()
+                    Box(
+                        modifier = Modifier
+                            .size(7.5.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFFECFDF5).bg(),
-                    border = BorderStroke(0.5.dp, Color(0xFFA7F3D0).bd())
-                ) {
-                    Text(
-                        text = "💰 ₹$totalPaidFormatted+ Paid Today",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF047857).fg(),
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Animated Live Ticker Card
-            AnimatedContent(
-                targetState = currentProof,
-                transitionSpec = {
-                    (slideInVertically { height -> height / 2 } + fadeIn(animationSpec = tween(300)))
-                        .togetherWith(slideOutVertically { height -> -height / 2 } + fadeOut(animationSpec = tween(300)))
-                },
-                label = "earnings_ticker"
-            ) { proof ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF7F7F7).bg())
-                        .border(0.5.dp, Color(0xFFF1F5F9).bd(), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                // Rotating 1-line Marquee
+                AnimatedContent(
+                    targetState = currentProof,
+                    transitionSpec = {
+                        (slideInVertically { height -> height } + fadeIn(animationSpec = tween(350)))
+                            .togetherWith(slideOutVertically { height -> -height } + fadeOut(animationSpec = tween(350)))
+                    },
+                    label = "payout_marquee"
+                ) { proof ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE0F2FE)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = proof.name.take(1),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp,
-                                color = Color(0xFF0284C7)
-                            )
-                        }
-
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = proof.name,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A).fg()
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "· ${proof.location}",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF64748B).fg()
-                                )
-                            }
-                            Text(
-                                text = proof.role,
-                                fontSize = 11.5.sp,
-                                color = Color(0xFF475569).fg(),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "+₹${proof.amountEarnedToday}",
-                            fontSize = 15.sp,
+                            text = "${proof.name} received ",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "₹${java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("en-IN")).format(proof.amountEarnedToday)}",
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF059669)
                         )
                         Text(
+                            text = " (${proof.role} · ${proof.location}) ",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF64748B),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
                             text = proof.timeAgo,
-                            fontSize = 10.sp,
-                            color = Color(0xFF94A3B8).fg()
+                            fontSize = 10.5.sp,
+                            color = Color(0xFF94A3B8)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "View all payouts",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier
+                    .size(14.dp)
+                    .padding(start = 4.dp)
+            )
+        }
+    }
 
-            // Reassurance micro-strip
+    // Recent Direct Payouts Bottom Sheet
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                // Sheet Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "💰 Recent Direct Payouts", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text(
+                            text = "Live verified settlements • 100% Direct UPI • ₹0 Cut",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFECFDF5),
+                        border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                    ) {
+                        Text(
+                            text = "Verified ✓",
+                            color = Color(0xFF047857),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // List of Recent Payouts
+                sampleProofs.forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF1F5F9)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = item.name.take(1),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0284C7),
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "${item.name} · ${item.location}",
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = "${item.role} • Direct UPI Transfer",
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "+₹${item.amountEarnedToday}",
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF059669)
+                            )
+                            Text(text = item.timeAgo, fontSize = 10.5.sp, color = Color(0xFF94A3B8))
+                        }
+                    }
+                    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFF1F5F9))
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Bottom Guarantee Box
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "🛡️", fontSize = 18.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "DutyPe Guarantee: Employers settle wages directly via UPI or cash on spot. Zero commission taken.",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF475569),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SpinAndWinEntryBanner(
+    onPlayClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .clickable(onClick = onPlayClick),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF1E293B),
+        border = BorderStroke(1.dp, Color(0xFF334155)),
+        shadowElevation = 2.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFF1E1B4B), Color(0xFF1E293B), Color(0xFF0F172A))
+                    )
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "⚡", fontSize = 11.sp)
-                Text(
-                    text = "Direct employer payment on spot · Zero commission",
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B).fg(),
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Brush.radialGradient(listOf(Color(0xFFFBBF24), Color(0xFFF59E0B)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🎡", fontSize = 22.sp)
+                    }
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Spin & Win Up to ₹100",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFF59E0B)
+                            ) {
+                                Text(
+                                    text = "FREE",
+                                    color = Color.Black,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Daily lucky wheel · Guaranteed coin prizes",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.5.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF10B981),
+                    modifier = Modifier.clickable(onClick = onPlayClick)
+                ) {
+                    Text(
+                        text = "Spin ▶",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                    )
+                }
             }
         }
     }

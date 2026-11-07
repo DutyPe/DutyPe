@@ -25,18 +25,15 @@ import timber.log.Timber
  */
 data class ReferralConfig(
     val rewardPerReferral: Double = 25.0,
-    val signupBonus: Double = 25.0,
-    val employerSignupBonus: Double = 10.0,
-    val employerSignupBonusEnabled: Boolean = true,
-    val employerUnlimitedJobPostingEnabled: Boolean = true,
-    val welcomeBonusCampaignId: String = "welcome_bonus_v1",
-    val minWithdrawal: Double = 100.0,
+    val signupBonus: Double = 0.0,
+    val employerSignupBonus: Double = 0.0,
+    val employerSignupBonusEnabled: Boolean = false,
+    val employerUnlimitedJobPostingEnabled: Boolean = false,
+    val welcomeBonusCampaignId: String = "",
+    val minWithdrawal: Double = 50.0,
     val maxWithdrawalPerDay: Double = 1000.0,
-    val milestones: Map<Int, Double> = mapOf(
-        5 to 50.0, 10 to 100.0, 15 to 150.0,
-        25 to 250.0, 50 to 500.0, 100 to 1000.0
-    ),
-    val withdrawalMilestones: List<Int> = listOf(5, 10, 15)
+    val milestones: Map<Int, Double> = emptyMap(),
+    val withdrawalMilestones: List<Int> = emptyList()
 )
 
 data class AppUpdateConfig(
@@ -157,7 +154,7 @@ class AppConfigRepository @Inject constructor(
                     employerUnlimitedJobPostingEnabled = (data["employerUnlimitedJobPostingEnabled"] as? Boolean) ?: true,
                     welcomeBonusCampaignId = (data["welcomeBonusCampaignId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                         ?: "welcome_bonus_v1",
-                    minWithdrawal = ((data["minWithdrawal"] as? Number)?.toDouble() ?: 100.0).coerceAtLeast(100.0),
+                    minWithdrawal = ((data["minWithdrawal"] as? Number)?.toDouble() ?: 50.0).coerceAtLeast(1.0),
                     maxWithdrawalPerDay = (data["maxWithdrawalPerDay"] as? Number)?.toDouble() ?: 1000.0,
                     milestones = milestoneMap.ifEmpty { ReferralConfig().milestones },
                     withdrawalMilestones = withdrawalList.ifEmpty { ReferralConfig().withdrawalMilestones }

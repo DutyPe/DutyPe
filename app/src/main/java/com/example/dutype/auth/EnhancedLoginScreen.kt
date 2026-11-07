@@ -237,9 +237,14 @@ private fun OtpLoginScreen(
 
     // Auto-redirect if user is already signed in and not in the middle of entering OTP
     val currentAuthUser = FirebaseAuth.getInstance().currentUser
-    LaunchedEffect(currentAuthUser, isNavigatingAway, otpState.otpVerified) {
+    LaunchedEffect(currentAuthUser, isNavigatingAway, otpState.otpSent, otpState.otpVerified) {
         if (currentAuthUser != null && !otpState.otpSent && !isNavigatingAway && !otpState.otpVerified) {
-            navigateToHome(role, navController)
+            val isComplete = profileCompletionViewModel.isProfileComplete(currentAuthUser.uid, role).getOrDefault(false)
+            if (isComplete) {
+                navigateToHome(role, navController)
+            } else {
+                navigateToProfileSetup(role, navController)
+            }
         }
     }
 

@@ -26,15 +26,15 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 exports.DEFAULT_REFERRAL_CONFIG = {
     rewardPerReferral: 25,
-    signupBonus: 25,
-    employerSignupBonus: 10,
+    signupBonus: 0,
+    employerSignupBonus: 0,
     employerSignupBonusEnabled: false,
     employerUnlimitedJobPostingEnabled: false,
-    welcomeBonusCampaignId: "welcome_bonus_v1",
-    minWithdrawal: 100,
+    welcomeBonusCampaignId: "",
+    minWithdrawal: 50,
     maxWithdrawalPerDay: 1000,
-    milestones: { "5": 50, "10": 100, "15": 150, "25": 250, "50": 500, "100": 1000 },
-    withdrawalMilestones: [5, 10, 15],
+    milestones: {},
+    withdrawalMilestones: [],
 };
 const TTL_MS = 60 * 1000;
 let cache = null;
@@ -52,7 +52,7 @@ async function getReferralConfig() {
             employerSignupBonusEnabled: bool(data.employerSignupBonusEnabled, exports.DEFAULT_REFERRAL_CONFIG.employerSignupBonusEnabled),
             employerUnlimitedJobPostingEnabled: bool(data.employerUnlimitedJobPostingEnabled, exports.DEFAULT_REFERRAL_CONFIG.employerUnlimitedJobPostingEnabled),
             welcomeBonusCampaignId: text(data.welcomeBonusCampaignId, exports.DEFAULT_REFERRAL_CONFIG.welcomeBonusCampaignId, 64),
-            minWithdrawal: Math.max(num(data.minWithdrawal, exports.DEFAULT_REFERRAL_CONFIG.minWithdrawal), 100),
+            minWithdrawal: Math.max(num(data.minWithdrawal, exports.DEFAULT_REFERRAL_CONFIG.minWithdrawal), 1),
             maxWithdrawalPerDay: num(data.maxWithdrawalPerDay, exports.DEFAULT_REFERRAL_CONFIG.maxWithdrawalPerDay),
             milestones: (data.milestones && typeof data.milestones === "object")
                 ? data.milestones

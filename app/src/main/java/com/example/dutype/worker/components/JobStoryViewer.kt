@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -110,23 +111,50 @@ fun JobStoryViewerModal(
 
     BackHandler(onBack = onDismiss)
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .zIndex(999f)
-            .background(Color.Black)
-    ) {
-        JobStoryViewerContent(
-            jobs = jobs,
-            initialIndex = initialIndex.coerceIn(0, jobs.size - 1),
-            isOnline = isOnline,
-            onOnlineChange = onOnlineChange,
-            onNotificationClick = onNotificationClick,
-            onApplyJob = onApplyJob,
-            onToggleSave = onToggleSave,
-            isJobSaved = isJobSaved,
-            onDismiss = onDismiss
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
         )
+    ) {
+        val view = androidx.compose.ui.platform.LocalView.current
+        androidx.compose.runtime.DisposableEffect(view) {
+            val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+            if (window != null) {
+                window.setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                window.setFlags(
+                    android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                )
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            }
+            onDispose {}
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(999f)
+                .background(Color.Black)
+        ) {
+            JobStoryViewerContent(
+                jobs = jobs,
+                initialIndex = initialIndex.coerceIn(0, jobs.size - 1),
+                isOnline = isOnline,
+                onOnlineChange = onOnlineChange,
+                onNotificationClick = onNotificationClick,
+                onApplyJob = onApplyJob,
+                onToggleSave = onToggleSave,
+                isJobSaved = isJobSaved,
+                onDismiss = onDismiss
+            )
+        }
     }
 }
 
@@ -309,9 +337,9 @@ fun JobStoryViewerContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp)
-                .padding(top = 18.dp, bottom = 8.dp)
+                .padding(top = 10.dp, bottom = 8.dp)
         ) {
             // Segmented Progress Bars (Up to 6 segments)
             val visibleJobsCount = jobs.size.coerceAtMost(8)

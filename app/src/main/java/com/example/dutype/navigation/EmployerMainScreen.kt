@@ -670,7 +670,7 @@ fun EmployerMainScreen(
                         val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
                         com.example.dutype.components.PromoShowcaseScreen(
                             showcaseId = showcaseId,
-                            navController = rootNavController,
+                            navController = navController,
                             repository = repo
                         )
                     }

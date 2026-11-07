@@ -1,4 +1,4 @@
-﻿package com.example.dutype.profile
+package com.example.dutype.profile
 
 import androidx.annotation.Keep
 import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
@@ -28,8 +28,15 @@ data class WorkerProfile(
     val available: Boolean = false,
     val createdAt: Long = 0L
 ) {
-    /** Name + phone + at least one skill = can apply (the server uses the same rule for referrals). */
-    val isComplete: Boolean get() = name.isNotBlank() && phone.isNotBlank() && skills.isNotEmpty()
+    /** Name (not default "User", >= 3 chars) + phone + at least one skill + location = complete profile. */
+    val isComplete: Boolean get() =
+        name.isNotBlank() &&
+        !name.trim().equals("User", ignoreCase = true) &&
+        name.trim().length >= 3 &&
+        phone.isNotBlank() &&
+        skills.isNotEmpty() &&
+        (address.isNotBlank() || area.isNotBlank()) &&
+        (lat != 0.0 || lng != 0.0)
 
     /** Weighted progress shown in the profile header. */
     val completionPercent: Int get() {
@@ -130,7 +137,14 @@ data class EmployerProfile(
     /** Name shown on job cards: business name for companies, the owner's name otherwise. */
     val displayName: String get() = if (isCompany && businessName.isNotBlank()) businessName else ownerName
 
-    val isComplete: Boolean get() = ownerName.trim().length >= 2 && (!isCompany || businessName.isNotBlank())
+    /** Owner name (not default "User", >= 3 chars) + phone + (if company, business name) + location = complete profile. */
+    val isComplete: Boolean get() =
+        ownerName.trim().length >= 3 &&
+        !ownerName.trim().equals("User", ignoreCase = true) &&
+        phone.isNotBlank() &&
+        (!isCompany || businessName.isNotBlank()) &&
+        (address.isNotBlank() || area.isNotBlank()) &&
+        (lat != 0.0 || lng != 0.0)
 
     val completionPercent: Int get() {
         var score = 0

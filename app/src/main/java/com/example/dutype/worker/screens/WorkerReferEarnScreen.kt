@@ -1,5 +1,9 @@
 package com.example.dutype.worker.screens
 
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -17,6 +21,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -74,6 +79,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import java.util.Locale
 
+private const val PRODUCTION_REWARDED_AD_UNIT_ID = "ca-app-pub-5503082977524600/2148771632"
+
 @Composable
 fun WorkerReferEarnScreen(
     navController: NavController,
@@ -90,13 +97,44 @@ fun WorkerReferEarnScreen(
     val successful = uiState.wallet?.successfulReferrals ?: 0
 
     var showCopySuccess by remember { mutableStateOf(false) }
-    var showWithdrawDialog by remember { mutableStateOf(false) }
-    var isCheckingProfileStatus by remember { mutableStateOf(true) }
-    var isProfileCompleted by remember { mutableStateOf(false) }
-
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
     val coroutineScope = rememberCoroutineScope()
+
+    var showWithdrawDialog by remember { mutableStateOf(false) }
+    var showWithdrawalCelebrationDialog by remember { mutableStateOf(false) }
+    var celebrationAmountRupees by remember { mutableLongStateOf(0L) }
+    var mRewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
+    var isAdLoading by remember { mutableStateOf(false) }
+
+    fun loadRewardedAd() {
+        if (isAdLoading || mRewardedAd != null) return
+        isAdLoading = true
+        val adRequest = AdRequest.Builder().build()
+        RewardedAd.load(
+            context,
+            PRODUCTION_REWARDED_AD_UNIT_ID,
+            adRequest,
+            object : RewardedAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    mRewardedAd = null
+                    isAdLoading = false
+                }
+                override fun onAdLoaded(rewardedAd: RewardedAd) {
+                    mRewardedAd = rewardedAd
+                    isAdLoading = false
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        loadRewardedAd()
+    }
+    var isCheckingProfileStatus by remember { mutableStateOf(true) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
+
+
 
     // Load data on screen launch
     val screenBg = Color.White.bg()
@@ -130,10 +168,13 @@ fun WorkerReferEarnScreen(
     LaunchedEffect(uiState.withdrawalSuccess) {
         if (!uiState.withdrawalSuccess) return@LaunchedEffect
         showWithdrawDialog = false
+        val amount = uiState.lastWithdrawalPaise / 100
+        celebrationAmountRupees = amount
+        showWithdrawalCelebrationDialog = true
         Toast.makeText(
             context,
-            context.getString(R.string.refer_withdrawal_sent_toast, uiState.lastWithdrawalPaise / 100),
-            Toast.LENGTH_LONG
+            context.getString(R.string.refer_withdrawal_sent_toast, amount),
+            Toast.LENGTH_SHORT
         ).show()
         val activity = context as? Activity
         if (activity != null) {
@@ -271,7 +312,7 @@ fun WorkerReferEarnScreen(
                                     viewModel.loadReferralData()
                                     return@ReferEarnTopSections
                                 }
-                                val shareText = context.getString(R.string.refer_worker_share_text, code, playStoreUrl, referralConfig.signupBonus.toInt())
+                                val shareText = context.getString(R.string.refer_worker_share_text, code, playStoreUrl, 50)
 
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
@@ -300,13 +341,24 @@ fun WorkerReferEarnScreen(
 
                     // Stats Grid
                     item {
+                        val totalWithdrawn = (uiState.wallet?.withdrawnPaise ?: 0L) / 100.0
                         StatsGrid(
                             totalReferrals = uiState.referralHistory.size,
                             successfulReferrals = uiState.wallet?.successfulReferrals ?: 0,
                             totalEarnings = (uiState.wallet?.lifetimeEarnedPaise ?: 0L) / 100.0,
+                            totalWithdrawn = totalWithdrawn,
                             availableBalance = (uiState.wallet?.balancePaise ?: 0L) / 100.0,
                             signupBonusReceived = joinBonusPaise > 0L,
                             signupBonusAmount = joinBonusPaise / 100.0
+                        )
+                    }
+
+                    // Spin & Win Bonus Card
+                    item {
+                        SpinAndWinReferralPromoCard(
+                            onSpinClick = {
+                                navController.navigate(Routes.SPIN_AND_WIN)
+                            }
                         )
                     }
 
@@ -314,11 +366,29 @@ fun WorkerReferEarnScreen(
                     item {
                         val balance = (uiState.wallet?.balancePaise ?: 0L) / 100.0
                         val minWithdrawal = referralConfig.minWithdrawal
+                        val hasPendingWithdrawal = uiState.withdrawalHistory.any {
+                            it.status == WithdrawalStatus.PENDING || it.status == WithdrawalStatus.PROCESSING
+                        }
+                        val pendingReq = uiState.withdrawalHistory.firstOrNull {
+                            it.status == WithdrawalStatus.PENDING || it.status == WithdrawalStatus.PROCESSING
+                        }
+                        val pendingAmount = (pendingReq?.amountPaise ?: 0L) / 100.0
+
                         WithdrawCard(
                             availableBalance = balance,
                             minWithdrawal = minWithdrawal,
+                            hasPendingWithdrawal = hasPendingWithdrawal,
+                            pendingAmount = pendingAmount,
                             onWithdrawClick = {
-                                if (balance < minWithdrawal) return@WithdrawCard
+                                if (hasPendingWithdrawal) {
+                                    Toast.makeText(
+                                        context,
+                                        "Your previous withdrawal of ₹${pendingAmount.toInt()} is currently processing. You cannot request another until it is completed.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    return@WithdrawCard
+                                }
+                                if (balance < minWithdrawal && Math.round(balance) < Math.round(minWithdrawal)) return@WithdrawCard
                                 // Re-check profile completion before opening withdraw dialog
                                 coroutineScope.launch {
                                     val localOk = runCatching {
@@ -431,6 +501,30 @@ fun WorkerReferEarnScreen(
             onWithdraw = { upiId ->
                 // Dialog stays open with a spinner until the server answers.
                 viewModel.requestWithdrawal(upiId)
+            }
+        )
+    }
+
+    // Post-Withdrawal Celebration & Rewarded Ad Dialog
+    if (showWithdrawalCelebrationDialog) {
+        WithdrawalSuccessCelebrationDialog(
+            amountRupees = celebrationAmountRupees,
+            isAdLoading = isAdLoading,
+            onWatchAdAndSpin = {
+                val activity = context as? Activity
+                if (mRewardedAd != null && activity != null) {
+                    mRewardedAd?.show(activity) { _ ->
+                        mRewardedAd = null
+                        showWithdrawalCelebrationDialog = false
+                        navController.navigate(Routes.SPIN_AND_WIN)
+                    }
+                } else {
+                    showWithdrawalCelebrationDialog = false
+                    navController.navigate(Routes.SPIN_AND_WIN)
+                }
+            },
+            onDismiss = {
+                showWithdrawalCelebrationDialog = false
             }
         )
     }
@@ -612,7 +706,7 @@ private fun ReferEarnTopSections(
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     ReferText(
-                        text = stringResource(R.string.refer_hero_title, rewardAmount),
+                        text = stringResource(R.string.refer_hero_title),
                         color = ink,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
@@ -667,6 +761,7 @@ private fun StatsGrid(
     totalReferrals: Int,
     successfulReferrals: Int,
     totalEarnings: Double,
+    totalWithdrawn: Double,
     availableBalance: Double,
     signupBonusReceived: Boolean,
     signupBonusAmount: Double
@@ -712,12 +807,16 @@ private fun StatsGrid(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalEarnings)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
+                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary))
+                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalEarnings)), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Total Paid Out", style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary))
+                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalWithdrawn)), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Primary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
+                    Text("Remaining Balance", style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary))
+                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Success))
                 }
             }
 
@@ -738,17 +837,59 @@ private fun StatsGrid(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWithdrawClick: () -> Unit) {
-    val canWithdraw = availableBalance >= minWithdrawal
+private fun WithdrawCard(
+    availableBalance: Double,
+    minWithdrawal: Double,
+    hasPendingWithdrawal: Boolean,
+    pendingAmount: Double,
+    onWithdrawClick: () -> Unit
+) {
+    val canWithdraw = !hasPendingWithdrawal && (availableBalance >= minWithdrawal || Math.round(availableBalance) >= Math.round(minWithdrawal))
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+            .border(
+                1.dp,
+                if (hasPendingWithdrawal) WorkerColors.Warning.copy(alpha = 0.5f) else WorkerColors.Border,
+                RoundedCornerShape(16.dp)
+            ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            if (hasPendingWithdrawal) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(WorkerColors.Warning.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.HourglassTop,
+                        contentDescription = null,
+                        tint = WorkerColors.Warning,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Withdrawal Under Process",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = WorkerColors.Warning
+                            )
+                        )
+                        Text(
+                            text = "Payout of ₹${String.format(Locale.getDefault(), "%.0f", pendingAmount)} is being processed by admin. You cannot request another until this completes.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -775,21 +916,32 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(stringResource(R.string.withdraw_button))
+                    Text(if (hasPendingWithdrawal) "Processing..." else stringResource(R.string.withdraw_button))
                 }
             }
-            if (!canWithdraw) {
-                Spacer(modifier = Modifier.height(8.dp))
-                val remaining = (minWithdrawal - availableBalance).coerceAtLeast(0.0)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = stringResource(
-                        R.string.refer_earn_more_to_withdraw,
-                        String.format(Locale.getDefault(), "%.0f", remaining),
-                        String.format(Locale.getDefault(), "%.0f", minWithdrawal)
-                    ),
-                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary),
-                    modifier = Modifier.fillMaxWidth()
+                    text = "Minimum withdrawal: ₹${minWithdrawal.toInt()}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = WorkerColors.TextSecondary
+                    )
                 )
+                if (!canWithdraw && !hasPendingWithdrawal && availableBalance < minWithdrawal) {
+                    val remaining = (minWithdrawal - availableBalance).coerceAtLeast(0.0)
+                    Text(
+                        text = "Earn ₹${String.format(Locale.getDefault(), "%.0f", remaining)} more",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = WorkerColors.TextTertiary
+                        )
+                    )
+                }
             }
         }
     }
@@ -960,8 +1112,8 @@ private fun ReferralHistoryItem(referral: Referral) {
             .format(java.util.Date(referral.createdAt))
     }
     val rewardBreakdown = when (referral.status) {
-        ReferralStatus.PENDING -> context.getString(R.string.refer_status_profile_pending)
-        ReferralStatus.COMPLETED -> context.getString(R.string.refer_you_earned, (referral.rewardPaise / 100).toString())
+        ReferralStatus.PENDING -> "⏳ Incomplete Profile"
+        ReferralStatus.COMPLETED -> "✓ " + context.getString(R.string.refer_you_earned, (referral.rewardPaise / 100).toString())
         else -> ""
     }
 
@@ -1074,42 +1226,61 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
             .format(java.util.Date(withdrawal.createdAt))
     }
 
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = Icons.Default.AccountBalanceWallet,
-            contentDescription = null,
-            tint = WorkerColors.TextPrimary,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = formatPaise(withdrawal.amountPaise),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.AccountBalanceWallet,
+                contentDescription = null,
+                tint = WorkerColors.TextPrimary,
+                modifier = Modifier.size(20.dp)
             )
-            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
-        }
-        val statusColor = when (withdrawal.status) {
-            WithdrawalStatus.COMPLETED -> Color(0xFF10B981)
-            WithdrawalStatus.PROCESSING -> Color(0xFF3B82F6)
-            WithdrawalStatus.FAILED -> Color(0xFFEF4444)
-            WithdrawalStatus.PENDING -> Color(0xFFF59E0B)
-        }
-        val statusText = when (withdrawal.status) {
-            WithdrawalStatus.COMPLETED -> stringResource(R.string.status_completed)
-            WithdrawalStatus.PROCESSING -> stringResource(R.string.status_processing)
-            WithdrawalStatus.FAILED -> stringResource(R.string.status_failed)
-            WithdrawalStatus.PENDING -> stringResource(R.string.status_pending)
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = statusColor)
-            )
-            if (withdrawal.txnRef.isNotBlank()) {
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.refer_txn_ref_format, withdrawal.txnRef),
-                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary)
+                    text = formatPaise(withdrawal.amountPaise),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = WorkerColors.TextPrimary)
+                )
+                Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
+            }
+            val statusColor = when (withdrawal.status) {
+                WithdrawalStatus.COMPLETED -> Color(0xFF10B981)
+                WithdrawalStatus.PROCESSING -> Color(0xFF3B82F6)
+                WithdrawalStatus.FAILED -> Color(0xFFEF4444)
+                WithdrawalStatus.PENDING -> Color(0xFFF59E0B)
+            }
+            val statusText = when (withdrawal.status) {
+                WithdrawalStatus.COMPLETED -> stringResource(R.string.status_completed)
+                WithdrawalStatus.PROCESSING -> stringResource(R.string.status_processing)
+                WithdrawalStatus.FAILED -> stringResource(R.string.status_failed)
+                WithdrawalStatus.PENDING -> stringResource(R.string.status_pending)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = statusColor)
+                )
+                if (withdrawal.txnRef.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.refer_txn_ref_format, withdrawal.txnRef),
+                        style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary)
+                    )
+                }
+            }
+        }
+        if (withdrawal.failureReason.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Surface(
+                color = if (withdrawal.status == WithdrawalStatus.FAILED) Color(0xFFFEF2F2) else Color(0xFFFFFBEB),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 32.dp)
+            ) {
+                Text(
+                    text = withdrawal.failureReason,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = if (withdrawal.status == WithdrawalStatus.FAILED) Color(0xFFDC2626) else Color(0xFFB45309),
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
         }
@@ -1201,7 +1372,7 @@ private fun WithdrawDialog(
                         trimmed.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
                         // Same pattern the server validates, so a bad ID never reaches it.
                         !UPI_ID_PATTERN.matches(trimmed) -> error = context.getString(R.string.refer_error_invalid_upi)
-                        availableBalance < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
+                        availableBalance < minWithdrawal && Math.round(availableBalance) < Math.round(minWithdrawal) -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
                         else -> onWithdraw(trimmed)
                     }
                 },
@@ -1234,3 +1405,239 @@ data class WorkerReferralItem(
 // V2.0 PROFESSIONAL FEATURES
 // ============================================
 
+
+
+@Composable
+fun SpinAndWinReferralPromoCard(
+    onSpinClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable { onSpinClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFF0FDF4)
+        ),
+        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFDCFCE7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "🎡", fontSize = 24.sp)
+            }
+
+            Spacer(Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Spin & Win Cash!",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color(0xFF14532D)
+                    )
+                    Surface(
+                        color = Color(0xFF15803D),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "NEW",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Win up to ₹100 extra! Watch quick sponsor videos to unlock daily spins.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF166534),
+                    lineHeight = 16.sp
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Button(
+                onClick = onSpinClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF16A34A)
+                ),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(text = "Play", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+fun WithdrawalSuccessCelebrationDialog(
+    amountRupees: Long,
+    isAdLoading: Boolean,
+    onWatchAdAndSpin: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Celebration Icon
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFECFDF5)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "🎉", fontSize = 32.sp)
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                Text(
+                    text = "Withdrawal Submitted!",
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF0F172A),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = if (amountRupees > 0) {
+                        "₹$amountRupees request received. It will be sent directly to your UPI ID once verified."
+                    } else {
+                        "Your request is received and will be sent directly to your UPI ID once verified."
+                    },
+                    fontSize = 13.sp,
+                    color = Color(0xFF64748B),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Bonus Fortune Wheel Highlight Box
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFFBEB)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "🎡", fontSize = 28.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Spin & Win Up to ₹100",
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF92400E)
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Watch a quick 15-second sponsor video to claim a bonus spin on the wheel!",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFFB45309),
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                // Primary Action Button (Watch Video & Spin)
+                Button(
+                    onClick = onWatchAdAndSpin,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF059669)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (isAdLoading) "Loading Sponsor Video..." else "Watch Video & Spin Wheel 🎡",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // Secondary Dismiss Button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Maybe Later / Done",
+                        fontSize = 13.sp,
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}

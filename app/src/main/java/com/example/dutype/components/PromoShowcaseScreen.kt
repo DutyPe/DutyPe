@@ -59,6 +59,19 @@ fun PromoShowcaseScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    val handleBack = {
+        val popped = navController.popBackStack()
+        if (!popped) {
+            val componentActivity = context as? androidx.activity.ComponentActivity
+            if (componentActivity != null) {
+                componentActivity.onBackPressedDispatcher.onBackPressed()
+            } else {
+                (context as? android.app.Activity)?.finish()
+            }
+        }
+    }
+    androidx.activity.compose.BackHandler(onBack = handleBack)
+
     LaunchedEffect(showcaseId) {
         loading = true
         val data = repository.getShowcase(showcaseId)
@@ -147,7 +160,7 @@ fun PromoShowcaseScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(
-                            onClick = { navController.popBackStack() },
+                            onClick = handleBack,
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                         ) {
                             Text("Go Back")
@@ -229,7 +242,7 @@ fun PromoShowcaseScreen(
                                     .size(38.dp)
                                     .clip(CircleShape)
                                     .background(Color.Black.copy(alpha = 0.5f))
-                                    .clickable { navController.popBackStack() },
+                                    .clickable(onClick = handleBack),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(

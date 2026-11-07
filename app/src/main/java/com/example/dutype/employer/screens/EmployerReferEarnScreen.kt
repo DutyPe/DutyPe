@@ -230,12 +230,7 @@ fun EmployerReferEarnScreen(
                             },
                             onShareClick = {
                                 val code = uiState.wallet?.referralCode.orEmpty()
-                                val shareText = context.getString(
-                                    R.string.refer_employer_share_text,
-                                    code,
-                                    playStoreUrl,
-                                    referralConfig.signupBonus.toInt()
-                                )
+                                val shareText = "Hire verified staff fast on DutyPe! Use my referral code $code to join: $playStoreUrl"
 
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
@@ -264,13 +259,11 @@ fun EmployerReferEarnScreen(
 
                     // Stats
                     item {
+                        val freePosts = employerProfile?.referralPostsLeft ?: 0
                         EmployerStatsCard(
                             totalReferrals = uiState.referralHistory.size,
                             successfulReferrals = uiState.wallet?.successfulReferrals ?: 0,
-                            totalEarnings = (uiState.wallet?.lifetimeEarnedPaise ?: 0L) / 100.0,
-                            availableBalance = balanceRupees,
-                            signupBonusReceived = joinBonusPaise > 0L,
-                            signupBonusAmount = joinBonusPaise / 100.0
+                            freePostsAvailable = freePosts
                         )
                     }
 
@@ -630,10 +623,7 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 private fun EmployerStatsCard(
     totalReferrals: Int,
     successfulReferrals: Int,
-    totalEarnings: Double,
-    availableBalance: Double,
-    signupBonusReceived: Boolean,
-    signupBonusAmount: Double
+    freePostsAvailable: Int
 ) {
     Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -657,21 +647,13 @@ private fun EmployerStatsCard(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalEarnings)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+                    Text("Free Posts Earned", style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                    Text("${successfulReferrals / 2} Posts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Primary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+                    Text("Active Free Posts", style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                    Text("$freePostsAvailable Free Posts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Success))
                 }
-            }
-
-            if (signupBonusReceived && signupBonusAmount > 0.0) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.refer_signup_bonus_earned, String.format("%.0f", signupBonusAmount)),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = EmployerColors.Success)
-                )
             }
         }
     }
@@ -856,8 +838,8 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(referral.createdAt))
     }
     val rewardBreakdown = when (referral.status) {
-        ReferralStatus.PENDING -> context.getString(R.string.refer_status_profile_pending)
-        ReferralStatus.COMPLETED -> context.getString(R.string.refer_you_earned, (referral.rewardPaise / 100).toString())
+        ReferralStatus.PENDING -> "⏳ Incomplete Profile"
+        ReferralStatus.COMPLETED -> "✓ Free Post Perk"
         else -> ""
     }
 

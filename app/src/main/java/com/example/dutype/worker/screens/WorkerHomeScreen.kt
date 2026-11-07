@@ -369,14 +369,37 @@ fun WorkerHomeScreen(
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
-        // If permission was just granted, set loading state
+        // If permission was just granted, immediately enter loading state and load cached location
         if (!wasGranted && hasLocationPermission) {
             showLocationPermissionBottomSheet = false
+            jobViewModel.prepareForLocationResolution()
+            locationPreferences.setPermissionGranted(true)
+            isLocationLoading = true
+
+            // LIGHT SPEED: Feed cached/last-known location immediately (0ms) so jobs load without delay
+            val cachedLocation = locationPreferences.getSavedLocation()
+            if (cachedLocation != null && GeoUtils.hasValidCoordinates(cachedLocation.latitude, cachedLocation.longitude)) {
+                jobViewModel.setUserLocation(cachedLocation.latitude, cachedLocation.longitude, immediate = true)
+            }
+
             if (shouldFetchCurrentLocationAfterPermission) {
                 shouldFetchCurrentLocationAfterPermission = false
-                scope.launch { fetchCurrentLocationFromSheet() }
-            } else {
-                isLocationLoading = true
+                scope.launch {
+                    try {
+                        locationRepository.refresh(force = true) { locationData ->
+                            if (locationData != null && GeoUtils.hasValidCoordinates(locationData.latitude, locationData.longitude)) {
+                                val data = locationService.toLocationData(locationData)
+                                scope.launch { saveWorkerHomeLocation(data, manual = false) }
+                                jobViewModel.onGpsFix(data.latitude, data.longitude)
+                                jobViewModel.setUserLocation(data.latitude, data.longitude, immediate = true)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Fast location fetch after permission grant failed")
+                    } finally {
+                        isLocationLoading = false
+                    }
+                }
             }
         } else if (!hasLocationPermission) {
             // If user ignores or denies direct system permission prompt, show the bottom sheet explanation
@@ -467,46 +490,40 @@ fun WorkerHomeScreen(
 
             locationFetchInProgress = true
             try {
-                withTimeoutOrNull(3500L) {
-                    val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
-                    if (freshCachedLocation != null) {
-                        Timber.d("  Using fresh cached location, skipping new GPS fetch")
-                        jobViewModel.setUserLocation(
-                            freshCachedLocation.latitude,
-                            freshCachedLocation.longitude,
-                            immediate = true
-                        )
-                        return@withTimeoutOrNull
-                    }
+                val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
+                if (freshCachedLocation != null && GeoUtils.hasValidCoordinates(freshCachedLocation.latitude, freshCachedLocation.longitude)) {
+                    Timber.d("  Using fresh cached location, skipping new GPS fetch")
+                    jobViewModel.setUserLocation(
+                        freshCachedLocation.latitude,
+                        freshCachedLocation.longitude,
+                        immediate = true
+                    )
+                }
 
-                    // UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
-                    Timber.d("  Starting FAST location fetch (Uber/Swiggy strategy)...")
-                    locationRepository.refresh { locationData ->
-                        if (locationData != null) {
-                            Timber.d("  ⚡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
-                            locationPreferences.setPermissionGranted(true)
-                            val data = locationService.toLocationData(locationData)
-                            // Current area only (the profile's home location is set in the profile).
-                            jobViewModel.onGpsFix(data.latitude, data.longitude)
+                // UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
+                Timber.d("  Starting FAST location fetch (Uber/Swiggy strategy)...")
+                locationRepository.refresh(force = true) { locationData ->
+                    if (locationData != null && GeoUtils.hasValidCoordinates(locationData.latitude, locationData.longitude)) {
+                        Timber.d("  ⚡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
+                        locationPreferences.setPermissionGranted(true)
+                        val data = locationService.toLocationData(locationData)
+                        // Current area only (the profile's home location is set in the profile).
+                        jobViewModel.onGpsFix(data.latitude, data.longitude)
 
-                            // A place the worker picked (e.g. Delhi) wins over GPS: the feed stays there
-                            // until they switch back to "use my current location".
-                            if ((data.latitude != 0.0 || data.longitude != 0.0) &&
-                                !locationPreferences.isManualLocationLocked()
-                            ) {
-                                jobViewModel.setUserLocation(
-                                    data.latitude,
-                                    data.longitude,
-                                    immediate = true
-                                )
-                            }
+                        // A place the worker picked (e.g. Delhi) wins over GPS: the feed stays there
+                        // until they switch back to "use my current location".
+                        if (!locationPreferences.isManualLocationLocked()) {
+                            jobViewModel.setUserLocation(
+                                data.latitude,
+                                data.longitude,
+                                immediate = true
+                            )
                         }
                     }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to fetch location")
             } finally {
-                delay(200L)
                 isLocationLoading = false
                 locationFetchInProgress = false
             }
@@ -1127,8 +1144,9 @@ fun WorkerHomeScreen(
                     ) {
                         when {
                             else -> {
-                                val jobsFailed = jobUiState.hasError && jobUiState.jobs.isEmpty()
-                                val showEmptyJobsState = !jobUiState.isLoading && !jobsFailed &&
+                                val isLocationOrJobsLoading = jobUiState.isLoading || isLocationLoading || locationFetchInProgress || isFetchingSheetLocation
+                                val jobsFailed = jobUiState.hasError && jobUiState.jobs.isEmpty() && !isLocationOrJobsLoading
+                                val showEmptyJobsState = !isLocationOrJobsLoading && !jobsFailed &&
                                     (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
                                 val isAppliedAllVariant = !jobUiState.jobs.isEmpty() && filteredJobs.isEmpty()
                                 val showCategoryRail = hasLocationPermission && !showEmptyJobsState
@@ -1136,7 +1154,7 @@ fun WorkerHomeScreen(
                                 HomeSectionsContent(
                                     jobListings = homeDisplayedJobs,
                                     urgentJobs = urgentJobs,
-                                    isLoadingJobs = jobUiState.isLoading,
+                                    isLoadingJobs = isLocationOrJobsLoading,
                                     navController = navController,
                                     rootNavController = rootNavController,
                                     savedJobsViewModel = savedJobsViewModel,
@@ -1387,16 +1405,16 @@ fun WorkerHomeScreen(
             }
         }
 
-        // Floating Bottom Pill: "Apply jobs for free · ₹0" with Super Character Writing & Tag Wobble
+        // Floating Bottom Pill: "Apply jobs for free · ₹0" with Smooth Fade Transition & Tag Wobble
         var showApplyFreeChip by remember { mutableStateOf(false) }
-        var triggerTextWriting by remember { mutableStateOf(false) }
+        var triggerTextFade by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
             delay(300L)
             showApplyFreeChip = true
-            triggerTextWriting = true
-            delay(2600L) // Badge stays 2-3 seconds as requested (2.6s)
+            triggerTextFade = true
+            delay(2800L) // Badge stays 2-3 seconds as requested (2.8s)
             showApplyFreeChip = false
-            triggerTextWriting = false
+            triggerTextFade = false
         }
 
         // Left-side Tag Shake / Playful Wobble Animation (runs periodically every ~2.6 seconds)
@@ -1468,13 +1486,12 @@ fun WorkerHomeScreen(
                                 rotationZ = tagRotation
                             }
                     )
-                    SuperCharacterWritingText(
+                    SmoothFadeText(
                         text = "Apply jobs for free",
-                        isTriggered = triggerTextWriting,
+                        isTriggered = triggerTextFade,
                         color = Color(0xFF222222),
                         fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        charDelayMs = 18L
+                        fontWeight = FontWeight.Bold
                     )
                     Box(
                         modifier = Modifier
@@ -1853,34 +1870,40 @@ internal fun WorkerOutOfAreaBottomSheet(
 
 
 @Composable
-fun SuperCharacterWritingText(
+fun SmoothFadeText(
     text: String,
     isTriggered: Boolean,
     modifier: Modifier = Modifier,
     color: Color = Color(0xFF222222),
     fontSize: androidx.compose.ui.unit.TextUnit = 14.5.sp,
-    fontWeight: FontWeight = FontWeight.Bold,
-    charDelayMs: Long = 18L
+    fontWeight: FontWeight = FontWeight.Bold
 ) {
-    var visibleCount by remember { mutableIntStateOf(0) }
-    LaunchedEffect(isTriggered, text) {
-        if (isTriggered) {
-            visibleCount = 0
-            for (i in 1..text.length) {
-                visibleCount = i
-                kotlinx.coroutines.delay(charDelayMs)
-            }
-        } else {
-            visibleCount = text.length
-        }
-    }
+    val alphaAnim by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isTriggered) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = 500,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "smoothTextFadeAlpha"
+    )
+    val translationAnim by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isTriggered) 0f else -6f,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = 500,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "smoothTextFadeTranslation"
+    )
 
     Text(
-        text = text.take(visibleCount),
-        color = color,
+        text = text,
+        color = color.copy(alpha = alphaAnim),
         fontSize = fontSize,
         fontWeight = fontWeight,
         letterSpacing = 0.2.sp,
-        modifier = modifier
+        modifier = modifier.graphicsLayer {
+            alpha = alphaAnim
+            translationX = translationAnim
+        }
     )
 }

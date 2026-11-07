@@ -6,7 +6,6 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import { LottiePreview } from "./lottie-preview";
-import { optimizeBannerImage } from "./admin-banners-manager";
 
 type DynamicConfig = {
   isDirectCallEnabled: boolean;
@@ -62,6 +61,70 @@ const DEFAULTS: DynamicConfig = {
   inAppDialogTargetAudience: "ALL"
 };
 
+async function compressToTarget4GKb(
+  file: File,
+  targetMaxKb: number = 60,
+  isVerticalTarget: boolean = false
+): Promise<{ blob: Blob; sizeKb: number; width: number; height: number; savingsPct: number; isNonVerticalWarning?: boolean }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        const origW = img.width;
+        const origH = img.height;
+        const isNonVertical = isVerticalTarget && (origW >= origH || origW / origH > 0.70);
+
+        let maxWidth = isVerticalTarget ? 1080 : 1280;
+        let maxHeight = isVerticalTarget ? 1920 : 1280;
+        let w = origW;
+        let h = origH;
+        if (w > maxWidth || h > maxHeight) {
+          const ratio = Math.min(maxWidth / w, maxHeight / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas context creation failed"));
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h);
+
+        let quality = 0.82;
+        let blob: Blob | null = null;
+        for (let i = 0; i < 5; i++) {
+          blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/webp", quality));
+          if (!blob) break;
+          const currentKb = blob.size / 1024;
+          if (currentKb <= targetMaxKb || quality <= 0.45) break;
+          quality -= 0.12;
+        }
+
+        const finalBlob = blob || file;
+        const finalKb = Math.round((finalBlob.size / 1024) * 10) / 10;
+        const savings = Math.max(0, Math.round(((file.size - finalBlob.size) / file.size) * 100));
+
+        resolve({
+          blob: finalBlob,
+          sizeKb: finalKb,
+          width: origW,
+          height: origH,
+          savingsPct: savings,
+          isNonVerticalWarning: isNonVertical
+        });
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function AdminDynamicConfigClient() {
   const services = useMemo(() => getFirebaseServices(), []);
   const [config, setConfig] = useState<DynamicConfig>(DEFAULTS);
@@ -70,7 +133,14 @@ export function AdminDynamicConfigClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"worker" | "employer">("worker");
+
+  // Clean Navigation Tabs
+  const [mainTab, setMainTab] = useState<"promos" | "campaign" | "theme" | "features">("promos");
+  const [themeRoleTab, setThemeRoleTab] = useState<"worker" | "employer">("worker");
+
+  // Launch Promo Dimension Warning & Info
+  const [launchPromoWarning, setLaunchPromoWarning] = useState<string | null>(null);
+  const [launchPromoInfo, setLaunchPromoInfo] = useState<{ width: number; height: number; kb: number } | null>(null);
 
   // Dynamic Campaign / Promo Microsite State
   const [campaign, setCampaign] = useState({
@@ -182,36 +252,34 @@ export function AdminDynamicConfigClient() {
             isPrimary: false
           }
         ],
-        district: "ALL",
-        scope: "NATIONAL",
-        active: campaign.active,
+        active: true,
         updatedAt: serverTimestamp()
       };
+
       await setDoc(doc(services.db, "promo_showcases", "active_campaign"), payload, { merge: true });
-      setCampaignMessage("🎉 Dynamic Campaign Landing Page saved & published! All banners and dialogs targeting 'dynamic_campaign' will render this page.");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save campaign: " + (err instanceof Error ? err.message : String(err)));
+      setCampaignMessage("✓ Dynamic Campaign published! All devices opening 'dynamic_campaign' route will immediately see this updated page.");
+    } catch (err: unknown) {
+      setCampaignMessage(err instanceof Error ? err.message : "Failed to publish campaign.");
     } finally {
       setSavingCampaign(false);
     }
   }
 
+  // Real-time listener for Dynamic Features Config
   useEffect(() => {
     if (!services) return;
 
-    const ref = doc(services.db, "app_config", "dynamic_features");
     const unsubscribe = onSnapshot(
-      ref,
+      doc(services.db, "app_config", "dynamic_features"),
       (snapshot) => {
         if (!snapshot.exists()) {
           setConfig(DEFAULTS);
-          setLastUpdated("(never - defaults in use)");
+          setLastUpdated("");
           setDirty(false);
           return;
         }
 
-        const data = snapshot.data() as Partial<DynamicConfig>;
+        const data = snapshot.data();
         const launcherIcon = String(data.activeLauncherIcon ?? DEFAULTS.activeLauncherIcon).toLowerCase();
         const normalizedLauncherIcon: DynamicConfig["activeLauncherIcon"] =
           launcherIcon === "independence"
@@ -247,7 +315,7 @@ export function AdminDynamicConfigClient() {
         });
 
         const updatedAt = (data.updatedAt as Timestamp | undefined)?.toDate?.();
-        setLastUpdated(updatedAt ? `${updatedAt.toLocaleString()} by ${data.updatedBy ?? "unknown"}` : "");
+        setLastUpdated(updatedAt ? `${updatedAt.toLocaleString()} by ${data.updatedBy ?? "admin"}` : "");
         setDirty(false);
       },
       (snapshotError) => {
@@ -270,65 +338,65 @@ export function AdminDynamicConfigClient() {
 
     try {
       await setDoc(
-          doc(services.db, "app_config", "dynamic_features"),
-          {
-            isDirectCallEnabled: config.isDirectCallEnabled,
-            isUrgentJobsEnabled: config.isUrgentJobsEnabled,
-            activeLauncherIcon: config.activeLauncherIcon,
-            promoBannerUrl: config.promoBannerUrl.trim(),
-            employerPromoBannerUrl: config.employerPromoBannerUrl.trim(),
-            lottieLoadingUrl: config.lottieLoadingUrl.trim(),
-            primaryColor: config.primaryColor.trim(),
-            headerTextColor: config.headerTextColor.trim(),
-            employerPrimaryColor: config.employerPrimaryColor.trim(),
-            headerLottieUrl: config.headerLottieUrl.trim(),
-            launchPromoEnabled: config.launchPromoEnabled,
-            launchPromoMediaType: config.launchPromoMediaType,
-            launchPromoBannerUrl: config.launchPromoBannerUrl.trim(),
-            launchPromoAnimationUrl: config.launchPromoAnimationUrl.trim(),
-            launchPromoTitle: config.launchPromoTitle.trim(),
-            launchPromoActionRoute: config.launchPromoActionRoute.trim(),
-            launchPromoDurationSec: Math.max(3, Math.min(10, Number(config.launchPromoDurationSec) || 5)),
-            launchPromoButtonText: config.launchPromoButtonText.trim(),
-            inAppDialogEnabled: config.inAppDialogEnabled,
-            inAppDialogImageUrl: config.inAppDialogImageUrl.trim(),
-            inAppDialogTitle: config.inAppDialogTitle.trim(),
-            inAppDialogActionRoute: config.inAppDialogActionRoute.trim(),
-            inAppDialogTargetAudience: config.inAppDialogTargetAudience,
-            updatedAt: serverTimestamp(),
-            updatedBy: services.auth.currentUser?.email ?? services.auth.currentUser?.uid ?? "admin"
-          },
-          { merge: true }
+        doc(services.db, "app_config", "dynamic_features"),
+        {
+          isDirectCallEnabled: config.isDirectCallEnabled,
+          isUrgentJobsEnabled: config.isUrgentJobsEnabled,
+          activeLauncherIcon: config.activeLauncherIcon,
+          promoBannerUrl: config.promoBannerUrl.trim(),
+          employerPromoBannerUrl: config.employerPromoBannerUrl.trim(),
+          lottieLoadingUrl: config.lottieLoadingUrl.trim(),
+          primaryColor: config.primaryColor.trim(),
+          headerTextColor: config.headerTextColor.trim(),
+          employerPrimaryColor: config.employerPrimaryColor.trim(),
+          headerLottieUrl: config.headerLottieUrl.trim(),
+          launchPromoEnabled: config.launchPromoEnabled,
+          launchPromoMediaType: config.launchPromoMediaType,
+          launchPromoBannerUrl: config.launchPromoBannerUrl.trim(),
+          launchPromoAnimationUrl: config.launchPromoAnimationUrl.trim(),
+          launchPromoTitle: config.launchPromoTitle.trim(),
+          launchPromoActionRoute: config.launchPromoActionRoute.trim(),
+          launchPromoDurationSec: Math.max(3, Math.min(10, Number(config.launchPromoDurationSec) || 5)),
+          launchPromoButtonText: config.launchPromoButtonText.trim(),
+          inAppDialogEnabled: config.inAppDialogEnabled,
+          inAppDialogImageUrl: config.inAppDialogImageUrl.trim(),
+          inAppDialogTitle: config.inAppDialogTitle.trim(),
+          inAppDialogActionRoute: config.inAppDialogActionRoute.trim(),
+          inAppDialogTargetAudience: config.inAppDialogTargetAudience,
+          updatedAt: serverTimestamp(),
+          updatedBy: services.auth.currentUser?.email ?? services.auth.currentUser?.uid ?? "admin"
+        },
+        { merge: true }
       );
 
-      // Seamlessly sync launch promo and launcher icon to app_config/launch so all mobile clients update
+      // Seamlessly sync launch promo to app_config/launch so any legacy readers update
       await setDoc(
-          doc(services.db, "app_config", "launch"),
-          {
-            version: Date.now(),
-            enabled: config.launchPromoEnabled,
-            appIcon: {
-              enabled: config.activeLauncherIcon !== "default",
-              activeIconId: config.activeLauncherIcon
-            },
-            promos: config.launchPromoEnabled && (config.launchPromoBannerUrl || config.launchPromoAnimationUrl) ? [
-              {
-                id: "launch_promo_campaign",
-                type: "fullscreen",
-                priority: 100,
-                imageUrl: config.launchPromoBannerUrl.trim(),
-                title: { en: config.launchPromoTitle.trim() || "DutyPe Special Offer" },
-                ctaLabel: { en: "Check Now" },
-                deepLink: config.launchPromoActionRoute.trim() || "services",
-                dismissible: true,
-                frequency: { maxShows: 5, minHoursBetween: 4 }
-              }
-            ] : []
+        doc(services.db, "app_config", "launch"),
+        {
+          version: Date.now(),
+          enabled: config.launchPromoEnabled,
+          appIcon: {
+            enabled: config.activeLauncherIcon !== "default",
+            activeIconId: config.activeLauncherIcon
           },
-          { merge: true }
+          promos: config.launchPromoEnabled && (config.launchPromoBannerUrl || config.launchPromoAnimationUrl) ? [
+            {
+              id: "launch_promo_campaign",
+              type: "fullscreen",
+              priority: 100,
+              imageUrl: config.launchPromoBannerUrl.trim(),
+              title: { en: config.launchPromoTitle.trim() || "DutyPe Special Offer" },
+              ctaLabel: { en: config.launchPromoButtonText.trim() || "Check Now" },
+              deepLink: config.launchPromoActionRoute.trim() || "services",
+              dismissible: true,
+              frequency: { maxShows: 5, minHoursBetween: 4 }
+            }
+          ] : []
+        },
+        { merge: true }
       );
 
-      setMessage("Saved. The changes will instantly push to all active user devices in real-time.");
+      setMessage("✓ Configuration saved! Pushed to all user devices in real-time.");
       setDirty(false);
     } catch (saveError: unknown) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save dynamic config.");
@@ -336,66 +404,6 @@ export function AdminDynamicConfigClient() {
       setSaving(false);
     }
   }
-
-async function compressToTarget4GKb(
-  file: File,
-  targetMaxKb: number = 60
-): Promise<{ blob: Blob; sizeKb: number; width: number; height: number; savingsPct: number }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = async () => {
-        let maxDim = 1080;
-        let w = img.width;
-        let h = img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-          } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-          }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("Canvas context creation failed"));
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, 0, w, h);
-
-        let quality = 0.82;
-        let blob: Blob | null = null;
-        for (let i = 0; i < 5; i++) {
-          blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/webp", quality));
-          if (!blob) break;
-          const currentKb = blob.size / 1024;
-          if (currentKb <= targetMaxKb || quality <= 0.45) break;
-          quality -= 0.12;
-        }
-
-        const finalBlob = blob || file;
-        const finalKb = Math.round((finalBlob.size / 1024) * 10) / 10;
-        const savings = Math.max(0, Math.round(((file.size - finalBlob.size) / file.size) * 100));
-
-        resolve({
-          blob: finalBlob,
-          sizeKb: finalKb,
-          width: canvas.width,
-          height: canvas.height,
-          savingsPct: savings
-        });
-      };
-      img.onerror = () => reject(new Error("Failed to load image"));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
   async function handleFileUpload(file: File, field: keyof DynamicConfig) {
     if (!services) {
@@ -413,14 +421,23 @@ async function compressToTarget4GKb(
       let contentType = file.type || "application/octet-stream";
 
       if (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name)) {
-        // Light-speed 4G WebP compression targeting 30-60 KB
-        const opt = await compressToTarget4GKb(file, 60);
+        const isLaunchPromo = field === "launchPromoBannerUrl";
+        const opt = await compressToTarget4GKb(file, 60, isLaunchPromo);
         uploadBlob = opt.blob;
         fileName = `${fileName}.webp`;
         contentType = "image/webp";
-        setMessage(`⚡ Ultra-Fast 4G WebP: ${opt.sizeKb} KB (target: 30-60 KB, saved ${opt.savingsPct}% data). Loads in <120ms. Uploading...`);
+
+        if (isLaunchPromo) {
+          setLaunchPromoInfo({ width: opt.width, height: opt.height, kb: opt.sizeKb });
+          if (opt.isNonVerticalWarning) {
+            setLaunchPromoWarning(`⚠️ Non-Vertical Image Detected (${opt.width}×${opt.height}px, ratio ${(opt.width / opt.height).toFixed(2)}). Launch promo banners take over the full mobile screen (Blinkit/Zepto style). For best display, use a 9:16 vertical portrait format (1080×1920 px recommended) so the banner covers the screen without letterboxing.`);
+          } else {
+            setLaunchPromoWarning(null);
+          }
+        }
+
+        setMessage(`⚡ Ultra-Fast 4G WebP: ${opt.sizeKb} KB (saved ${opt.savingsPct}% data). Loads in <120ms. Uploading...`);
       } else if (file.name.endsWith(".json") || file.type.includes("json")) {
-        // Lottie animation validation and minification
         const text = await file.text();
         let parsed: any;
         try {
@@ -435,7 +452,6 @@ async function compressToTarget4GKb(
         uploadBlob = new Blob([minified], { type: "application/json" });
         fileName = `${fileName}.json`;
         contentType = "application/json";
-        const originalKb = Math.round((file.size / 1024) * 10) / 10;
         const minifiedKb = Math.round((uploadBlob.size / 1024) * 10) / 10;
         const savings = Math.max(0, Math.round(((file.size - uploadBlob.size) / file.size) * 100));
         setMessage(`⚡ Minified Lottie Animation JSON: ${minifiedKb} KB (saved ${savings}%). Uploading...`);
@@ -445,7 +461,6 @@ async function compressToTarget4GKb(
       }
 
       const storageRef = ref(services.storage, `dynamic_assets/${fileName}`);
-
       await uploadBytes(storageRef, uploadBlob, {
         contentType,
         cacheControl: "public, max-age=31536000, immutable"
@@ -454,7 +469,7 @@ async function compressToTarget4GKb(
 
       setConfig((prev) => ({ ...prev, [field]: url }));
       setDirty(true);
-      setMessage(`Successfully uploaded optimized asset to ${field}`);
+      setMessage(`✓ Successfully uploaded and optimized asset for ${field}`);
     } catch (uploadError: unknown) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload file.");
     } finally {
@@ -463,356 +478,760 @@ async function compressToTarget4GKb(
   }
 
   return (
-    <section className="admin-card" style={{ maxWidth: 720, padding: 24, backgroundColor: "#fff", borderRadius: 8, boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)" }}>
-      <header style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Dynamic App Features &amp; Theme Configurator</h2>
-        <p style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-          Tweak feature flags, update launcher icons, and manage loading animations remotely.
-        </p>
-        {lastUpdated && (
-          <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>
-            Last updated: {lastUpdated}
+    <div style={{ maxWidth: 1040, margin: "0 auto", paddingBottom: 60 }}>
+      {/* Header Bar */}
+      <div style={{
+        background: "#ffffff",
+        borderRadius: 16,
+        padding: "24px 28px",
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 15px -5px rgba(0, 0, 0, 0.02)",
+        marginBottom: 20,
+        border: "1px solid #e2e8f0",
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 16
+      }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>✨</span>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em" }}>
+              Dynamic App Features &amp; Campaigns
+            </h1>
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "3px 9px",
+              borderRadius: 20,
+              backgroundColor: "#f0fdf4",
+              color: "#166534",
+              border: "1px solid #bbf7d0"
+            }}>
+              ● LIVE DEVICE SYNC
+            </span>
+          </div>
+          <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "#64748b" }}>
+            Control app-open launch promo takeovers, in-app flyer dialogs, dynamic campaign landing microsites, themes &amp; branding in real-time.
           </p>
-        )}
-      </header>
+          {lastUpdated && (
+            <p style={{ margin: "6px 0 0 0", fontSize: 11, color: "#94a3b8" }}>
+              Last synchronized: {lastUpdated}
+            </p>
+          )}
+        </div>
 
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {dirty && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#d97706", background: "#fef3c7", padding: "4px 10px", borderRadius: 8 }}>
+              Unsaved changes
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!dirty || saving}
+            style={{
+              padding: "10px 22px",
+              borderRadius: 10,
+              backgroundColor: !dirty || saving ? "#cbd5e1" : "#2563eb",
+              color: !dirty || saving ? "#64748b" : "#ffffff",
+              border: "none",
+              cursor: !dirty || saving ? "not-allowed" : "pointer",
+              fontWeight: 600,
+              fontSize: 14,
+              boxShadow: dirty && !saving ? "0 4px 6px -1px rgba(37, 99, 235, 0.3)" : "none",
+              transition: "all 0.15s ease"
+            }}
+          >
+            {saving ? "Saving Changes..." : "💾 Save Config"}
+          </button>
+        </div>
+      </div>
+
+      {/* Global Status Notifications */}
       {error && (
-        <div style={{ padding: 12, backgroundColor: "#fee2e2", color: "#b91c1c", borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
-          {error}
+        <div style={{
+          padding: "12px 16px",
+          backgroundColor: "#fef2f2",
+          border: "1px solid #fecaca",
+          color: "#991b1b",
+          borderRadius: 10,
+          fontSize: 13,
+          marginBottom: 16,
+          fontWeight: 500,
+          display: "flex",
+          alignItems: "center",
+          gap: 8
+        }}>
+          <span>❌</span>
+          <span>{error}</span>
         </div>
       )}
 
       {message && (
-        <div style={{ padding: 12, backgroundColor: "#d1fae5", color: "#065f46", borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
-          {message}
+        <div style={{
+          padding: "12px 16px",
+          backgroundColor: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          color: "#166534",
+          borderRadius: 10,
+          fontSize: 13,
+          marginBottom: 16,
+          fontWeight: 500,
+          display: "flex",
+          alignItems: "center",
+          gap: 8
+        }}>
+          <span>✓</span>
+          <span>{message}</span>
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        
-        {/* Launcher Icon Selection at top (common to both roles) */}
-        <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: 24 }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 600, color: "#374151" }}>Common App Launcher Icon</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12 }}>
-            {[
-              { id: "default", name: "Default (Purple)", color: "linear-gradient(135deg, #7c3aed, #4f46e5)", icon: "D" },
-              { id: "birthday", name: "Birthday", color: "linear-gradient(135deg, #f59e0b, #d97706)", icon: "🎂" },
-              { id: "independence", name: "Independence", color: "linear-gradient(135deg, #f97316, #16a34a)", icon: "🇮🇳" }
-            ].map((opt) => {
-              const isSelected = config.activeLauncherIcon === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => { setConfig({ ...config, activeLauncherIcon: opt.id as any }); setDirty(true); }}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    padding: 12,
-                    borderRadius: 12,
-                    border: isSelected ? "2.5px solid #4f46e5" : "1px solid #d1d5db",
-                    backgroundColor: isSelected ? "#f5f3ff" : "#f9fafb",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    outline: "none"
-                  }}
-                >
-                  <div style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    background: opt.color,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    fontWeight: "bold",
-                    fontSize: 20,
-                    marginBottom: 8,
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                  }}>
-                    {opt.icon}
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: isSelected ? 600 : 500, color: isSelected ? "#4f46e5" : "#4b5563" }}>
-                    {opt.name}
-                  </span>
-                </button>
-              );
-            })}
+      {/* Modern Clean Tabs Bar */}
+      <div style={{
+        display: "flex",
+        background: "#ffffff",
+        borderRadius: 12,
+        padding: 4,
+        gap: 6,
+        marginBottom: 20,
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+      }}>
+        {[
+          { id: "promos", label: "🚀 Popups & Promos", count: (config.launchPromoEnabled ? 1 : 0) + (config.inAppDialogEnabled ? 1 : 0) },
+          { id: "campaign", label: "🌟 Dynamic Campaign Landing Page", badge: "dynamic_campaign" },
+          { id: "theme", label: "🎨 App Branding & Theme", badge: config.activeLauncherIcon },
+          { id: "features", label: "⚡ Feature Flags & Banners" }
+        ].map((tab) => {
+          const isSelected = mainTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMainTab(tab.id as any)}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "none",
+                background: isSelected ? "#0f172a" : "transparent",
+                color: isSelected ? "#ffffff" : "#475569",
+                fontWeight: isSelected ? 700 : 500,
+                fontSize: 13,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8
+              }}
+            >
+              <span>{tab.label}</span>
+              {typeof tab.count === "number" && tab.count > 0 && (
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "1px 6px",
+                  borderRadius: 10,
+                  backgroundColor: isSelected ? "#3b82f6" : "#e2e8f0",
+                  color: isSelected ? "#ffffff" : "#0f172a"
+                }}>
+                  {tab.count} active
+                </span>
+              )}
+              {tab.badge && (
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  backgroundColor: isSelected ? "rgba(255,255,255,0.2)" : "#f1f5f9",
+                  color: isSelected ? "#ffffff" : "#64748b"
+                }}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TAB 1: POPUPS & PROMOS (Launch Promo & In-App Dialog Banner)               */}
+      {/* ========================================================================= */}
+      {mainTab === "promos" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Top Banner Notice */}
+          <div style={{
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: 12,
+            padding: "14px 18px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12
+          }}>
+            <span style={{ fontSize: 20 }}>💡</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1e3a8a" }}>
+                Completely Independent Banners
+              </div>
+              <div style={{ fontSize: 12, color: "#3b82f6", marginTop: 2, lineHeight: 1.5 }}>
+                You can independently enable the <b>Launch Promo Banner</b> (app open splash takeover), the <b>In-App Targeted Dialog Banner</b> (modal flyer on home screen), both simultaneously, or neither. Whichever boxes you check will display exclusively in the mobile app.
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: 24 }}>
-          <h3 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 600, color: "#374151" }}>Launch Promo Banner</h3>
-          <p style={{ margin: "0 0 12px 0", fontSize: 12, color: "#6b7280" }}>
-            Show a full-screen event or deals banner before the splash screen on app open. Leave it off to keep the normal splash.
-          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {/* CARD 1: LAUNCH PROMO BANNER */}
+            <div style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              padding: 24,
+              border: config.launchPromoEnabled ? "2px solid #22c55e" : "1px solid #e2e8f0",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>🚀</span>
+                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                      1. Launch Promo Banner
+                    </h2>
+                  </div>
+                  <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#64748b" }}>
+                    Blinkit, BigBasket &amp; Zepto-style full screen takeover on app open before the splash.
+                  </p>
+                </div>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: 20,
+                  backgroundColor: config.launchPromoEnabled ? "#f0fdf4" : "#f1f5f9",
+                  color: config.launchPromoEnabled ? "#15803d" : "#64748b",
+                  border: config.launchPromoEnabled ? "1px solid #bbf7d0" : "1px solid #e2e8f0"
+                }}>
+                  {config.launchPromoEnabled ? "🟢 LIVE ON OPEN" : "⚪ DISABLED"}
+                </span>
+              </div>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 16 }}>
-            <input
-              type="checkbox"
-              checked={config.launchPromoEnabled}
-              onChange={(e) => { setConfig({ ...config, launchPromoEnabled: e.target.checked }); setDirty(true); }}
-            />
-            <span style={{ fontSize: 14, fontWeight: 500, color: "#374151" }}>Enable launch promo banner</span>
-          </label>
+              {/* Toggle Switch */}
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                cursor: "pointer",
+                padding: "12px 14px",
+                borderRadius: 10,
+                backgroundColor: config.launchPromoEnabled ? "#f0fdf4" : "#f8fafc",
+                border: "1px solid " + (config.launchPromoEnabled ? "#86efac" : "#e2e8f0"),
+                marginBottom: 16
+              }}>
+                <input
+                  type="checkbox"
+                  checked={config.launchPromoEnabled}
+                  onChange={(e) => {
+                    setConfig({ ...config, launchPromoEnabled: e.target.checked });
+                    setDirty(true);
+                  }}
+                  style={{ width: 18, height: 18, accentColor: "#22c55e", cursor: "pointer" }}
+                />
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: config.launchPromoEnabled ? "#15803d" : "#334155" }}>
+                    Enable Launch Promo Banner
+                  </span>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    {config.launchPromoEnabled ? "Active: Takes over screen on open" : "Leave unchecked to show standard splash"}
+                  </div>
+                </div>
+              </label>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {(["IMAGE", "ANIMATION"] as const).map((type) => {
-              const isSelected = config.launchPromoMediaType === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => { setConfig({ ...config, launchPromoMediaType: type }); setDirty(true); }}
-                  style={{
+              {/* Media Type Selector */}
+              <div style={{ marginBottom: 14 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>
+                  Media Format
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["IMAGE", "ANIMATION"] as const).map((type) => {
+                    const isSelected = config.launchPromoMediaType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => { setConfig({ ...config, launchPromoMediaType: type }); setDirty(true); }}
+                        style={{
+                          flex: 1,
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: isSelected ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                          background: isSelected ? "#eff6ff" : "#ffffff",
+                          color: isSelected ? "#1d4ed8" : "#475569",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer"
+                        }}
+                      >
+                        {type === "IMAGE" ? "🖼️ Image / GIF" : "🎬 Lottie JSON"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Image Upload & Dimension Guidance */}
+              {config.launchPromoMediaType === "IMAGE" ? (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>
+                      Launch Promo Vertical Image (WebP)
+                    </span>
+                    <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}>
+                      Format: 9:16 Vertical Portrait (1080×1920)
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <input
+                      type="url"
+                      value={config.launchPromoBannerUrl}
+                      placeholder="https://cdn.dutype.app/banners/splash-sale.webp"
+                      onChange={(e) => { setConfig({ ...config, launchPromoBannerUrl: e.target.value }); setDirty(true); }}
+                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                    />
+                    <label style={{
+                      padding: "8px 12px",
+                      background: "#f1f5f9",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center"
+                    }}>
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "launchPromoBannerUrl"); }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Non-Vertical Dimension Warning Alert */}
+                  {launchPromoWarning && (
+                    <div style={{
+                      padding: "10px 12px",
+                      backgroundColor: "#fffbeb",
+                      border: "1px solid #fde68a",
+                      color: "#92400e",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      marginBottom: 10,
+                      lineHeight: 1.4
+                    }}>
+                      {launchPromoWarning}
+                    </div>
+                  )}
+
+                  {config.launchPromoBannerUrl && (
+                    <div style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      background: "#f8fafc",
+                      padding: 10,
+                      borderRadius: 10,
+                      border: "1px solid #e2e8f0"
+                    }}>
+                      <img
+                        src={config.launchPromoBannerUrl}
+                        alt="Launch promo"
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          const aspect = img.naturalWidth / img.naturalHeight;
+                          setLaunchPromoInfo({ width: img.naturalWidth, height: img.naturalHeight, kb: 45 });
+                          if (img.naturalWidth >= img.naturalHeight || aspect > 0.70) {
+                            setLaunchPromoWarning(`⚠️ Non-Vertical Image (${img.naturalWidth}×${img.naturalHeight}px). For edge-to-edge coverage on all phones, please use a 9:16 vertical image (1080×1920 px).`);
+                          } else {
+                            setLaunchPromoWarning(null);
+                          }
+                        }}
+                        style={{
+                          width: 80,
+                          height: 140,
+                          borderRadius: 6,
+                          objectFit: "contain",
+                          backgroundColor: "#000000",
+                          border: "1px solid #cbd5e1"
+                        }}
+                      />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#166534", background: "#f0fdf4", padding: "2px 6px", borderRadius: 4, width: "fit-content" }}>
+                          ✓ High-Speed 4G WebP
+                        </span>
+                        {launchPromoInfo && (
+                          <span style={{ fontSize: 11, color: "#64748b" }}>
+                            Dimensions: {launchPromoInfo.width} × {launchPromoInfo.height} px
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: "#64748b" }}>
+                          Renders 100% full image without cutoffs
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => { setConfig({ ...config, launchPromoBannerUrl: "" }); setDirty(true); setLaunchPromoWarning(null); }}
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: 11,
+                            color: "#ef4444",
+                            border: "1px solid #fca5a5",
+                            borderRadius: 6,
+                            background: "transparent",
+                            cursor: "pointer",
+                            width: "fit-content"
+                          }}
+                        >
+                          Remove Image
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ marginBottom: 14 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>
+                    Launch Animation JSON URL (Lottie)
+                  </span>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <input
+                      type="url"
+                      value={config.launchPromoAnimationUrl}
+                      placeholder="https://assets.dutype.app/animations/launch.json"
+                      onChange={(e) => { setConfig({ ...config, launchPromoAnimationUrl: e.target.value }); setDirty(true); }}
+                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                    />
+                    <label style={{
+                      padding: "8px 12px",
+                      background: "#f1f5f9",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer"
+                    }}>
+                      Upload
+                      <input
+                        type="file"
+                        accept="application/json"
+                        style={{ display: "none" }}
+                        onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "launchPromoAnimationUrl"); }}
+                      />
+                    </label>
+                  </div>
+                  {config.launchPromoAnimationUrl && (
+                    <div style={{ width: 140, height: 140, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#000" }}>
+                      <LottiePreview url={config.launchPromoAnimationUrl} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Controls: Duration, CTA Button & Target Route */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid #f1f5f9", paddingTop: 14 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>⏱️ Countdown Duration (3 - 10s)</span>
+                  <select
+                    value={config.launchPromoDurationSec}
+                    onChange={(e) => { setConfig({ ...config, launchPromoDurationSec: Number(e.target.value) || 5 }); setDirty(true); }}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                  >
+                    <option value={3}>3 Seconds (Fast)</option>
+                    <option value={4}>4 Seconds</option>
+                    <option value={5}>5 Seconds (Recommended)</option>
+                    <option value={6}>6 Seconds</option>
+                    <option value={7}>7 Seconds</option>
+                    <option value={8}>8 Seconds</option>
+                    <option value={10}>10 Seconds (Maximum)</option>
+                  </select>
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>🔘 Optional Floating CTA Button</span>
+                  <input
+                    type="text"
+                    value={config.launchPromoButtonText}
+                    placeholder="e.g. Order Now / Join Waitlist (Leave empty for no button)"
+                    onChange={(e) => { setConfig({ ...config, launchPromoButtonText: e.target.value }); setDirty(true); }}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>🎯 Target Route on Tap (Optional)</span>
+                  <select
+                    value={config.launchPromoActionRoute}
+                    onChange={(e) => { setConfig({ ...config, launchPromoActionRoute: e.target.value }); setDirty(true); }}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                  >
+                    <option value="">None (Splash Only / View Only)</option>
+                    <option value="dynamic_campaign">🌟 Dynamic Campaign Landing Page (Loads full rich campaign microsite)</option>
+                    <option value="hungr">🥞 Hungr Pre-Order Survey</option>
+                    <option value="services">🛠️ Home Services Catalog</option>
+                    <option value="jobs">💼 Browse Jobs (Worker)</option>
+                    <option value="post_job">📝 Post a Job (Employer)</option>
+                    <option value="urgent_need">⚡ Urgent Worker Need</option>
+                    <option value="refer_earn">🎁 Refer &amp; Earn Bonus</option>
+                    <option value="partner">🤝 Join as Partner</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {/* CARD 2: IN-APP TARGETED DIALOG BANNER */}
+            <div style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              padding: 24,
+              border: config.inAppDialogEnabled ? "2px solid #3b82f6" : "1px solid #e2e8f0",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>📢</span>
+                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                      2. In-App Targeted Dialog Banner
+                    </h2>
+                  </div>
+                  <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#64748b" }}>
+                    Uncropped flyer, ad or alert modal that appears on home screen for targeted user roles.
+                  </p>
+                </div>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: 20,
+                  backgroundColor: config.inAppDialogEnabled ? "#eff6ff" : "#f1f5f9",
+                  color: config.inAppDialogEnabled ? "#1d4ed8" : "#64748b",
+                  border: config.inAppDialogEnabled ? "1px solid #bfdbfe" : "1px solid #e2e8f0"
+                }}>
+                  {config.inAppDialogEnabled ? "🔵 ACTIVE MODAL" : "⚪ DISABLED"}
+                </span>
+              </div>
+
+              {/* Toggle Switch */}
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                cursor: "pointer",
+                padding: "12px 14px",
+                borderRadius: 10,
+                backgroundColor: config.inAppDialogEnabled ? "#eff6ff" : "#f8fafc",
+                border: "1px solid " + (config.inAppDialogEnabled ? "#93c5fd" : "#e2e8f0"),
+                marginBottom: 16
+              }}>
+                <input
+                  type="checkbox"
+                  checked={config.inAppDialogEnabled}
+                  onChange={(e) => {
+                    setConfig({ ...config, inAppDialogEnabled: e.target.checked });
+                    setDirty(true);
+                  }}
+                  style={{ width: 18, height: 18, accentColor: "#2563eb", cursor: "pointer" }}
+                />
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: config.inAppDialogEnabled ? "#1d4ed8" : "#334155" }}>
+                    Enable In-App Targeted Dialog Banner
+                  </span>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    {config.inAppDialogEnabled ? "Active: Shows modal card on home screen" : "Disabled"}
+                  </div>
+                </div>
+              </label>
+
+              {/* Role Selection */}
+              <div style={{ marginBottom: 14 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", display: "block", marginBottom: 6 }}>
+                  Target Audience (Role Filter)
+                </span>
+                <select
+                  value={config.inAppDialogTargetAudience}
+                  onChange={(e) => {
+                    setConfig({ ...config, inAppDialogTargetAudience: e.target.value as any });
+                    setDirty(true);
+                  }}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                >
+                  <option value="ALL">🌐 All Roles (Worker, Employer &amp; Services Homes)</option>
+                  <option value="WORKER">👷 Workers Only (Worker Home Screen)</option>
+                  <option value="EMPLOYER">🏢 Employers Only (Employer Home Screen)</option>
+                  <option value="SERVICES">🛠️ Services Customers Only (Home Services Screen)</option>
+                </select>
+              </div>
+
+              {/* Flyer Image URL with Uncropped Fit */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>
+                    Media Asset (Image, Lottie Animation .json, YouTube, or Instagram)
+                  </span>
+                  <span style={{ fontSize: 11, color: "#059669", fontWeight: 600 }}>
+                    WebP, Lottie, YouTube
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input
+                    type="url"
+                    value={config.inAppDialogImageUrl}
+                    placeholder="Image URL, Lottie (.json), YouTube, or Instagram link"
+                    onChange={(e) => { setConfig({ ...config, inAppDialogImageUrl: e.target.value }); setDirty(true); }}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                  <label style={{
                     padding: "8px 12px",
-                    borderRadius: 999,
-                    border: isSelected ? "1px solid #4f46e5" : "1px solid #d1d5db",
-                    background: isSelected ? "#eef2ff" : "#fff",
-                    color: isSelected ? "#4338ca" : "#374151",
+                    background: "#f1f5f9",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 8,
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: "pointer"
-                  }}
-                >
-                  {type === "IMAGE" ? "Image / GIF" : "Lottie animation"}
-                </button>
-              );
-            })}
-          </div>
-
-          <p style={{ margin: "0 0 16px 0", fontSize: 12, color: "#6b7280" }}>
-            Recommended: use WebP or PNG for static promos, and Lottie JSON for animations. GIF is acceptable for simple loops but is heavier and less battery-friendly.
-          </p>
-
-          {config.launchPromoMediaType === "IMAGE" ? (
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 16 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Launch Promo Image URL</span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="url"
-                  value={config.launchPromoBannerUrl}
-                  placeholder="e.g. https://cdn.dutype.app/festivals/big-sale-banner.webp"
-                  onChange={(e) => { setConfig({ ...config, launchPromoBannerUrl: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "launchPromoBannerUrl"); }}
-                />
-              </div>
-              {config.launchPromoBannerUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <img src={config.launchPromoBannerUrl} alt="Launch promo preview" style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, objectFit: "contain", border: "1px solid #e5e7eb" }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", backgroundColor: "#ecfdf5", padding: "3px 8px", borderRadius: 4, width: "fit-content" }}>
-                      ✓ High-Quality WebP (Fast Mobile Load)
-                    </span>
-                    <button type="button" onClick={() => { setConfig({ ...config, launchPromoBannerUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer", width: "fit-content" }}>Delete Image</button>
-                  </div>
+                  }}>
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "inAppDialogImageUrl"); }}
+                    />
+                  </label>
                 </div>
-              )}
-            </label>
-          ) : (
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 16 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Launch Promo Animation JSON URL</span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="url"
-                  value={config.launchPromoAnimationUrl}
-                  placeholder="e.g. https://lottie.host/your-animation.json"
-                  onChange={(e) => { setConfig({ ...config, launchPromoAnimationUrl: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-                />
-                <input
-                  type="file"
-                  accept="application/json"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "launchPromoAnimationUrl"); }}
-                />
+
+                {config.inAppDialogImageUrl && (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    background: "#f8fafc",
+                    padding: 10,
+                    borderRadius: 10,
+                    border: "1px solid #e2e8f0"
+                  }}>
+                    <img
+                      src={config.inAppDialogImageUrl}
+                      alt="Dialog promo preview"
+                      style={{
+                        width: 100,
+                        height: 120,
+                        borderRadius: 8,
+                        objectFit: "contain",
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #cbd5e1"
+                      }}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                        Clean Image Fit
+                      </span>
+                      <span style={{ fontSize: 11, color: "#64748b" }}>
+                        Preserves 100% of your flyer image with rounded corners. No bottom text clutter or extra buttons.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setConfig({ ...config, inAppDialogImageUrl: "" }); setDirty(true); }}
+                        style={{
+                          padding: "3px 8px",
+                          fontSize: 11,
+                          color: "#ef4444",
+                          border: "1px solid #fca5a5",
+                          borderRadius: 6,
+                          background: "transparent",
+                          cursor: "pointer",
+                          width: "fit-content",
+                          marginTop: 4
+                        }}
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {config.launchPromoAnimationUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ width: 180, height: 180, border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", backgroundColor: "#f9fafb" }}>
-                    <LottiePreview url={config.launchPromoAnimationUrl} />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", backgroundColor: "#ecfdf5", padding: "3px 8px", borderRadius: 4, width: "fit-content" }}>
-                      ✓ Minified Vector Lottie Animation
-                    </span>
-                    <button type="button" onClick={() => { setConfig({ ...config, launchPromoAnimationUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer", width: "fit-content" }}>Delete Animation</button>
-                  </div>
-                </div>
-              )}
-            </label>
-          )}
 
-          {/* Launch Promo Controls: Duration, Optional Button, and Target Route */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 14 }}>
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 600 }}>⏱️ Skip Countdown Duration</span>
-              <select
-                value={config.launchPromoDurationSec}
-                onChange={(e) => { setConfig({ ...config, launchPromoDurationSec: Number(e.target.value) || 5 }); setDirty(true); }}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
-              >
-                <option value={3}>3 Seconds (Fast)</option>
-                <option value={4}>4 Seconds</option>
-                <option value={5}>5 Seconds (Recommended)</option>
-                <option value={6}>6 Seconds</option>
-                <option value={7}>7 Seconds</option>
-                <option value={8}>8 Seconds</option>
-                <option value={10}>10 Seconds (Maximum)</option>
-              </select>
-              <span style={{ fontSize: 11, color: "#6b7280" }}>User can tap &quot;✕ Skip&quot; anytime</span>
-            </label>
+              {/* Target Route on Flyer Click */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid #f1f5f9", paddingTop: 14 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>🎯 Target Route on Flyer Tap (Optional)</span>
+                  <select
+                    value={config.inAppDialogActionRoute}
+                    onChange={(e) => { setConfig({ ...config, inAppDialogActionRoute: e.target.value }); setDirty(true); }}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                  >
+                    <option value="">None (View-Only / Informational Flyer with no redirect)</option>
+                    <option value="dynamic_campaign">🌟 Dynamic Campaign Landing Page (Loads full rich campaign microsite)</option>
+                    <option value="hungr">🥞 Hungr Pre-Order Survey</option>
+                    <option value="services">🛠️ Home Services Catalog</option>
+                    <option value="jobs">💼 Browse Jobs (Worker)</option>
+                    <option value="post_job">📝 Post a Job (Employer)</option>
+                    <option value="urgent_need">⚡ Urgent Worker Need</option>
+                    <option value="refer_earn">🎁 Refer &amp; Earn Bonus</option>
+                    <option value="partner">🤝 Join as Service Partner</option>
+                  </select>
+                  <span style={{ fontSize: 11, color: "#64748b" }}>
+                    Tapping the flyer redirects users to this screen. Leave empty for view-only.
+                  </span>
+                </label>
 
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 600 }}>🔘 Floating CTA Button Text (Optional)</span>
-              <input
-                type="text"
-                value={config.launchPromoButtonText}
-                placeholder="e.g. Order Now / View Offers (Leave blank for no button)"
-                onChange={(e) => { setConfig({ ...config, launchPromoButtonText: e.target.value }); setDirty(true); }}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-              />
-              <span style={{ fontSize: 11, color: "#6b7280" }}>Leave empty for pure visual banner</span>
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 600 }}>🎯 Target Screen on Click (Optional)</span>
-              <select
-                value={config.launchPromoActionRoute}
-                onChange={(e) => { setConfig({ ...config, launchPromoActionRoute: e.target.value }); setDirty(true); }}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
-              >
-                <option value="">None (Splash Only / View Only)</option>
-                <option value="dynamic_campaign">🌟 Dynamic Campaign Landing Page (Loads full rich campaign screen)</option>
-                <option value="hungr">🥞 Hungr Pre-Order Survey</option>
-                <option value="services">🛠️ Home Services Catalog</option>
-                <option value="jobs">💼 Browse Jobs (Worker)</option>
-                <option value="post_job">📝 Post a Job (Employer)</option>
-                <option value="urgent_need">⚡ Urgent Worker Need</option>
-                <option value="refer_earn">🎁 Refer &amp; Earn (₹100)</option>
-                <option value="partner">🤝 Join as Partner</option>
-              </select>
-              <span style={{ fontSize: 11, color: "#6b7280" }}>Navigates when banner or button is tapped</span>
-            </label>
-          </div>
-        </div>
-
-        {/* IN-APP TARGETED DIALOG BANNER (Ads, Alerts, Redirections) */}
-        <div style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 18 }}>📢</span>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#111827" }}>
-              In-App Targeted Dialog Banner (Flyer, Ads &amp; Alerts)
-            </h3>
-            <span style={{ fontSize: 11, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 700, padding: "2px 8px", borderRadius: 12 }}>
-              UNCROPPED FIT
-            </span>
-          </div>
-          <p style={{ margin: "0 0 14px 0", fontSize: 12, color: "#6b7280" }}>
-            Pops up an uncropped flyer or announcement card on the home screen. The exact image is preserved 100% without cutting any edges. Can be targeted to specific roles and can redirect to any screen or be left empty for view-only.
-          </p>
-
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 16 }}>
-            <input
-              type="checkbox"
-              checked={config.inAppDialogEnabled}
-              onChange={(e) => { setConfig({ ...config, inAppDialogEnabled: e.target.checked }); setDirty(true); }}
-            />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#1F2937" }}>Enable in-app targeted dialog banner</span>
-          </label>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Target Audience (Role Selection)</span>
-              <select
-                value={config.inAppDialogTargetAudience}
-                onChange={(e) => { setConfig({ ...config, inAppDialogTargetAudience: e.target.value as DynamicConfig["inAppDialogTargetAudience"] }); setDirty(true); }}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
-              >
-                <option value="ALL">🌐 All Roles (Worker, Employer &amp; Services Homes)</option>
-                <option value="WORKER">👷 Workers Only (Worker Home Screen)</option>
-                <option value="EMPLOYER">🏢 Employers Only (Employer Home Screen)</option>
-                <option value="SERVICES">🛠️ Services Customers Only (Home Services Screen)</option>
-              </select>
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Headline / Title (Optional)</span>
-              <input
-                type="text"
-                value={config.inAppDialogTitle}
-                placeholder="e.g. Urgent Update or Refer &amp; Earn ₹100"
-                onChange={(e) => { setConfig({ ...config, inAppDialogTitle: e.target.value }); setDirty(true); }}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-              />
-            </label>
-          </div>
-
-          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 14 }}>
-            <span style={{ color: "#374151", fontWeight: 500 }}>Poster / Ad Image URL (Uncropped Fit)</span>
-            <div style={{ display: "flex", gap: 10 }}>
-              <input
-                type="url"
-                value={config.inAppDialogImageUrl}
-                placeholder="e.g. https://cdn.dutype.app/ads/festival-offer.webp"
-                onChange={(e) => { setConfig({ ...config, inAppDialogImageUrl: e.target.value }); setDirty(true); }}
-                style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-              />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "inAppDialogImageUrl"); }}
-              />
+                <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Internal Campaign Note / Reference</span>
+                  <input
+                    type="text"
+                    value={config.inAppDialogTitle}
+                    placeholder="e.g. Festival Ad Campaign / Partner Launch"
+                    onChange={(e) => { setConfig({ ...config, inAppDialogTitle: e.target.value }); setDirty(true); }}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                  <span style={{ fontSize: 11, color: "#64748b" }}>
+                    Internal admin reference only. Not displayed as bottom text.
+                  </span>
+                </label>
+              </div>
             </div>
-            {config.inAppDialogImageUrl && (
-              <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <img src={config.inAppDialogImageUrl} alt="Dialog promo preview" style={{ maxWidth: 220, maxHeight: 220, borderRadius: 8, objectFit: "contain", border: "1px solid #e5e7eb" }} />
-                <button type="button" onClick={() => { setConfig({ ...config, inAppDialogImageUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer", width: "fit-content" }}>Delete Image</button>
-              </div>
-            )}
-          </label>
-
-          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-            <span style={{ color: "#374151", fontWeight: 500 }}>Target Screen on Click (Optional - Leave empty for View-Only Flyer)</span>
-            <select
-              value={config.inAppDialogActionRoute}
-              onChange={(e) => { setConfig({ ...config, inAppDialogActionRoute: e.target.value }); setDirty(true); }}
-              style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
-            >
-              <option value="">None (View-Only / Informational Flyer with no button)</option>
-              <option value="dynamic_campaign">🌟 Dynamic Campaign Landing Page (Loads full rich campaign screen)</option>
-              <option value="hungr">🥞 Hungr Pre-Order Survey</option>
-              <option value="services">🛠️ Home Services Catalog</option>
-              <option value="jobs">💼 Browse Jobs (Worker)</option>
-              <option value="post_job">📝 Post a Job (Employer)</option>
-              <option value="urgent_need">⚡ Urgent Worker Need</option>
-              <option value="refer_earn">🎁 Refer &amp; Earn Bonus</option>
-              <option value="partner">🤝 Join as Service Partner</option>
-            </select>
-          </label>
+          </div>
         </div>
+      )}
 
-        {/* DYNAMIC CAMPAIGN & PROMOTIONAL LANDING PAGE BUILDER */}
-        <div id="campaign" style={{ border: "2px solid #6366f1", borderRadius: 12, padding: 20, background: "#f8fafc", marginBottom: 28 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: 14, marginBottom: 16 }}>
+      {/* ========================================================================= */}
+      {/* TAB 2: DYNAMIC CAMPAIGN LANDING PAGE BUILDER                              */}
+      {/* ========================================================================= */}
+      {mainTab === "campaign" && (
+        <div style={{
+          background: "#ffffff",
+          borderRadius: 16,
+          padding: 24,
+          border: "2px solid #6366f1",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: 16, marginBottom: 20 }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 20 }}>🌟</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e1b4b" }}>
-                  Dynamic Campaign / Ad Landing Screen Builder
-                </h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🌟</span>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1e1b4b" }}>
+                  Dynamic Campaign &amp; Ad Landing Microsite
+                </h2>
                 <span style={{ fontSize: 11, background: "#e0e7ff", color: "#3730a3", fontWeight: 700, padding: "2px 8px", borderRadius: 12 }}>
                   SINGLE ROUTE: dynamic_campaign
                 </span>
               </div>
               <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#475569" }}>
-                When users tap any banner, dialog, or announcement with route <code>dynamic_campaign</code>, the mobile app opens this full rich landing page. Perfect for introducing new apps (Hungr), local business ads, special wishes, or festival offers.
+                When users tap any banner, dialog, or announcement configured with route <code>dynamic_campaign</code>, the app renders this full rich showcase page.
               </p>
             </div>
             <button
@@ -820,8 +1239,8 @@ async function compressToTarget4GKb(
               onClick={() => void handleSaveCampaign()}
               disabled={savingCampaign}
               style={{
-                padding: "8px 16px",
-                borderRadius: 8,
+                padding: "9px 18px",
+                borderRadius: 10,
                 background: "#4f46e5",
                 color: "#ffffff",
                 fontWeight: 600,
@@ -836,12 +1255,12 @@ async function compressToTarget4GKb(
           </div>
 
           {campaignMessage && (
-            <div style={{ background: "#ecfdf5", border: "1px solid #10b981", borderRadius: 8, padding: 10, fontSize: 13, color: "#065f46", marginBottom: 16, fontWeight: 500 }}>
+            <div style={{ background: "#ecfdf5", border: "1px solid #10b981", borderRadius: 8, padding: 12, fontSize: 13, color: "#065f46", marginBottom: 16, fontWeight: 500 }}>
               {campaignMessage}
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
               <span style={{ color: "#334155", fontWeight: 600 }}>Campaign Headline / Title *</span>
               <input
@@ -849,7 +1268,7 @@ async function compressToTarget4GKb(
                 value={campaign.title}
                 placeholder="e.g. Hungr - Morning Tiffins at Shop Prices"
                 onChange={(e) => setCampaign({ ...campaign, title: e.target.value })}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14, background: "#fff" }}
+                style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
               />
             </label>
 
@@ -860,25 +1279,25 @@ async function compressToTarget4GKb(
                 value={campaign.categoryBadge}
                 placeholder="e.g. EXCLUSIVE LAUNCH, PARTNER AD, SPECIAL WISH"
                 onChange={(e) => setCampaign({ ...campaign, categoryBadge: e.target.value })}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14, background: "#fff" }}
+                style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
               />
             </label>
           </div>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 14 }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 16 }}>
             <span style={{ color: "#334155", fontWeight: 600 }}>Tagline / Catchphrase</span>
             <input
               type="text"
               value={campaign.tagline}
               placeholder="e.g. Fresh hot breakfast delivered to your apartment security gate at exact offline shop prices."
               onChange={(e) => setCampaign({ ...campaign, tagline: e.target.value })}
-              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14, background: "#fff" }}
+              style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
             />
           </label>
 
           {/* Hero Media Type & URL */}
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 14, marginBottom: 14 }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10 }}>
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Hero Media Type:</span>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
                 <input
@@ -901,51 +1320,53 @@ async function compressToTarget4GKb(
             </div>
 
             {campaign.mediaType === "IMAGE" ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", gap: 10 }}>
                   <input
                     type="url"
                     value={campaign.heroImageUrl}
                     placeholder="e.g. https://cdn.dutype.app/banners/hungr-cover.webp"
                     onChange={(e) => setCampaign({ ...campaign, heroImageUrl: e.target.value })}
-                    style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
+                    style={{ flex: 1, padding: 8, borderRadius: 8, border: "1px solid #cbd5e1", outline: "none", fontSize: 13 }}
                   />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      if (e.target.files?.[0] && services) {
-                        try {
-                          const file = e.target.files[0];
-                          const compressed = await compressToTarget4GKb(file);
-                          const fileRef = ref(services.storage, `showcase_media/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "")}.webp`);
-                          await uploadBytes(fileRef, compressed.blob, { contentType: "image/webp" });
-                          const url = await getDownloadURL(fileRef);
-                          setCampaign({ ...campaign, heroImageUrl: url });
-                        } catch (uploadErr) {
-                          alert("Upload failed: " + uploadErr);
+                  <label style={{ padding: "8px 12px", background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={async (e) => {
+                        if (e.target.files?.[0] && services) {
+                          try {
+                            const file = e.target.files[0];
+                            const compressed = await compressToTarget4GKb(file);
+                            const fileRef = ref(services.storage, `showcase_media/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "")}.webp`);
+                            await uploadBytes(fileRef, compressed.blob, { contentType: "image/webp" });
+                            const url = await getDownloadURL(fileRef);
+                            setCampaign({ ...campaign, heroImageUrl: url });
+                          } catch (uploadErr) {
+                            alert("Upload failed: " + uploadErr);
+                          }
                         }
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                  </label>
                 </div>
                 {campaign.heroImageUrl && (
-                  <div style={{ marginTop: 8 }}>
-                    <img src={campaign.heroImageUrl} alt="Hero Preview" style={{ width: 280, height: 130, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                  </div>
+                  <img src={campaign.heroImageUrl} alt="Hero Preview" style={{ width: 300, height: 140, objectFit: "cover", borderRadius: 8, border: "1px solid #cbd5e1" }} />
                 )}
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <input
                   type="url"
                   value={campaign.videoUrl}
                   placeholder="e.g. https://assets5.lottiefiles.com/packages/lf20_m6cuL6.json"
                   onChange={(e) => setCampaign({ ...campaign, videoUrl: e.target.value })}
-                  style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 14 }}
+                  style={{ padding: 8, borderRadius: 8, border: "1px solid #cbd5e1", outline: "none", fontSize: 13 }}
                 />
                 {campaign.videoUrl && (
-                  <div style={{ marginTop: 8, maxWidth: 220, border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+                  <div style={{ maxWidth: 220, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#000" }}>
                     <LottiePreview url={campaign.videoUrl} />
                   </div>
                 )}
@@ -954,11 +1375,11 @@ async function compressToTarget4GKb(
           </div>
 
           {/* Highlights / Features list */}
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 14, marginBottom: 14 }}>
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, marginBottom: 16 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#334155", display: "block", marginBottom: 8 }}>
               Key Highlight Bullets / Offer Cards
             </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
               {campaign.highlights.map((hl, idx) => (
                 <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 13, color: "#64748b" }}>•</span>
@@ -970,7 +1391,7 @@ async function compressToTarget4GKb(
                       next[idx] = e.target.value;
                       setCampaign({ ...campaign, highlights: next });
                     }}
-                    style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                    style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
                   />
                   <button
                     type="button"
@@ -991,7 +1412,7 @@ async function compressToTarget4GKb(
                 value={newHighlight}
                 placeholder="e.g. 🎁 Free morning delivery to security gate"
                 onChange={(e) => setNewHighlight(e.target.value)}
-                style={{ flex: 1, padding: 6, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                style={{ flex: 1, padding: "7px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
               />
               <button
                 type="button"
@@ -1001,7 +1422,7 @@ async function compressToTarget4GKb(
                     setNewHighlight("");
                   }
                 }}
-                style={{ padding: "6px 12px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                style={{ padding: "7px 14px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
               >
                 + Add Bullet
               </button>
@@ -1009,19 +1430,19 @@ async function compressToTarget4GKb(
           </div>
 
           {/* Full Story / Description */}
-          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 14 }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginBottom: 16 }}>
             <span style={{ color: "#334155", fontWeight: 600 }}>Detailed Story / About Announcement</span>
             <textarea
               rows={4}
               value={campaign.aboutDescription}
               placeholder="Write the full story, company intro, birthday wishes, or special event description..."
               onChange={(e) => setCampaign({ ...campaign, aboutDescription: e.target.value })}
-              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, resize: "vertical" }}
+              style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, resize: "vertical" }}
             />
           </label>
 
           {/* Special Voucher Offer Card */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
               <span style={{ color: "#334155", fontWeight: 600 }}>Voucher Offer Title</span>
               <input
@@ -1029,7 +1450,7 @@ async function compressToTarget4GKb(
                 value={campaign.discountOfferTitle}
                 placeholder="e.g. Exclusive VIP Voucher (₹50 OFF)"
                 onChange={(e) => setCampaign({ ...campaign, discountOfferTitle: e.target.value })}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, background: "#fff" }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13 }}
               />
             </label>
 
@@ -1040,13 +1461,13 @@ async function compressToTarget4GKb(
                 value={campaign.discountOfferCode}
                 placeholder="e.g. HUNGR50"
                 onChange={(e) => setCampaign({ ...campaign, discountOfferCode: e.target.value.toUpperCase() })}
-                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, fontFamily: "monospace", background: "#fff" }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", outline: "none", fontSize: 13, fontFamily: "monospace" }}
               />
             </label>
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
               <span style={{ color: "#334155", fontWeight: 600 }}>Primary Action Button</span>
               <div style={{ display: "flex", gap: 6 }}>
@@ -1088,250 +1509,384 @@ async function compressToTarget4GKb(
             </label>
           </div>
         </div>
+      )}
 
-        {/* Tab Headers */}
-        <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #e5e7eb" }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab("worker")}
-            style={{
-              padding: "8px 16px",
-              fontWeight: 600,
-              fontSize: 14,
-              border: "none",
-              background: "none",
-              borderBottom: activeTab === "worker" ? "2px solid #4f46e5" : "2px solid transparent",
-              color: activeTab === "worker" ? "#4f46e5" : "#6b7280",
-              cursor: "pointer"
-            }}
-          >
-            Worker App settings
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("employer")}
-            style={{
-              padding: "8px 16px",
-              fontWeight: 600,
-              fontSize: 14,
-              border: "none",
-              background: "none",
-              borderBottom: activeTab === "employer" ? "2px solid #4f46e5" : "2px solid transparent",
-              color: activeTab === "employer" ? "#4f46e5" : "#6b7280",
-              cursor: "pointer"
-            }}
-          >
-            Employer App settings
-          </button>
+      {/* ========================================================================= */}
+      {/* TAB 3: APP BRANDING & THEME                                               */}
+      {/* ========================================================================= */}
+      {mainTab === "theme" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Launcher Icon Section */}
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 16,
+            padding: 24,
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+          }}>
+            <h2 style={{ margin: "0 0 6px 0", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+              App Launcher Icon
+            </h2>
+            <p style={{ margin: "0 0 16px 0", fontSize: 12, color: "#64748b" }}>
+              Changes the app icon on the user&apos;s home screen remotely.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 14 }}>
+              {[
+                { id: "default", name: "Default (Purple)", color: "linear-gradient(135deg, #7c3aed, #4f46e5)", icon: "D" },
+                { id: "birthday", name: "Birthday Special", color: "linear-gradient(135deg, #f59e0b, #d97706)", icon: "🎂" },
+                { id: "independence", name: "Independence", color: "linear-gradient(135deg, #f97316, #16a34a)", icon: "🇮🇳" }
+              ].map((opt) => {
+                const isSelected = config.activeLauncherIcon === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => { setConfig({ ...config, activeLauncherIcon: opt.id as any }); setDirty(true); }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      padding: 16,
+                      borderRadius: 12,
+                      border: isSelected ? "2.5px solid #4f46e5" : "1px solid #e2e8f0",
+                      backgroundColor: isSelected ? "#f5f3ff" : "#f8fafc",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      outline: "none"
+                    }}
+                  >
+                    <div style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 14,
+                      background: opt.color,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#fff",
+                      fontWeight: "bold",
+                      fontSize: 22,
+                      marginBottom: 10,
+                      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)"
+                    }}>
+                      {opt.icon}
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: isSelected ? 700 : 500, color: isSelected ? "#4f46e5" : "#475569" }}>
+                      {opt.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Role Theme Colors & Lottie Assets */}
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 16,
+            padding: 24,
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+          }}>
+            <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", gap: 12, marginBottom: 18 }}>
+              <button
+                type="button"
+                onClick={() => setThemeRoleTab("worker")}
+                style={{
+                  padding: "8px 16px",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  border: "none",
+                  background: "none",
+                  borderBottom: themeRoleTab === "worker" ? "2px solid #2563eb" : "2px solid transparent",
+                  color: themeRoleTab === "worker" ? "#2563eb" : "#64748b",
+                  cursor: "pointer"
+                }}
+              >
+                👷 Worker App Theme
+              </button>
+              <button
+                type="button"
+                onClick={() => setThemeRoleTab("employer")}
+                style={{
+                  padding: "8px 16px",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  border: "none",
+                  background: "none",
+                  borderBottom: themeRoleTab === "employer" ? "2px solid #2563eb" : "2px solid transparent",
+                  color: themeRoleTab === "employer" ? "#2563eb" : "#64748b",
+                  cursor: "pointer"
+                }}
+              >
+                🏢 Employer App Theme
+              </button>
+            </div>
+
+            {themeRoleTab === "worker" ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                  <span style={{ color: "#334155", fontWeight: 600 }}>Worker Primary Color</span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={config.primaryColor}
+                      onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setDirty(true); }}
+                      style={{ width: 44, height: 44, padding: 0, border: "1px solid #cbd5e1", borderRadius: 8, cursor: "pointer", background: "none" }}
+                    />
+                    <input
+                      type="text"
+                      value={config.primaryColor}
+                      onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setDirty(true); }}
+                      style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontFamily: "monospace", fontSize: 13 }}
+                    />
+                  </div>
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                  <span style={{ color: "#334155", fontWeight: 600 }}>Worker Header Text Color</span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={config.headerTextColor}
+                      onChange={(e) => { setConfig({ ...config, headerTextColor: e.target.value }); setDirty(true); }}
+                      style={{ width: 44, height: 44, padding: 0, border: "1px solid #cbd5e1", borderRadius: 8, cursor: "pointer", background: "none" }}
+                    />
+                    <input
+                      type="text"
+                      value={config.headerTextColor}
+                      onChange={(e) => { setConfig({ ...config, headerTextColor: e.target.value }); setDirty(true); }}
+                      style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontFamily: "monospace", fontSize: 13 }}
+                    />
+                  </div>
+                </label>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                  <span style={{ color: "#334155", fontWeight: 600 }}>Employer Primary Color</span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={config.employerPrimaryColor}
+                      onChange={(e) => { setConfig({ ...config, employerPrimaryColor: e.target.value }); setDirty(true); }}
+                      style={{ width: 44, height: 44, padding: 0, border: "1px solid #cbd5e1", borderRadius: 8, cursor: "pointer", background: "none" }}
+                    />
+                    <input
+                      type="text"
+                      value={config.employerPrimaryColor}
+                      onChange={(e) => { setConfig({ ...config, employerPrimaryColor: e.target.value }); setDirty(true); }}
+                      style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontFamily: "monospace", fontSize: 13 }}
+                    />
+                  </div>
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                  <span style={{ color: "#334155", fontWeight: 600 }}>Employer Header Lottie URL</span>
+                  <input
+                    type="url"
+                    value={config.headerLottieUrl}
+                    placeholder="https://assets.dutype.app/animations/header.json"
+                    onChange={(e) => { setConfig({ ...config, headerLottieUrl: e.target.value }); setDirty(true); }}
+                    style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
-        {/* Tab Content */}
-        {activeTab === "worker" ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Worker Theme Color */}
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 600 }}>Worker App Theme Primary Color</span>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="color"
-                  value={config.primaryColor}
-                  onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setDirty(true); }}
-                  style={{ width: 44, height: 44, padding: 0, border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", backgroundColor: "transparent" }}
-                />
-                <input
-                  type="text"
-                  value={config.primaryColor}
-                  placeholder="#1E3A8A"
-                  onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
-                />
-              </div>
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginTop: 8 }}>
-              <span style={{ color: "#374151", fontWeight: 600 }}>Worker Header Text Color</span>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="color"
-                  value={config.headerTextColor}
-                  onChange={(e) => { setConfig({ ...config, headerTextColor: e.target.value }); setDirty(true); }}
-                  style={{ width: 44, height: 44, padding: 0, border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", backgroundColor: "transparent" }}
-                />
-                <input
-                  type="text"
-                  value={config.headerTextColor}
-                  placeholder="#FFFFFF"
-                  onChange={(e) => { setConfig({ ...config, headerTextColor: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
-                />
-              </div>
-            </label>
-
-            {/* Toggle Switches */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+      {/* ========================================================================= */}
+      {/* TAB 4: FEATURE FLAGS & BANNERS                                            */}
+      {/* ========================================================================= */}
+      {mainTab === "features" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Feature Flags */}
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 16,
+            padding: 24,
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+          }}>
+            <h2 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+              Mobile App Feature Switches
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                cursor: "pointer",
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid #e2e8f0",
+                background: config.isDirectCallEnabled ? "#f0fdf4" : "#f8fafc"
+              }}>
                 <input
                   type="checkbox"
                   checked={config.isDirectCallEnabled}
                   onChange={(e) => { setConfig({ ...config, isDirectCallEnabled: e.target.checked }); setDirty(true); }}
+                  style={{ width: 18, height: 18, accentColor: "#22c55e" }}
                 />
-                <span style={{ fontSize: 14, fontWeight: 500, color: "#374151" }}>Enable Direct Employer Calls</span>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+                    Enable Direct Calls
+                  </span>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    Allows workers &amp; employers to call directly
+                  </div>
+                </div>
               </label>
-              
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                cursor: "pointer",
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid #e2e8f0",
+                background: config.isUrgentJobsEnabled ? "#f0fdf4" : "#f8fafc"
+              }}>
                 <input
                   type="checkbox"
                   checked={config.isUrgentJobsEnabled}
                   onChange={(e) => { setConfig({ ...config, isUrgentJobsEnabled: e.target.checked }); setDirty(true); }}
+                  style={{ width: 18, height: 18, accentColor: "#22c55e" }}
                 />
-                <span style={{ fontSize: 14, fontWeight: 500, color: "#374151" }}>Enable Urgent/Instant Jobs switch</span>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+                    Enable Urgent/Instant Jobs
+                  </span>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    Enables the urgent jobs toggle and broadcast
+                  </div>
+                </div>
               </label>
             </div>
-
-            {/* Promo Banner URL */}
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Promotional Banner Image URL</span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="url"
-                  value={config.promoBannerUrl}
-                  placeholder="e.g. https://cdn.dutype.app/festivals/diwali_banner.png"
-                  onChange={(e) => { setConfig({ ...config, promoBannerUrl: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "promoBannerUrl"); }}
-                />
-              </div>
-              {config.promoBannerUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <img src={config.promoBannerUrl} alt="Preview" style={{ maxWidth: 200, borderRadius: 4 }} />
-                  <button type="button" onClick={() => { setConfig({ ...config, promoBannerUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer" }}>Delete</button>
-                </div>
-              )}
-            </label>
-
-            {/* Header Lottie URL */}
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Lottie Background Animation JSON URL (OTA Header Asset)</span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="url"
-                  value={config.headerLottieUrl}
-                  placeholder="e.g. https://lottie.host/82dfcb82-c6b6-455b-b996-5381f2118311/dD1v7vI8Lz.json"
-                  onChange={(e) => { setConfig({ ...config, headerLottieUrl: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-                />
-                <input
-                  type="file"
-                  accept="application/json"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "headerLottieUrl"); }}
-                />
-              </div>
-              {config.headerLottieUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <LottiePreview url={config.headerLottieUrl} />
-                  <button type="button" onClick={() => { setConfig({ ...config, headerLottieUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer" }}>Delete</button>
-                </div>
-              )}
-            </label>
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Employer Theme Color */}
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 600 }}>Employer App Theme Primary Color</span>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="color"
-                  value={config.employerPrimaryColor}
-                  onChange={(e) => { setConfig({ ...config, employerPrimaryColor: e.target.value }); setDirty(true); }}
-                  style={{ width: 44, height: 44, padding: 0, border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", backgroundColor: "transparent" }}
-                />
-                <input
-                  type="text"
-                  value={config.employerPrimaryColor}
-                  placeholder="#0F0F0F"
-                  onChange={(e) => { setConfig({ ...config, employerPrimaryColor: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
-                />
-              </div>
-            </label>
 
-            {/* Lottie Loading JSON URL */}
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Lottie Loading JSON URL (OTA Loader Asset)</span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="url"
-                  value={config.lottieLoadingUrl}
-                  placeholder="e.g. https://assets.dutype.app/animations/sparklers.json"
-                  onChange={(e) => { setConfig({ ...config, lottieLoadingUrl: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-                />
-                <input
-                  type="file"
-                  accept="application/json"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "lottieLoadingUrl"); }}
-                />
-              </div>
-              {config.lottieLoadingUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <LottiePreview url={config.lottieLoadingUrl} />
-                  <button type="button" onClick={() => { setConfig({ ...config, lottieLoadingUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer" }}>Delete</button>
-                </div>
-              )}
-            </label>
+          {/* In-App Hero Banners */}
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 16,
+            padding: 24,
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+          }}>
+            <h2 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+              In-App Home Hero Banners
+            </h2>
 
-            {/* Employer Promotional Banner URL */}
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Employer Promotional Banner Image URL</span>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="url"
-                  value={config.employerPromoBannerUrl}
-                  placeholder="e.g. https://cdn.dutype.app/festivals/employer_diwali_banner.png"
-                  onChange={(e) => { setConfig({ ...config, employerPromoBannerUrl: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "employerPromoBannerUrl"); }}
-                />
-              </div>
-              {config.employerPromoBannerUrl && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <img src={config.employerPromoBannerUrl} alt="Preview" style={{ maxWidth: 200, borderRadius: 4 }} />
-                  <button type="button" onClick={() => { setConfig({ ...config, employerPromoBannerUrl: "" }); setDirty(true); }} style={{ padding: "4px 8px", fontSize: 12, color: "#ef4444", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", cursor: "pointer" }}>Delete</button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {/* Worker Banner */}
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#334155", display: "block", marginBottom: 6 }}>
+                  Worker Home Banner URL
+                </span>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input
+                    type="url"
+                    value={config.promoBannerUrl}
+                    placeholder="https://cdn.dutype.app/banners/worker_promo.webp"
+                    onChange={(e) => { setConfig({ ...config, promoBannerUrl: e.target.value }); setDirty(true); }}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                  <label style={{ padding: "8px 12px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "promoBannerUrl"); }}
+                    />
+                  </label>
                 </div>
-              )}
-            </label>
+                {config.promoBannerUrl && (
+                  <img src={config.promoBannerUrl} alt="Worker Banner" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #cbd5e1" }} />
+                )}
+              </div>
+
+              {/* Employer Banner */}
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#334155", display: "block", marginBottom: 6 }}>
+                  Employer Home Banner URL
+                </span>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input
+                    type="url"
+                    value={config.employerPromoBannerUrl}
+                    placeholder="https://cdn.dutype.app/banners/employer_promo.webp"
+                    onChange={(e) => { setConfig({ ...config, employerPromoBannerUrl: e.target.value }); setDirty(true); }}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                  <label style={{ padding: "8px 12px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0], "employerPromoBannerUrl"); }}
+                    />
+                  </label>
+                </div>
+                {config.employerPromoBannerUrl && (
+                  <img src={config.employerPromoBannerUrl} alt="Employer Banner" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #cbd5e1" }} />
+                )}
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
+      {/* Sticky Bottom Save Action Bar */}
+      <div style={{
+        position: "sticky",
+        bottom: 20,
+        zIndex: 40,
+        background: "rgba(15, 23, 42, 0.94)",
+        backdropFilter: "blur(8px)",
+        borderRadius: 14,
+        padding: "14px 20px",
+        marginTop: 24,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.2)"
+      }}>
+        <div style={{ color: "#ffffff", fontSize: 13 }}>
+          {dirty ? (
+            <span style={{ color: "#facc15", fontWeight: 600 }}>
+              ● You have unsaved changes in dynamic configuration
+            </span>
+          ) : (
+            <span style={{ color: "#94a3b8" }}>
+              ✓ All dynamic features synchronized with mobile apps
+            </span>
+          )}
+        </div>
 
-      <footer style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "flex-end", gap: 12 }}>
         <button
+          type="button"
           onClick={handleSave}
           disabled={!dirty || saving}
           style={{
-            padding: "8px 16px",
-            borderRadius: 6,
-            backgroundColor: !dirty || saving ? "#e5e7eb" : "#4f46e5",
-            color: !dirty || saving ? "#9ca3af" : "#fff",
+            padding: "8px 20px",
+            borderRadius: 8,
+            backgroundColor: !dirty || saving ? "#334155" : "#3b82f6",
+            color: !dirty || saving ? "#64748b" : "#ffffff",
             border: "none",
             cursor: !dirty || saving ? "not-allowed" : "pointer",
-            fontWeight: 500,
-            fontSize: 14
+            fontWeight: 700,
+            fontSize: 13,
+            transition: "all 0.15s ease"
           }}
         >
-          {saving ? "Saving..." : "Save Config"}
+          {saving ? "Saving Changes..." : "Save Config Now"}
         </button>
-      </footer>
-    </section>
+      </div>
+    </div>
   );
 }

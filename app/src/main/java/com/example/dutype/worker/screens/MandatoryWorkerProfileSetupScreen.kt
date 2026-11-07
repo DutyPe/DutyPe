@@ -235,6 +235,14 @@ fun MandatoryWorkerProfileSetupScreen(
     var workerLatitude by rememberSaveable { mutableDoubleStateOf(0.0) }
     var workerLongitude by rememberSaveable { mutableDoubleStateOf(0.0) }
 
+    androidx.activity.compose.BackHandler {
+        android.widget.Toast.makeText(
+            context,
+            "Please complete your profile details (Name & Location) to continue.",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
     // Dedicated location detection state
     var isDetectingLocation by remember { mutableStateOf(false) }
     var locationErrorText by remember { mutableStateOf<String?>(null) }
@@ -433,6 +441,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 val workerProfileData = mutableMapOf<String, Any?>(
                     WorkerProfiles.NAME to fullNameInput.trim(),
                     WorkerProfiles.ADDRESS to workerAddress.trim(),
+                    WorkerProfiles.AREA to (detectedAreaText ?: workerAddress.take(40)),
                     WorkerProfiles.SKILLS to selectedSkills.toList(),
                     WorkerProfiles.GENDER to selectedGender,
                     WorkerProfiles.EXPERIENCE_YEARS to experienceYears,

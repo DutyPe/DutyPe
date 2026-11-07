@@ -1088,7 +1088,8 @@ export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, asy
   }
   requireServiceArea(await loadConfig(), lat, lng, "partner");
   const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
-  if (!worker.exists) fail("failed-precondition", "Complete your worker profile first");
+  const workerName = String(worker.get(WorkerProfiles.NAME) || "").trim();
+  if (!worker.exists || !workerName || workerName.toLowerCase() === "user") fail("failed-precondition", "Please complete your worker profile with your full name first");
   const ref = db.collection(SP.COLLECTION).doc(uid);
   await db.runTransaction(async (tx) => {
     const cur = await tx.get(ref);

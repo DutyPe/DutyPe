@@ -165,13 +165,17 @@ fun WorkerMainScreen(
         Routes.PARTNER_OFFER, "partner/offer", // Hide bottom bar on partner offer screen
         Routes.PARTNER_TOPUP, "partner/topup", // Hide bottom bar on partner topup screen
         Routes.SERVICES_BOOKING, "services/booking", // Hide bottom bar on customer booking detail
-        Routes.SERVICES_BOOK, "services/book" // Hide bottom bar on booking checkout
+        Routes.SERVICES_BOOK, "services/book", // Hide bottom bar on booking checkout
+        Routes.SPIN_AND_WIN, "spin_and_win" // Hide bottom bar on Spin & Win game screen
     )
 
     // Update bottom bar visibility based on current route and scroll state
     val shouldShowBottomBar = when {
         currentRoute == null -> true
-        routesWithoutBottomBar.any { route -> currentRoute.startsWith(route) } -> false
+        routesWithoutBottomBar.any { hiddenRoute ->
+            val clean = hiddenRoute.substringBefore("?").substringBefore("{").trimEnd('/')
+            currentRoute == hiddenRoute || currentRoute.startsWith(clean) || currentRoute.contains("promo_showcase")
+        } -> false
         else -> isBottomBarVisible // Use scroll-aware visibility
     }
     

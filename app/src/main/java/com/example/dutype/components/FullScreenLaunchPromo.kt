@@ -144,7 +144,7 @@ fun FullScreenLaunchPromo(
                         .crossfade(true)
                         .build(),
                     contentDescription = "Launch Promo Banner",
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
             }

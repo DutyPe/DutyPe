@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -31,6 +32,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +57,14 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import androidx.compose.material.icons.filled.PlayArrow
 import com.example.dutype.navigation.Routes
+import androidx.compose.ui.graphics.Brush
 import com.example.dutype.repositories.DynamicFeaturesConfig
 import kotlinx.coroutines.delay
 
@@ -79,13 +89,10 @@ fun DynamicLaunchPromoDialog(
     val context = LocalContext.current
     var isVisible by remember { mutableStateOf(false) }
 
-    // Check if in-app dialog is enabled
-    val isEnabled = dynamicConfig.inAppDialogEnabled ||
-        (!dynamicConfig.launchPromoEnabled && dynamicConfig.launchPromoBannerUrl.isNotBlank())
-
-    val imageUrl = dynamicConfig.inAppDialogImageUrl.ifBlank { dynamicConfig.launchPromoBannerUrl }
-    val title = dynamicConfig.inAppDialogTitle.ifBlank { dynamicConfig.launchPromoTitle }
-    val actionRoute = dynamicConfig.inAppDialogActionRoute.ifBlank { dynamicConfig.launchPromoActionRoute }.trim()
+    // Check if in-app dialog is enabled independently
+    val isEnabled = dynamicConfig.inAppDialogEnabled && dynamicConfig.inAppDialogImageUrl.isNotBlank()
+    val imageUrl = dynamicConfig.inAppDialogImageUrl.trim()
+    val actionRoute = dynamicConfig.inAppDialogActionRoute.trim()
     val targetAudience = dynamicConfig.inAppDialogTargetAudience.trim().uppercase()
 
     // Determine screen eligibility based on target audience
@@ -118,8 +125,15 @@ fun DynamicLaunchPromoDialog(
 
     val onActionClick = {
         dismissPromo()
-        if (actionRoute.isNotBlank()) {
-            handleInAppNavigation(context, navController, actionRoute)
+        val targetToOpen = when {
+            actionRoute.isNotBlank() -> actionRoute
+            imageUrl.contains("youtube.com", ignoreCase = true) ||
+                imageUrl.contains("youtu.be", ignoreCase = true) ||
+                imageUrl.contains("instagram.com", ignoreCase = true) -> imageUrl
+            else -> ""
+        }
+        if (targetToOpen.isNotBlank()) {
+            handleInAppNavigation(context, navController, targetToOpen)
         }
     }
 
@@ -190,79 +204,135 @@ fun DynamicLaunchPromoDialog(
                         }
                     }
 
-                    // Poster Card (Exact image fit, no edges cut off!)
+                    // Media Card (Supports Lottie Animations, YouTube Videos, Instagram Reels & Image Flyers)
+                    val isLottie = imageUrl.contains(".json", ignoreCase = true) || imageUrl.contains("lottie", ignoreCase = true)
+                    val isYouTube = imageUrl.contains("youtube.com", ignoreCase = true) || imageUrl.contains("youtu.be", ignoreCase = true)
+                    val isInstagram = imageUrl.contains("instagram.com", ignoreCase = true)
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(16.dp, RoundedCornerShape(20.dp))
+                            .shadow(20.dp, RoundedCornerShape(20.dp))
                             .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White)
+                            .background(if (isLottie) Color.White else Color.Black)
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            // Image container with ContentScale.Fit so entire flyer/poster is preserved
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 460.dp)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
+                        when {
+                            isLottie -> {
+                                val composition by rememberLottieComposition(LottieCompositionSpec.Url(imageUrl))
+                                val progress by animateLottieCompositionAsState(
+                                    composition = composition,
+                                    iterations = LottieConstants.IterateForever
+                                )
+                                LottieAnimation(
+                                    composition = composition,
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 240.dp, max = 380.dp)
+                                        .padding(12.dp)
+                                )
+                            }
+                            isYouTube -> {
+                                val videoId = when {
+                                    imageUrl.contains("v=") -> imageUrl.substringAfter("v=").substringBefore("&")
+                                    imageUrl.contains("youtu.be/") -> imageUrl.substringAfter("youtu.be/").substringBefore("?")
+                                    imageUrl.contains("embed/") -> imageUrl.substringAfter("embed/").substringBefore("?")
+                                    imageUrl.contains("shorts/") -> imageUrl.substringAfter("shorts/").substringBefore("?")
+                                    else -> ""
+                                }
+                                val thumbUrl = if (videoId.isNotBlank()) "https://img.youtube.com/vi/$videoId/hqdefault.jpg" else imageUrl
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 200.dp, max = 320.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(thumbUrl)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "YouTube Video Promo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    // Play button overlay
+                                    Box(
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFF0000).copy(alpha = 0.92f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PlayArrow,
+                                            contentDescription = "Play Video",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            isInstagram -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 220.dp, max = 340.dp)
+                                        .background(
+                                            Brush.linearGradient(
+                                                listOf(Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045))
+                                            )
+                                        )
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "📸 DutyPe on Instagram",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = "Tap to watch our latest reel & video updates",
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            fontSize = 13.sp,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(Modifier.height(14.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(50),
+                                            color = Color.White
+                                        ) {
+                                            Text(
+                                                text = "Watch on Instagram ▶",
+                                                color = Color(0xFF833AB4),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.5.sp,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            else -> {
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data(imageUrl)
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = title.ifBlank { "Announcement Flyer" },
-                                    contentScale = ContentScale.Fit,
+                                    contentDescription = "Announcement Flyer",
+                                    contentScale = ContentScale.FillWidth,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(max = 460.dp)
+                                        .wrapContentHeight()
+                                        .clip(RoundedCornerShape(20.dp))
                                 )
-                            }
-
-                            // Optional Title or CTA Bar (Rendered ONLY if title or route is present)
-                            if (title.isNotBlank() || actionRoute.isNotBlank()) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color.White)
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    if (title.isNotBlank()) {
-                                        Text(
-                                            text = title,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF0F172A),
-                                            textAlign = TextAlign.Center
-                                        )
-                                        if (actionRoute.isNotBlank()) {
-                                            Spacer(modifier = Modifier.height(10.dp))
-                                        }
-                                    }
-
-                                    // Action button rendered only when route path is NOT empty
-                                    if (actionRoute.isNotBlank()) {
-                                        Button(
-                                            onClick = onActionClick,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(44.dp),
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = Color(0xFF0F172A),
-                                                contentColor = Color.White
-                                            )
-                                        ) {
-                                            Text(
-                                                text = if (actionRoute.contains("hungr", ignoreCase = true)) "Join VIP Waitlist" else "Check Now",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -281,6 +351,7 @@ private fun handleInAppNavigation(context: Context, navController: NavHostContro
         } else {
             val resolvedRoute = when (target.lowercase().trim()) {
                 "dynamic_campaign", "campaign", "dynamic_screen", "promo_screen", "ad" -> Routes.promoShowcaseRoute("active_campaign")
+                "spin", "spin_win", "spin_and_win", "game" -> Routes.SPIN_AND_WIN
                 "services", "service" -> Routes.SERVICES
                 "refer", "refer_earn", "referral" -> Routes.WORKER_REFER_EARN
                 "earnings", "wallet" -> Routes.WORKER_EARNINGS
