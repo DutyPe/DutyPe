@@ -56,6 +56,7 @@ import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.WorkerHomeJobCard
 import com.example.dutype.worker.components.JobCard
+import com.example.dutype.worker.components.jobCategoryEmoji
 import com.example.dutype.worker.components.jobCategoryIcon
 import com.example.dutype.worker.components.jobCategoryTint
 import com.example.dutype.utils.CategoryDetector
@@ -560,11 +561,12 @@ private fun JobCategoryTile(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val (lightContainer, lightTint) = jobCategoryTint(label)
+    val (lightContainer, _) = jobCategoryTint(label)
     val container = lightContainer.bg()
-    val tint = lightTint.fg()
     val tileShape = RoundedCornerShape(18.dp)
-    val icon = jobCategoryIcon(label)
+    val categoryEmoji = remember(label, emoji) {
+        if (emoji.isNotBlank()) emoji else jobCategoryEmoji(label)
+    }
     Column(
         modifier = Modifier
             .width(64.dp)
@@ -583,16 +585,7 @@ private fun JobCategoryTile(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(26.dp)
-                )
-            } else {
-                Text(text = emoji, fontSize = 26.sp)
-            }
+            Text(text = categoryEmoji, fontSize = 26.sp)
         }
         Text(
             text = if (label == "All Jobs") stringResource(R.string.all) else label,

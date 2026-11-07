@@ -316,22 +316,26 @@ fun AnnouncementCarousel(
     // Multiple items - show carousel with the next card peeking
     val pagerState = rememberPagerState(pageCount = { totalItems })
 
-    // Auto-scroll effect - standard cancellable Compose loop
+    // Auto-scroll effect - resilient loop without freezing on touch or navigation
     LaunchedEffect(pagerState, totalItems, autoScrollDuration) {
         if (totalItems > 1) {
             while (true) {
                 delay(autoScrollDuration)
-                val currentCount = pagerState.pageCount
-                if (currentCount > 1) {
-                    val nextPage = (pagerState.currentPage + 1) % currentCount
-                    runCatching {
-                        pagerState.animateScrollToPage(
-                            page = nextPage,
-                            animationSpec = tween(
-                                durationMillis = 600,
-                                easing = FastOutSlowInEasing
+                if (!pagerState.isScrollInProgress) {
+                    val currentCount = pagerState.pageCount
+                    if (currentCount > 1) {
+                        val nextPage = (pagerState.currentPage + 1) % currentCount
+                        try {
+                            pagerState.animateScrollToPage(
+                                page = nextPage,
+                                animationSpec = tween(
+                                    durationMillis = 600,
+                                    easing = FastOutSlowInEasing
+                                )
                             )
-                        )
+                        } catch (e: Exception) {
+                            // Recover cleanly on next interval
+                        }
                     }
                 }
             }

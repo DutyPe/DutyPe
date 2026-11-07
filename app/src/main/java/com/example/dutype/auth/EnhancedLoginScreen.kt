@@ -95,7 +95,7 @@ private val loginOnboardingDeck = listOf(
         highlightEn = "Work & Jobs Near You",
         highlightTe = "మీ దరిదాపుల్లోనే పనులు",
         highlightHi = "अपने आस-पास काम",
-        gradientColors = listOf(Color(0xFF1E3A8A), Color(0xFF2563EB))
+        gradientColors = listOf(Color(0xFF1E3A8A), Color(0xFF2563EB)) // Royal Blue - matches Work & Job Map Pins
     ),
     OnboardingSlideData(
         imageRes = R.drawable.onboarding2,
@@ -104,7 +104,7 @@ private val loginOnboardingDeck = listOf(
         highlightEn = "Hire in 5 Minutes",
         highlightTe = "వర్కర్లను వేగంగా పొందండి",
         highlightHi = "तेजी से वर्कर प्राप्त करें",
-        gradientColors = listOf(Color(0xFF9F1239), Color(0xFFE11D48))
+        gradientColors = listOf(Color(0xFFC2410C), Color(0xFFEA580C)) // Warm Amber/Orange - matches Cook & Tiffins shop
     ),
     OnboardingSlideData(
         imageRes = R.drawable.onboarding3,
@@ -113,7 +113,7 @@ private val loginOnboardingDeck = listOf(
         highlightEn = "Instant Urgent Hire",
         highlightTe = "ఇన్‌స్టంట్ హైరింగ్ సదుపాయం",
         highlightHi = "तत्काल भर्ती (Instant Hire)",
-        gradientColors = listOf(Color(0xFF4C1D95), Color(0xFF7C3AED))
+        gradientColors = listOf(Color(0xFF047857), Color(0xFF10B981)) // Emerald Green - matches Instant Hire & Shop
     ),
     OnboardingSlideData(
         imageRes = R.drawable.onboarding4,
@@ -122,7 +122,7 @@ private val loginOnboardingDeck = listOf(
         highlightEn = "100% Verified Community",
         highlightTe = "నమ్మకమైన కమ్యూనిటీ",
         highlightHi = "भरोसेमंद समुदाय",
-        gradientColors = listOf(Color(0xFF065F46), Color(0xFF059669))
+        gradientColors = listOf(Color(0xFF4C1D95), Color(0xFF7C3AED)) // Royal Purple - matches 100% Verified Community & Shield
     )
 )
 
@@ -380,16 +380,28 @@ private fun OtpLoginScreen(
         }
     }
 
-    // 4 Onboarding Slides Pager State with Auto-Scrolling every 3.5 seconds
+    // 4 Onboarding Slides Pager State with resilient Auto-Scrolling
     val pagerState = rememberPagerState(pageCount = { loginOnboardingDeck.size })
     LaunchedEffect(pagerState) {
+        val totalSlides = loginOnboardingDeck.size
+        if (totalSlides <= 1) return@LaunchedEffect
         while (true) {
             delay(3500L)
-            val nextPage = (pagerState.currentPage + 1) % loginOnboardingDeck.size
-            pagerState.animateScrollToPage(
-                page = nextPage,
-                animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
-            )
+            // Pause auto-advance if user is interacting/dragging to prevent mid-scroll stuck state
+            if (!pagerState.isScrollInProgress) {
+                val currentCount = pagerState.pageCount
+                if (currentCount > 1) {
+                    val nextPage = (pagerState.currentPage + 1) % currentCount
+                    try {
+                        pagerState.animateScrollToPage(
+                            page = nextPage,
+                            animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
+                        )
+                    } catch (e: Exception) {
+                        // Safe recovery: ignore cancellation or interruption and resume smoothly
+                    }
+                }
+            }
         }
     }
 
@@ -471,16 +483,31 @@ private fun OtpLoginScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // High quality transparent PNG Onboarding Illustration (slightly enlarged)
-                        Image(
-                            painter = painterResource(id = slide.imageRes),
-                            contentDescription = null,
+                        // Modern Hero Stage Card (Industry standard: CRED, Duolingo, Zomato, Uber)
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth(0.95f)
-                                .heightIn(min = 175.dp, max = 235.dp)
+                                .fillMaxWidth(0.92f)
+                                .heightIn(min = 180.dp, max = 235.dp)
                                 .weight(1f, fill = false),
-                            contentScale = ContentScale.Fit
-                        )
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.White,
+                            shadowElevation = 8.dp,
+                            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.6f))
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = slide.imageRes),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(4.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        }
                     }
                 }
 

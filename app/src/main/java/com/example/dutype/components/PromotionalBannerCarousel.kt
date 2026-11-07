@@ -1,7 +1,9 @@
 package com.example.dutype.components
 
 import androidx.annotation.Keep
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -107,6 +109,17 @@ fun showcaseToSlide(showcase: com.example.dutype.homeservices.PromoShowcase): Ho
 }
 
 private val DEFAULT_WORKER_PROMOS = listOf(
+    HomePromoSlide(
+        tag = "🎡 SPIN & WIN UP TO ₹100",
+        tagBgColor = Color(0xFFF59E0B),
+        headline = "Daily Lucky Fortune Spin",
+        subheadline = "Spin daily to win real cash & DutyPe bonus coins! Guaranteed prizes every day.",
+        cta = "Play Spin & Win 🎡",
+        targetKey = "spin_and_win",
+        gradientColors = listOf(Color(0xFF7C2D12), Color(0xFFC2410C), Color(0xFFEA580C)),
+        ctaBgColor = Color(0xFFFBBF24),
+        ctaTextColor = Color(0xFF1E293B)
+    ),
     HomePromoSlide(
         tag = "⚡ ZERO COMMISSION",
         tagBgColor = Color(0xFFF59E0B),
@@ -214,16 +227,23 @@ fun PromotionalBannerCarousel(
 
     val pagerState = rememberPagerState(pageCount = { slides.size })
 
-    // Auto-advance every 4.5 seconds
-    LaunchedEffect(slides.size) {
+    // Auto-advance every 4.5 seconds - resilient to navigation transitions and user touch
+    LaunchedEffect(pagerState, slides.size) {
         if (slides.size > 1) {
             while (true) {
                 delay(4500)
-                val currentCount = pagerState.pageCount
-                if (currentCount > 1) {
-                    val nextPage = (pagerState.currentPage + 1) % currentCount
-                    runCatching {
-                        pagerState.animateScrollToPage(nextPage)
+                if (!pagerState.isScrollInProgress) {
+                    val currentCount = pagerState.pageCount
+                    if (currentCount > 1) {
+                        val nextPage = (pagerState.currentPage + 1) % currentCount
+                        try {
+                            pagerState.animateScrollToPage(
+                                page = nextPage,
+                                animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
+                            )
+                        } catch (e: Exception) {
+                            // Recover cleanly on next interval
+                        }
                     }
                 }
             }

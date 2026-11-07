@@ -93,6 +93,11 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import com.example.dutype.utils.SalaryFormatter
+import com.example.dutype.worker.components.jobCategoryEmoji
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
@@ -689,6 +694,7 @@ fun HomeSectionsContent(
                                 target == "jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
                                 target == "profile" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.PROFILE)
                                 target == "refer_earn" -> navController.navigate(Routes.WORKER_REFER_EARN)
+                                target == "spin_and_win" || target == "spin" -> navController.navigate(com.example.dutype.navigation.Routes.SPIN_AND_WIN)
                                 else -> DeepLinkHandler.handleAnnouncementAction(target, navController, context)
                             }
                         },
@@ -699,16 +705,7 @@ fun HomeSectionsContent(
                 }
             }
 
-            // Live Worker Payouts under announcements carousel
-            item(key = "worker_home_spin_win") {
-                SpinAndWinEntryBanner(
-                    onPlayClick = {
-                        navController.navigate(com.example.dutype.navigation.Routes.SPIN_AND_WIN)
-                    }
-                )
-            }
-
-            // Sleek Single-Line Floating Ticker Pill: 🟢 Ramesh K. received ₹1,400 (AC Technician · Mamillagudem) 12m ago
+            // Sleek Single-Line Floating Ticker: 🟢 Ramesh K. received ₹1,400 (AC Technician · Mamillagudem) 12m ago
             item(key = "worker_home_payout_ticker") {
                 WorkerPayoutTickerPill()
             }
@@ -1649,6 +1646,8 @@ fun RecommendedJobsSection(
     onOpenStory: ((Int) -> Unit)? = null,
     sectionTitle: String? = null
 ) {
+    val topJob = jobs.firstOrNull() ?: return
+
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1686,27 +1685,292 @@ fun RecommendedJobsSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Horizontal Scrolling Row of 3:4 Vertical Cards matching Image 1
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        // Single highlighted job card exactly matching Image 1
+        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            HighlightedWorkerJobCard(
+                job = topJob,
+                isSaved = savedJobsViewModel.isJobSaved(topJob.id),
+                onSaveClick = { savedJobsViewModel.toggleSaveJob(topJob.id) },
+                onCardClick = { onNavigateToJob(topJob.id) }
+            )
+        }
+    }
+}
+
+/**
+ * Highlighted Job Card matching Image 1 mockup:
+ * - Circle avatar on left with category emoji or photo
+ * - Title + Subtitle ("Gopi Restaurant · 15h · Verified ✓")
+ * - Large bold rate ("₹500/hour paid hourly")
+ * - Red location pin + distance
+ * - 3 soft pill badges (Vacancy, Part-time, Urgent) + Black Apply Now button
+ */
+@Composable
+fun HighlightedWorkerJobCard(
+    job: JobListing,
+    isSaved: Boolean,
+    onSaveClick: () -> Unit,
+    onCardClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val payAmount = job.payAmount
+    val payTypeShort = when (job.payType.uppercase()) {
+        "MONTHLY" -> "month"
+        "DAILY", "DAY" -> "day"
+        "HOURLY" -> "hour"
+        "WEEKLY" -> "week"
+        else -> "month"
+    }
+    val payFrequency = when (job.payType.uppercase()) {
+        "MONTHLY" -> "monthly"
+        "DAILY", "DAY" -> "after shift"
+        "HOURLY" -> "hourly"
+        "WEEKLY" -> "weekly"
+        else -> "monthly"
+    }
+    val timeAgo = remember(job.createdAt) {
+        if (job.createdAt > 0L) com.example.dutype.utils.DateTimeUtils.formatRelativeTime(job.createdAt) else "15h"
+    }
+    val categoryEmoji = remember(job.category, job.title) {
+        val cat = jobCategoryEmoji(job.category)
+        if (cat != "🏢") cat else jobCategoryEmoji(job.title)
+    }
+    val locationDisplay = remember(job.area, job.distance) {
+        val loc = job.area.ifBlank { job.district }.ifBlank { "Hyderabad" }
+        if (job.distance != null) "$loc · ${String.format("%.1f", job.distance)} km away" else loc
+    }
+    val vacanciesCount = if (job.vacancies > 0) job.vacancies else 1
+    val vacanciesText = "$vacanciesCount ${if (vacanciesCount == 1) "Vacancy" else "Vacancies"}"
+    val workType = job.employmentType.ifBlank { "Part-time" }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onCardClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shadowElevation = 0.5.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            itemsIndexed(jobs, key = { _, job -> job.id }) { idx, job ->
-                Box(modifier = Modifier.cascadeEnter(index = idx.coerceAtMost(6))) {
-                    WorkerMockupJobCard(
-                        job = job,
-                        isSaved = savedJobsViewModel.isJobSaved(job.id),
-                        onSaveClick = { savedJobsViewModel.toggleSaveJob(job.id) },
-                        onCardClick = {
-                            if (onOpenStory != null) {
-                                onOpenStory(idx)
-                            } else {
-                                onNavigateToJob(job.id)
+            // Row 1: Left Circle Avatar + Title & Verified Subtitle + Save Heart
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Circular Category / Company Avatar
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE0F2FE)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!job.photoUrl.isNullOrBlank()) {
+                        com.example.dutype.components.OptimizedJobImage(
+                            imageUrl = job.photoUrl,
+                            contentDescription = job.title,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(text = categoryEmoji, fontSize = 25.sp)
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                // Title + Subtitle Column
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = job.title,
+                        color = Color(0xFF0F172A),
+                        fontSize = 16.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "${job.companyName.ifBlank { "DutyPe Partner" }} · $timeAgo",
+                            color = Color(0xFF64748B),
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "·",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp
+                        )
+                        // Blue Verified Badge with Check
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF2563EB)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Text(
+                                    text = "Verified",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
+                    }
+                }
+
+                // Heart Save Button
+                IconButton(
+                    onClick = onSaveClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Save job",
+                        tint = if (isSaved) Color(0xFFEF4444) else Color(0xFF94A3B8),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Row 2: Large Bold Pay: ₹500/hour paid hourly
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "₹${SalaryFormatter.amount(payAmount)}/$payTypeShort",
+                    color = Color(0xFF0F172A),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "paid $payFrequency",
+                    color = Color(0xFF64748B),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 1.dp)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Row 3: Red Location Pin + Address
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.LocationOn,
+                    contentDescription = null,
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = locationDisplay,
+                    color = Color(0xFF64748B),
+                    fontSize = 12.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Row 4: Badges Row + Black Apply Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Soft Pill Badges
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Vacancy Pill
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFEFF6FF),
+                        border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                    ) {
+                        Text(
+                            text = vacanciesText,
+                            color = Color(0xFF1D4ED8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    // Part-time / Full-time Pill
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFF0FDF4),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                    ) {
+                        Text(
+                            text = workType,
+                            color = Color(0xFF15803D),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    // Urgent Pill (if urgent)
+                    if (job.isUrgent) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFFFFFBEB),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                        ) {
+                            Text(
+                                text = "Urgent",
+                                color = Color(0xFFB45309),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Black Apply Now Pill Button
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF0F172A),
+                    modifier = Modifier.clickable { onCardClick() }
+                ) {
+                    Text(
+                        text = "Apply Now",
+                        color = Color.White,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -1759,109 +2023,100 @@ fun WorkerPayoutTickerPill(
 
     val currentProof = sampleProofs[activeIndex]
 
-    Surface(
+    // Unboxed ticker: no circular pill, no card wrapper, direct smooth vertical slide-up marquee
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp)
             .clickable { showBottomSheet = true },
-        shape = RoundedCornerShape(50),
-        color = Color.White,
-        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0)),
-        shadowElevation = 1.5.dp
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 9.dp),
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Pulsing Green Live Dot
-                Box(contentAlignment = Alignment.Center) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "payoutDotPulse")
-                    val pulseScale by infiniteTransition.animateFloat(
-                        initialValue = 0.85f,
-                        targetValue = 1.4f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1100, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "payoutPulseScale"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(13.dp)
-                            .graphicsLayer {
-                                scaleX = pulseScale
-                                scaleY = pulseScale
-                                alpha = 0.35f
-                            }
-                            .clip(CircleShape)
-                            .background(Color(0xFF10B981))
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(7.5.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF10B981))
-                    )
-                }
-
-                // Rotating 1-line Marquee
-                AnimatedContent(
-                    targetState = currentProof,
-                    transitionSpec = {
-                        (slideInVertically { height -> height } + fadeIn(animationSpec = tween(350)))
-                            .togetherWith(slideOutVertically { height -> -height } + fadeOut(animationSpec = tween(350)))
-                    },
-                    label = "payout_marquee"
-                ) { proof ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "${proof.name} received ",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E293B)
-                        )
-                        Text(
-                            text = "₹${java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("en-IN")).format(proof.amountEarnedToday)}",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF059669)
-                        )
-                        Text(
-                            text = " (${proof.role} · ${proof.location}) ",
-                            fontSize = 11.5.sp,
-                            color = Color(0xFF64748B),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = proof.timeAgo,
-                            fontSize = 10.5.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-                    }
-                }
+            // Pulsing Green Live Dot
+            Box(contentAlignment = Alignment.Center) {
+                val infiniteTransition = rememberInfiniteTransition(label = "payoutDotPulse")
+                val pulseScale by infiniteTransition.animateFloat(
+                    initialValue = 0.85f,
+                    targetValue = 1.4f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1100, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "payoutPulseScale"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(13.dp)
+                        .graphicsLayer {
+                            scaleX = pulseScale
+                            scaleY = pulseScale
+                            alpha = 0.35f
+                        }
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(7.5.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981))
+                )
             }
 
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = "View all payouts",
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier
-                    .size(14.dp)
-                    .padding(start = 4.dp)
-            )
+            // Rotating 1-line Marquee - Unboxed and cleanly sliding up
+            AnimatedContent(
+                targetState = currentProof,
+                transitionSpec = {
+                    (slideInVertically { height -> height } + fadeIn(animationSpec = tween(350)))
+                        .togetherWith(slideOutVertically { height -> -height } + fadeOut(animationSpec = tween(350)))
+                },
+                label = "payout_marquee"
+            ) { proof ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "${proof.name} received ",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = "₹${java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("en-IN")).format(proof.amountEarnedToday)}",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF059669)
+                    )
+                    Text(
+                        text = " (${proof.role} · ${proof.location}) ",
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = proof.timeAgo,
+                        fontSize = 10.5.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
         }
+
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = "View all payouts",
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier
+                .size(14.dp)
+                .padding(start = 4.dp)
+        )
     }
 
     // Recent Direct Payouts Bottom Sheet

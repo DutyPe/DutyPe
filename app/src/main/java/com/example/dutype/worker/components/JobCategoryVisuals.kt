@@ -71,7 +71,50 @@ fun resolveJobCategory(category: String, title: String, description: String = ""
         ?: JobCategory.OTHER
 }
 
-/** Rounded square with the category icon on its tint, as used in the rail and card tiles. */
+/**
+ * Vivid emojis matching the categories in Image 2.
+ * If the category is custom / different from our current categories, defaults to company emoji 🏢.
+ */
+fun jobCategoryEmoji(label: String): String {
+    val clean = label.trim().lowercase(java.util.Locale.ROOT)
+    return when {
+        clean.contains("delivery") -> "🚴"
+        clean.contains("shop") -> "🏪"
+        clean.contains("housekeeping") || clean.contains("maid") || clean.contains("clean") -> "🧹"
+        clean.contains("construction") || clean.contains("mason") -> "👷"
+        clean.contains("event") -> "🎪"
+        clean.contains("kitchen") || clean.contains("cook") -> "🍳"
+        clean.contains("driver") -> "🚗"
+        clean.contains("security") || clean.contains("guard") -> "💂"
+        clean.contains("electric") -> "💡"
+        clean.contains("plumb") -> "🔧"
+        clean.contains("helper") -> "🤝"
+        clean.contains("waiter") -> "🍽️"
+        clean.contains("garden") -> "🌱"
+        clean.contains("caretaker") -> "👥"
+        clean.contains("paint") -> "🎨"
+        clean.contains("carpenter") -> "🪚"
+        clean.contains("reception") -> "💼"
+        clean.contains("cashier") -> "💵"
+        clean.contains("pack") -> "📦"
+        clean.contains("sales") || clean.contains("promot") -> "🛍️"
+        clean.contains("telecall") || clean.contains("support") -> "📞"
+        clean.contains("teach") || clean.contains("tutor") -> "📚"
+        clean.contains("office") -> "🗂️"
+        clean.contains("field") || clean.contains("marketing") -> "🧭"
+        clean.contains("finance") -> "🏦"
+        clean.contains("health") || clean.contains("pharmac") -> "⚕️"
+        clean.contains("beauty") || clean.contains("salon") -> "💇"
+        clean.contains("tailor") -> "🧵"
+        clean.contains("mechanic") -> "🔩"
+        clean.contains("data") -> "⌨️"
+        clean.contains("legal") -> "⚖️"
+        clean == "all jobs" || clean == "all" || clean == "any" -> "🌐"
+        else -> "🏢" // User requirement: if different from current categories show company based emoji
+    }
+}
+
+/** Rounded square with the category emoji on its tint, as used in the rail and card tiles. */
 @Composable
 fun JobCategoryIconTile(
     category: String,
@@ -82,16 +125,21 @@ fun JobCategoryIconTile(
     modifier: Modifier = Modifier
 ) {
     val resolved = remember(category, title, description) { resolveJobCategory(category, title, description) }
-    val (lightContainer, lightTint) = jobCategoryTint(resolved.displayName)
+    val (lightContainer, _) = jobCategoryTint(resolved.displayName)
     val container = lightContainer.bg()
-    val tint = lightTint.fg()
-    val icon = jobCategoryIcon(resolved.displayName)
+    val emoji = remember(resolved, title) {
+        val direct = jobCategoryEmoji(resolved.displayName)
+        if (direct != "🏢") direct else jobCategoryEmoji(title)
+    }
     Box(
         modifier = modifier
             .size(size)
             .background(container, RoundedCornerShape(cornerRadius)),
         contentAlignment = Alignment.Center
     ) {
-        Icon(imageVector = icon, contentDescription = resolved.displayName, tint = tint, modifier = Modifier.size(size * 0.5f))
+        Text(
+            text = emoji,
+            fontSize = (size.value * 0.52f).sp
+        )
     }
 }

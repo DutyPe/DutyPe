@@ -1869,6 +1869,10 @@ internal fun WorkerOutOfAreaBottomSheet(
 }
 
 
+/**
+ * Fade Up Characters / Slow Fade On: Smoothly reveals text with transparency transitions.
+ * Staggers each character with a smooth upward float and alpha transparency reveal.
+ */
 @Composable
 fun SmoothFadeText(
     text: String,
@@ -1878,32 +1882,41 @@ fun SmoothFadeText(
     fontSize: androidx.compose.ui.unit.TextUnit = 14.5.sp,
     fontWeight: FontWeight = FontWeight.Bold
 ) {
-    val alphaAnim by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isTriggered) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.tween(
-            durationMillis = 500,
-            easing = androidx.compose.animation.core.FastOutSlowInEasing
-        ),
-        label = "smoothTextFadeAlpha"
-    )
-    val translationAnim by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isTriggered) 0f else -6f,
-        animationSpec = androidx.compose.animation.core.tween(
-            durationMillis = 500,
-            easing = androidx.compose.animation.core.FastOutSlowInEasing
-        ),
-        label = "smoothTextFadeTranslation"
-    )
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        text.forEachIndexed { index, char ->
+            val charAlpha by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (isTriggered) 1f else 0f,
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = 400,
+                    delayMillis = if (isTriggered) (index * 26).coerceAtMost(380) else 0,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                ),
+                label = "charAlpha_$index"
+            )
+            val charTranslateY by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (isTriggered) 0f else 10f,
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = 420,
+                    delayMillis = if (isTriggered) (index * 26).coerceAtMost(380) else 0,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                ),
+                label = "charTransY_$index"
+            )
 
-    Text(
-        text = text,
-        color = color.copy(alpha = alphaAnim),
-        fontSize = fontSize,
-        fontWeight = fontWeight,
-        letterSpacing = 0.2.sp,
-        modifier = modifier.graphicsLayer {
-            alpha = alphaAnim
-            translationX = translationAnim
+            Text(
+                text = char.toString(),
+                color = color.copy(alpha = charAlpha),
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                letterSpacing = 0.2.sp,
+                modifier = Modifier.graphicsLayer {
+                    alpha = charAlpha
+                    translationY = charTranslateY
+                }
+            )
         }
-    )
+    }
 }

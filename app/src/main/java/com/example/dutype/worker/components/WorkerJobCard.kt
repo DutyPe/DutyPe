@@ -240,6 +240,17 @@ private fun JobCardInternal(
                                 .clip(RoundedCornerShape(10.dp)),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
+                    } else {
+                        val fallbackEmoji = remember(title) { jobCategoryEmoji(title) }
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF1F5F9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = fallbackEmoji, fontSize = 22.sp)
+                        }
                     }
                     Text(
                         text = ValidationUtils.capitalizeWords(title),

@@ -35,7 +35,7 @@ import com.example.dutype.ui.theme.WorkerColors
 
 data class CategoryItem(
     val name: String,
-    val icon: ImageVector,
+    val emoji: String,
     val nameRes: Int
 )
 
@@ -46,27 +46,33 @@ fun HomeCategoriesSection(
     modifier: Modifier = Modifier
 ) {
     val categories = listOf(
-        CategoryItem("Delivery", CategoryIcon.forDisplayName("Delivery"), R.string.category_delivery),
-        CategoryItem("Shop Helper", CategoryIcon.forDisplayName("Shop Helper"), R.string.category_shop_helper),
-        CategoryItem("Housekeeping", CategoryIcon.forDisplayName("Housekeeping"), R.string.category_housekeeping),
-        CategoryItem("Construction", CategoryIcon.forDisplayName("Construction"), R.string.category_construction),
-        CategoryItem("Events", CategoryIcon.forDisplayName("Events"), R.string.category_events),
-        CategoryItem("Kitchen", CategoryIcon.forDisplayName("Kitchen"), R.string.category_kitchen),
-        CategoryItem("Driver", CategoryIcon.forDisplayName("Driver"), R.string.category_driver),
-        CategoryItem("Security", CategoryIcon.forDisplayName("Security"), R.string.category_security),
-        CategoryItem("Electrician", CategoryIcon.forDisplayName("Electrician"), R.string.category_electrician),
-        CategoryItem("Plumber", CategoryIcon.forDisplayName("Plumber"), R.string.category_plumber)
+        CategoryItem("Delivery", "🚴", R.string.category_delivery),
+        CategoryItem("Shop Helper", "🏪", R.string.category_shop_helper),
+        CategoryItem("Housekeeping", "🧹", R.string.category_housekeeping),
+        CategoryItem("Construction", "👷", R.string.category_construction),
+        CategoryItem("Events", "🎪", R.string.category_events),
+        CategoryItem("Kitchen", "🍳", R.string.category_kitchen),
+        CategoryItem("Driver", "🚗", R.string.category_driver),
+        CategoryItem("Security", "💂", R.string.category_security),
+        CategoryItem("Electrician", "💡", R.string.category_electrician),
+        CategoryItem("Plumber", "🔧", R.string.category_plumber)
     )
     
     Column(modifier = modifier.fillMaxWidth()) {
-        // View all button only (no title)
+        // Header matching Image 2: "Popular Categories" on left, "See all >" on right
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.End,
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = "Popular Categories",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -75,16 +81,17 @@ fun HomeCategoriesSection(
                     .padding(vertical = 4.dp, horizontal = 4.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.view_all),
+                    text = "See all",
                     style = AppTypography.buttonSmall.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
                     )
                 )
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = WorkerColors.IconSecondary,
+                    tint = Color(0xFF64748B),
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -134,25 +141,23 @@ private fun CategoryChip(
             .clickable(onClick = onClick)
             .width(68.dp)
     ) {
-        // Icon container - bigger size with bordered style
+        // Icon container - card with emoji matching Image 2
         Card(
             modifier = Modifier.size(60.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent
+                containerColor = Color.White
             ),
-            shape = RoundedCornerShape(14.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = BorderStroke(1.dp, WorkerColors.Border)
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+            border = BorderStroke(0.8.dp, Color(0xFFE2E8F0))
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = category.icon,
-                    contentDescription = categoryName,
-                    tint = WorkerColors.IconAccent,
-                    modifier = Modifier.size(26.dp)
+                Text(
+                    text = category.emoji,
+                    fontSize = 25.sp
                 )
             }
         }
@@ -165,7 +170,7 @@ private fun CategoryChip(
             style = AppTypography.labelSmall.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,
-                fontSize = 10.sp
+                fontSize = 11.sp
             ),
             textAlign = TextAlign.Center,
             maxLines = 1,

@@ -2546,9 +2546,24 @@ fun ServicesHomeScreen(
     LaunchedEffect(pagerState, totalBanners) {
         if (totalBanners > 1) {
             while (true) {
-                kotlinx.coroutines.delay(5000)
-                val nextPage = (pagerState.currentPage + 1) % totalBanners
-                pagerState.animateScrollToPage(nextPage)
+                kotlinx.coroutines.delay(5000L)
+                if (!pagerState.isScrollInProgress) {
+                    val currentCount = pagerState.pageCount
+                    if (currentCount > 1) {
+                        val nextPage = (pagerState.currentPage + 1) % currentCount
+                        try {
+                            pagerState.animateScrollToPage(
+                                page = nextPage,
+                                animationSpec = androidx.compose.animation.core.tween(
+                                    durationMillis = 650,
+                                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                                )
+                            )
+                        } catch (e: Exception) {
+                            // Recover cleanly on next interval
+                        }
+                    }
+                }
             }
         }
     }
