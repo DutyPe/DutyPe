@@ -1,5 +1,12 @@
 package com.example.dutype.worker.screens
 
+import android.os.Bundle
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -114,6 +121,73 @@ private const val PRODUCTION_REWARDED_AD_UNIT_ID = "ca-app-pub-5503082977524600/
 // Google Official Rewarded Video Test Ad Unit ID (Fallback for test devices)
 private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
 
+/**
+ * Spinner Game Telemetry & Intent Tracking:
+ * Logs both high-precision Firebase Analytics events and real-time Firestore aggregates
+ * to track user interest, video ad conversions, and worker engagement.
+ */
+private object SpinAnalyticsTracker {
+    fun track(context: Context, eventName: String, params: Map<String, Any> = emptyMap()) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
+        
+        // 1. Firebase Analytics
+        runCatching {
+            val analytics = FirebaseAnalytics.getInstance(context)
+            val bundle = Bundle().apply {
+                putString("user_id", userId)
+                params.forEach { (k, v) ->
+                    when (v) {
+                        is String -> putString(k, v)
+                        is Int -> putInt(k, v)
+                        is Long -> putLong(k, v)
+                        is Double -> putDouble(k, v)
+                        is Boolean -> putBoolean(k, v)
+                    }
+                }
+            }
+            analytics.logEvent(eventName, bundle)
+        }
+
+        // 2. Realtime Firestore Aggregates & Event Logs
+        runCatching {
+            val firestore = FirebaseFirestore.getInstance()
+            
+            // Global aggregates collection: app_analytics/spin_and_win
+            val globalRef = firestore.collection("app_analytics").document("spin_and_win")
+            val aggregateData = mutableMapOf<String, Any>(
+                "last_active_at" to FieldValue.serverTimestamp(),
+                "event_${eventName}_count" to FieldValue.increment(1)
+            )
+            globalRef.set(aggregateData, SetOptions.merge())
+
+            // User-level intent record: users/{userId}/game_stats/spin_and_win
+            if (userId != "guest") {
+                val userStatsRef = firestore.collection("users")
+                    .document(userId)
+                    .collection("game_stats")
+                    .document("spin_and_win")
+                userStatsRef.set(
+                    mapOf(
+                        "last_played_at" to FieldValue.serverTimestamp(),
+                        "total_${eventName}" to FieldValue.increment(1)
+                    ),
+                    SetOptions.merge()
+                )
+            }
+
+            // High-intent audit trail for plays and shares
+            if (eventName == "spin_completed" || eventName == "spin_share_clicked") {
+                val auditEntry = mutableMapOf<String, Any>(
+                    "userId" to userId,
+                    "eventName" to eventName,
+                    "timestamp" to FieldValue.serverTimestamp()
+                ).apply { putAll(params) }
+                firestore.collection("spin_game_events").add(auditEntry)
+            }
+        }
+    }
+}
+
 // Wheel Segments Definition
 data class WheelSegment(
     val label: String,
@@ -190,8 +264,9 @@ fun SpinAndWinScreen(
         })
     }
 
-    // Preload Rewarded Ad on launch
+    // Preload Rewarded Ad on launch & log view
     LaunchedEffect(Unit) {
+        SpinAnalyticsTracker.track(context, "spin_game_opened")
         loadRewardedAd()
     }
 
@@ -240,6 +315,17 @@ fun SpinAndWinScreen(
                 .putInt("consecutive_spins", newConsecutive)
                 .apply()
 
+            SpinAnalyticsTracker.track(
+                context,
+                "spin_completed",
+                mapOf(
+                    "prize" to chosen.label,
+                    "is_cash" to (chosen.cashValue > 0 || chosen.isScratchCard),
+                    "coins" to chosen.coinValue,
+                    "consecutive" to newConsecutive
+                )
+            )
+
             // 5th Spin Golden Scratch Card Milestone
             if (newConsecutive % 5 == 0 || chosen.isScratchCard) {
                 scratchCardAmount = listOf(1, 2, 3, 5).random()
@@ -263,6 +349,7 @@ fun SpinAndWinScreen(
     }
 
     fun onSpinButtonClicked() {
+        SpinAnalyticsTracker.track(context, "spin_wheel_tapped", mapOf("remaining_spins" to remainingSpins))
         if (remainingSpins <= 0) {
             Toast.makeText(context, "Daily limit reached ($maxSpinsPerDay spins/day). Come back tomorrow!", Toast.LENGTH_SHORT).show()
             return
@@ -290,6 +377,7 @@ fun SpinAndWinScreen(
     }
 
     fun shareToWhatsAppToUnlock() {
+        SpinAnalyticsTracker.track(context, "spin_share_clicked", mapOf("referral_code" to referralCode))
         runCatching {
             val shareText = "🎉 Spin the wheel on DutyPe & win up to ₹100 daily!\nUse my referral code: $referralCode\nDownload now: https://dutype.in"
             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -311,67 +399,91 @@ fun SpinAndWinScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White
+        containerColor = Color.White,
+        topBar = {
+            Surface(
+                color = Color.White,
+                shadowElevation = 0.5.dp,
+                border = BorderStroke(0.5.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF1F5F9))
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF0F172A)
+                        )
+                    }
+
+                    // Balance Pills at Header Level
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFFFFFBEB),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "🪙 $totalDummyCoins Coins",
+                                    color = Color(0xFFD97706),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFFF0FDF4),
+                            border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "💵 ₹$totalDummyCash Won",
+                                    color = Color(0xFF059669),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .statusBarsPadding()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF1F5F9))
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF0F172A)
-                    )
-                }
-
-                // Balance Pills
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFFFFFBEB),
-                        border = BorderStroke(1.dp, Color(0xFFFDE68A))
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(text = "🪙 $totalDummyCoins Coins", color = Color(0xFFD97706), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFFF0FDF4),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(text = "💵 ₹$totalDummyCash Won", color = Color(0xFF059669), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Headline
             Text(
@@ -542,42 +654,20 @@ fun SpinAndWinScreen(
             Spacer(Modifier.height(14.dp))
 
             // Action Buttons Row
-            Row(
+            // WhatsApp Viral Unlock Button (Center wheel dial triggers rewarded ad + spin directly)
+            Button(
+                onClick = ::shareToWhatsAppToUnlock,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 24.dp)
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
             ) {
-                // Watch Ad for 1 Spin Button
-                Button(
-                    onClick = ::onSpinButtonClicked,
-                    enabled = !isSpinning && remainingSpins > 0,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
-                        disabledContainerColor = Color(0xFF94A3B8)
-                    )
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(text = "Watch Ad to Spin", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // WhatsApp Viral Unlock Button
-                Button(
-                    onClick = ::shareToWhatsAppToUnlock,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Filled.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(text = "Share & Unlock", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Filled.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(text = "Share & Unlock Spins", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
 

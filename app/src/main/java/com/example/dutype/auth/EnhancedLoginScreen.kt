@@ -456,7 +456,7 @@ private fun OtpLoginScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 24.dp, end = 24.dp, top = 10.dp),
+                            .padding(start = 20.dp, end = 20.dp, top = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
@@ -481,32 +481,22 @@ private fun OtpLoginScreen(
                             lineHeight = 18.sp
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
-                        // Modern Hero Stage Card (Industry standard: CRED, Duolingo, Zomato, Uber)
-                        Surface(
+                        // Transparent 3D Illustration - Seamless on dynamic gradient background
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.92f)
-                                .heightIn(min = 180.dp, max = 235.dp)
+                                .fillMaxWidth(1f)
+                                .heightIn(min = 208.dp, max = 273.dp)
                                 .weight(1f, fill = false),
-                            shape = RoundedCornerShape(24.dp),
-                            color = Color.White,
-                            shadowElevation = 8.dp,
-                            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.6f))
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
+                            Image(
+                                painter = painterResource(id = slide.imageRes),
+                                contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(id = slide.imageRes),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(4.dp),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
+                                contentScale = ContentScale.Fit
+                            )
                         }
                     }
                 }

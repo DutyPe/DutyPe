@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -108,26 +109,34 @@ fun WorkerMockupJobCard(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Category workplace graphic (NO human faces/selfies)
+                // Category emoji FULL in place of image (vibrant pastel workplace card)
+                val categoryEmoji = remember(job.category, job.title) {
+                    val cat = jobCategoryEmoji(job.category)
+                    if (cat != "🏢") cat else jobCategoryEmoji(job.title)
+                }
+                val bgBrush = remember(job.category, job.title) {
+                    val key = (job.category + " " + job.title).lowercase()
+                    when {
+                        key.contains("cook") || key.contains("kitchen") -> Brush.verticalGradient(listOf(Color(0xFFFFF7ED), Color(0xFFFFEDD5)))
+                        key.contains("delivery") -> Brush.verticalGradient(listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE)))
+                        key.contains("electric") || key.contains("light") -> Brush.verticalGradient(listOf(Color(0xFFFEFCE8), Color(0xFFFEF08A)))
+                        key.contains("driver") -> Brush.verticalGradient(listOf(Color(0xFFF0FDF4), Color(0xFFDCFCE7)))
+                        key.contains("construct") || key.contains("mason") -> Brush.verticalGradient(listOf(Color(0xFFFFFBEB), Color(0xFFFDE68A)))
+                        key.contains("clean") || key.contains("maid") || key.contains("house") -> Brush.verticalGradient(listOf(Color(0xFFF0FDF4), Color(0xFFBBF7D0)))
+                        key.contains("shop") || key.contains("helper") -> Brush.verticalGradient(listOf(Color(0xFFFAF5FF), Color(0xFFF3E8FF)))
+                        else -> Brush.verticalGradient(listOf(Color(0xFFF8FAFC), Color(0xFFE2E8F0)))
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color(0xFFE2E8F0),
-                                    Color(0xFFCBD5E1)
-                                )
-                            )
-                        ),
+                        .background(bgBrush),
                     contentAlignment = Alignment.Center
                 ) {
-                    JobCategoryIconTile(
-                        category = job.category,
-                        title = job.title,
-                        description = job.description,
-                        size = 56.dp,
-                        cornerRadius = 16.dp
+                    Text(
+                        text = categoryEmoji,
+                        fontSize = 64.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
             }
@@ -186,22 +195,20 @@ fun WorkerMockupJobCard(
                 }
             }
 
-            // Top-Right Frosted Heart Button
+            // Top-Right Heart Button (no circle black shadow)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = 10.dp, top = 10.dp)
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x55000000))
+                    .padding(end = 8.dp, top = 8.dp)
+                    .size(34.dp)
                     .clickable { onSaveClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Save job",
-                    tint = if (isSaved) Color(0xFFFF3B30) else Color.White,
-                    modifier = Modifier.size(17.dp)
+                    tint = if (isSaved) Color(0xFFFF3B30) else if (photoUrl != null) Color.White else Color(0xFF475569),
+                    modifier = Modifier.size(19.dp)
                 )
             }
             }
@@ -209,7 +216,7 @@ fun WorkerMockupJobCard(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Below Image: Job Title
+        // Below Image: Job Title (strictly 1 line with ellipsis)
         Text(
             text = ValidationUtils.capitalizeWords(job.title),
             color = Color(0xFF0F172A),
@@ -219,43 +226,57 @@ fun WorkerMockupJobCard(
             overflow = TextOverflow.Ellipsis
         )
 
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(1.dp))
 
-        // Below Title: Animated Cycling between (Salary · Distance) and (🏷️ Direct Employer · ₹0 Commission)
-        var showEmployerCommission by remember { mutableStateOf(false) }
+        // Below Title: Animated Sliding Up Cycling: 0 = Salary -> 1 = Company Name -> 2 = Call employer for free
+        val displayCompany = job.companyName.ifBlank { "DutyPe Partner" }
+        var slidingPhase by remember { mutableIntStateOf(0) }
         LaunchedEffect(Unit) {
             while (true) {
-                delay(3500L)
-                showEmployerCommission = !showEmployerCommission
+                delay(3000L)
+                slidingPhase = (slidingPhase + 1) % 3
             }
         }
 
         AnimatedContent(
-            targetState = showEmployerCommission,
+            targetState = slidingPhase,
             transitionSpec = {
-                (slideInVertically { height -> height / 2 } + fadeIn(animationSpec = tween(300)))
-                    .togetherWith(slideOutVertically { height -> -height / 2 } + fadeOut(animationSpec = tween(300)))
+                (slideInVertically { height -> height } + fadeIn(animationSpec = tween(300)))
+                    .togetherWith(slideOutVertically { height -> -height } + fadeOut(animationSpec = tween(300)))
             },
-            label = "job_card_salary_transition"
-        ) { showDirect ->
-            if (!showDirect) {
-                Text(
-                    text = "$salaryText$distanceText",
-                    color = Color(0xFF64748B),
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            } else {
-                Text(
-                    text = "Call employer · 0 fee",
-                    color = Color(0xFF64748B),
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            label = "job_card_slide_up_transition"
+        ) { phase ->
+            when (phase) {
+                0 -> {
+                    Text(
+                        text = "$salaryText$distanceText",
+                        color = Color(0xFF64748B),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                1 -> {
+                    Text(
+                        text = displayCompany,
+                        color = Color(0xFF64748B),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                else -> {
+                    Text(
+                        text = "Call employer for free",
+                        color = Color(0xFF64748B),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

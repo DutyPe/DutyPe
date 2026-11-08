@@ -1,5 +1,15 @@
 package com.example.dutype.homeservices
 
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.ExitToApp
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import com.example.dutype.components.LanguageSelectionBottomSheet
+
 import androidx.compose.material3.Switch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.input.ImeAction
@@ -8724,37 +8734,66 @@ fun ServicesCustomerProfileTab(
         ?: if (lang == "te") "డ్యూటీపే కస్టమర్" else "DutyPe Customer"
     val userPhone = currentUser?.phoneNumber ?: prefs.getString("cust_phone", "") ?: "—"
 
+    var showLanguageBottomSheet by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    val cardRadius = RoundedCornerShape(20.dp)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Customer Header Card
+        // Top Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = if (lang == "te") "ప్రొఫైల్" else "Profile",
+                    color = Color(0xFF0F172A),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp
+                )
+                Text(
+                    text = if (lang == "te") "డ్యూటీపే హోమ్ సర్వీసెస్ ఖాతా" else "DutyPe Home Services Account",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.5.sp
+                )
+            }
+        }
+
+        // Customer Hero Profile Card (Google / Airbnb aesthetic)
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White.bg(),
+            shape = cardRadius,
+            color = Color.White,
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            shadowElevation = 2.dp,
+            shadowElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(18.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Circular Avatar
                 Surface(
                     shape = CircleShape,
                     color = Color(0xFFEFF6FF),
-                    border = BorderStroke(1.5.dp, Color(0xFFBFDBFE)),
-                    modifier = Modifier.size(54.dp)
+                    border = BorderStroke(2.dp, Color(0xFF93C5FD)),
+                    modifier = Modifier.size(58.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = savedName.take(1).uppercase(),
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1D4ED8)
                         )
                     }
@@ -8764,37 +8803,38 @@ fun ServicesCustomerProfileTab(
                     Text(
                         text = savedName,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = SvcInk.fg()
+                        fontSize = 18.sp,
+                        color = Color(0xFF0F172A)
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = userPhone,
                         fontSize = 13.sp,
                         color = Color(0xFF64748B)
                     )
+                    Spacer(Modifier.height(4.dp))
                     Surface(
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(50),
                         color = Color(0xFFECFDF5),
-                        border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
-                        modifier = Modifier.padding(top = 4.dp)
+                        border = BorderStroke(1.dp, Color(0xFFA7F3D0))
                     ) {
                         Text(
-                            text = "✓ Verified Home Customer",
+                            text = "✓ Verified Customer",
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF059669),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.5.dp)
                         )
                     }
                 }
             }
         }
 
-        // Micro-Wallet Balance & Instant Topup Card
+        // DutyPe Micro-Wallet Card
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = cardRadius,
             color = Color(0xFF0F172A),
-            shadowElevation = 4.dp,
+            shadowElevation = 3.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
@@ -8803,8 +8843,16 @@ fun ServicesCustomerProfileTab(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = Color(0xFF60A5FA), modifier = Modifier.size(20.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = Color(0xFF60A5FA),
+                            modifier = Modifier.size(20.dp)
+                        )
                         Text(
                             text = if (lang == "te") "డ్యూటీపే వాలెట్" else "DutyPe Micro-Wallet",
                             fontWeight = FontWeight.Bold,
@@ -8816,7 +8864,7 @@ fun ServicesCustomerProfileTab(
                         onClick = onTopupClick,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Text("+ Top Up", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
@@ -8828,170 +8876,264 @@ fun ServicesCustomerProfileTab(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = if (lang == "te") "సర్వీస్ బుకింగ్స్ కోసం సిద్ధంగా ఉంది · 100% మనీబ్యాక్ రక్షణ" else "Ready for service bookings · 100% money-back guarantee",
                     fontSize = 11.5.sp,
-                    color = Color(0xFF94A3B8),
-                    modifier = Modifier.padding(top = 2.dp)
+                    color = Color(0xFF94A3B8)
                 )
             }
         }
 
-        // Saved Delivery Location
+        // Section 1: Services & Saved Location
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White.bg(),
+            shape = cardRadius,
+            color = Color.White,
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier
-                    .clickable(onClick = onLocationClick)
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFFFEF3C7),
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("📍", fontSize = 18.sp)
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (lang == "te") "సర్వీస్ ప్రాంతం (ఖమ్మం)" else "Service Location (Khammam)",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B)
-                    )
-                    Text(
-                        text = userLocation?.area?.ifBlank { "Wyra Road, Khammam" } ?: "Wyra Road, Khammam",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = SvcInk.fg()
-                    )
-                }
-                Text("Change", color = Color(0xFF2563EB), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        // Quick Role Switcher (Requirement 5.1: Explore Worker or Employer)
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White.bg(),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = if (lang == "te") "ఇతర పనుల కోసం డ్యూటీపే ఉపయోగించండి" else "Explore Other Roles on DutyPe",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = SvcInk.fg()
+            Column {
+                ServicesProfileRowItem(
+                    icon = Icons.Default.LocationOn,
+                    iconTint = Color(0xFFEA580C),
+                    iconBg = Color(0xFFFFF7ED),
+                    title = if (lang == "te") "సర్వీస్ డెలివరీ చిరునామా" else "Service Delivery Address",
+                    subtitle = userLocation?.area?.ifBlank { "Wyra Road, Khammam" } ?: "Wyra Road, Khammam",
+                    trailingText = if (lang == "te") "మార్చండి" else "Change",
+                    onClick = onLocationClick
                 )
-
-                // Switch to Worker
-                OutlinedButton(
-                    onClick = { navController.navigate(Routes.WORKER_HOME) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("👷", fontSize = 18.sp)
-                            Text(
-                                text = if (lang == "te") "వర్కర్ మోడ్ (రోజువారీ పనులు)" else "Worker Mode (Daily Wage Jobs)",
-                                color = SvcInk.fg(),
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
-                            )
-                        }
-                        Text("Switch ↗", color = Color(0xFF059669), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // Switch to Employer
-                OutlinedButton(
-                    onClick = { navController.navigate(Routes.EMPLOYER_HOME) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("🏢", fontSize = 18.sp)
-                            Text(
-                                text = if (lang == "te") "ఎంప్లాయర్ మోడ్ (సిబ్బందిని నియమించండి)" else "Employer Mode (Hire Staff)",
-                                color = SvcInk.fg(),
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
-                            )
-                        }
-                        Text("Switch ↗", color = Color(0xFF2563EB), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
             }
         }
 
-        // WhatsApp Customer Help & Support (+91 8019151847)
+        // Section 2: Quick Role Switcher
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFF0FDF4),
-            border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+            shape = cardRadius,
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier
-                    .clickable {
+            Column {
+                ServicesProfileRowItem(
+                    icon = Icons.Default.Engineering,
+                    iconTint = Color(0xFF059669),
+                    iconBg = Color(0xFFECFDF5),
+                    title = if (lang == "te") "వర్కర్ మోడ్ (రోజువారీ పనులు)" else "Worker Mode (Daily Wage Jobs)",
+                    subtitle = if (lang == "te") "రోజువారీ సంపాదన & తక్షణ చెల్లింపులు" else "Explore local jobs & instant spot payouts",
+                    badgeText = "Switch",
+                    badgeColor = Color(0xFF059669),
+                    onClick = { navController.navigate(Routes.WORKER_HOME) }
+                )
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+                ServicesProfileRowItem(
+                    icon = Icons.Default.Business,
+                    iconTint = Color(0xFF2563EB),
+                    iconBg = Color(0xFFEFF6FF),
+                    title = if (lang == "te") "ఎంప్లాయర్ మోడ్ (సిబ్బందిని నియమించండి)" else "Employer Mode (Hire Staff)",
+                    subtitle = if (lang == "te") "5 నిమిషాల్లో స్థానిక వర్కర్లను నియమించండి" else "Post staff jobs & hire workers in 5 mins",
+                    badgeText = "Switch",
+                    badgeColor = Color(0xFF2563EB),
+                    onClick = { navController.navigate(Routes.EMPLOYER_HOME) }
+                )
+            }
+        }
+
+        // Section 3: WhatsApp Support & Community
+        Surface(
+            shape = cardRadius,
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                ServicesProfileRowItem(
+                    icon = Icons.AutoMirrored.Filled.Chat,
+                    iconTint = Color(0xFF16A34A),
+                    iconBg = Color(0xFFF0FDF4),
+                    title = if (lang == "te") "కస్టమర్ వాట్సాప్ సపోర్ట్" else "Customer WhatsApp Support",
+                    subtitle = "+91 8019151847 · 24/7 instant chat",
+                    badgeText = "Chat ↗",
+                    badgeColor = Color(0xFF16A34A),
+                    onClick = {
                         runCatching {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/918019151847?text=Hi%20DutyPe%2C%20I%20need%20help%20with%20Home%20Services"))
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://wa.me/918019151847?text=Hi%20DutyPe%2C%20I%20need%20help%20with%20Home%20Services")
+                            )
                             context.startActivity(intent)
                         }
                     }
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("💬", fontSize = 24.sp)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (lang == "te") "కస్టమర్ వాట్సాప్ సపోర్ట్ (+91 8019151847)" else "Customer WhatsApp Support (+91 8019151847)",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF166534)
-                    )
-                    Text(
-                        text = if (lang == "te") "బుకింగ్ లేదా పార్ట్‌నర్ సమస్యలకు తక్షణ సహాయం" else "Instant help for booking & service queries",
-                        fontSize = 12.sp,
-                        color = Color(0xFF15803D)
-                    )
-                }
-                Text("Chat ↗", color = Color(0xFF16A34A), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                )
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+                com.example.dutype.components.ProfileFollowUsRow()
             }
         }
 
-        // Follow us on Flat Menu Card (Instagram & WhatsApp Community)
+        // Section 4: Preferences & Logout
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White.bg(),
+            shape = cardRadius,
+            color = Color.White,
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            com.example.dutype.components.ProfileFollowUsRow()
+            Column {
+                ServicesProfileRowItem(
+                    icon = Icons.Default.Translate,
+                    iconTint = Color(0xFF6366F1),
+                    iconBg = Color(0xFFEEF2FF),
+                    title = if (lang == "te") "భాష ఎంపిక" else "Language Preference",
+                    subtitle = when (lang) {
+                        "te" -> "తెలుగు (Telugu)"
+                        "hi" -> "हिंदी (Hindi)"
+                        else -> "English"
+                    },
+                    trailingText = if (lang == "te") "మార్చండి" else "Change",
+                    onClick = { showLanguageBottomSheet = true }
+                )
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+                ServicesProfileRowItem(
+                    icon = Icons.AutoMirrored.Outlined.ExitToApp,
+                    iconTint = Color(0xFFEF4444),
+                    iconBg = Color(0xFFFEF2F2),
+                    title = if (lang == "te") "లాగ్ అవుట్" else "Log Out",
+                    subtitle = if (lang == "te") "మీ ఖాతా నుండి సురక్షితంగా నిష్క్రమించండి" else "Sign out of your account safely",
+                    onClick = { showLogoutDialog = true }
+                )
+            }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (showLanguageBottomSheet) {
+        com.example.dutype.components.LanguageSelectionBottomSheet(
+            onDismiss = { showLanguageBottomSheet = false }
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = {
+                Text(
+                    text = if (lang == "te") "లాగ్ అవుట్ చేయాలా?" else "Log out of DutyPe?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = if (lang == "te") "మీరు నిజంగా నిష్క్రమించాలనుకుంటున్నారా?" else "Are you sure you want to log out of your account?",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        auth.signOut()
+                        navController.navigate(Routes.SELECT_ROLE) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                ) {
+                    Text(
+                        text = if (lang == "te") "లాగ్ అవుట్" else "Log Out",
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text(if (lang == "te") "రద్దు చేయండి" else "Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ServicesProfileRowItem(
+    icon: ImageVector,
+    iconTint: Color,
+    iconBg: Color,
+    title: String,
+    subtitle: String? = null,
+    badgeText: String? = null,
+    badgeColor: Color = Color(0xFF2563EB),
+    trailingText: String? = null,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = iconBg,
+            modifier = Modifier.size(38.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0F172A)
+                )
+                if (badgeText != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = badgeColor.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = badgeColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+        }
+        if (trailingText != null) {
+            Text(
+                text = trailingText,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF64748B),
+                modifier = Modifier.padding(end = 4.dp)
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

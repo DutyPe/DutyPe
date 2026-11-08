@@ -543,6 +543,10 @@ fun WorkerHomeScreen(
     }
 
     // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen only
+    val isLocationOrJobsLoading = jobUiState.isLoading || isLocationLoading || locationFetchInProgress || isFetchingSheetLocation
+    val jobsFailed = jobUiState.hasError && jobUiState.jobs.isEmpty() && !isLocationOrJobsLoading
+    val showEmptyJobsState = !isLocationOrJobsLoading && !jobsFailed && (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
+    val isHomeContentLoaded = !isLocationOrJobsLoading && (homeDisplayedJobs.isNotEmpty() || showEmptyJobsState || jobsFailed)
 
     // ENTERPRISE OPTIMIZATION: Load jobs in parallel with page load
     // Instagram/TikTok approach: Show UI instantly, populate data in background
@@ -1115,6 +1119,9 @@ fun WorkerHomeScreen(
                         .background(Color.Transparent)  // Transparent to show gradient
                 ) {
                     // Simple job cards list
+                    val isAppliedAllVariant = !jobUiState.jobs.isEmpty() && filteredJobs.isEmpty()
+                    val showCategoryRail = hasLocationPermission && !showEmptyJobsState
+
                     PullToRefreshBox(
                         isRefreshing = isRefreshingActive,
                         onRefresh = {
@@ -1144,13 +1151,6 @@ fun WorkerHomeScreen(
                     ) {
                         when {
                             else -> {
-                                val isLocationOrJobsLoading = jobUiState.isLoading || isLocationLoading || locationFetchInProgress || isFetchingSheetLocation
-                                val jobsFailed = jobUiState.hasError && jobUiState.jobs.isEmpty() && !isLocationOrJobsLoading
-                                val showEmptyJobsState = !isLocationOrJobsLoading && !jobsFailed &&
-                                    (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
-                                val isAppliedAllVariant = !jobUiState.jobs.isEmpty() && filteredJobs.isEmpty()
-                                val showCategoryRail = hasLocationPermission && !showEmptyJobsState
-
                                 HomeSectionsContent(
                                     jobListings = homeDisplayedJobs,
                                     urgentJobs = urgentJobs,
@@ -1405,16 +1405,31 @@ fun WorkerHomeScreen(
             }
         }
 
-        // Floating Bottom Pill: "Apply jobs for free · ₹0" with Smooth Fade Transition & Tag Wobble
+        // Floating Bottom Pill: "Apply jobs for free · ₹0" with Smooth Fade Transition & Auto-Hide after 3.5s
+        // User rule: only show AFTER content in worker home screen has appeared/loaded
         var showApplyFreeChip by remember { mutableStateOf(false) }
-        var triggerTextFade by remember { mutableStateOf(false) }
+        var hasTriggeredApplyFreeBadge by remember { mutableStateOf(false) }
+
+        LaunchedEffect(homeDisplayedJobs.isNotEmpty(), jobUiState.isLoading, showEmptyJobsState) {
+            val isContentAppeared = homeDisplayedJobs.isNotEmpty() || (!jobUiState.isLoading && !jobUiState.hasError) || showEmptyJobsState
+            if (isContentAppeared && !hasTriggeredApplyFreeBadge) {
+                hasTriggeredApplyFreeBadge = true
+                delay(400L)
+                showApplyFreeChip = true
+                delay(3800L)
+                showApplyFreeChip = false
+            }
+        }
+
+        // Safety fallback: if background location resolution delayed the state, ensure badge still presents smoothly
         LaunchedEffect(Unit) {
-            delay(300L)
-            showApplyFreeChip = true
-            triggerTextFade = true
-            delay(2800L) // Badge stays 2-3 seconds as requested (2.8s)
-            showApplyFreeChip = false
-            triggerTextFade = false
+            delay(2200L)
+            if (!hasTriggeredApplyFreeBadge) {
+                hasTriggeredApplyFreeBadge = true
+                showApplyFreeChip = true
+                delay(3800L)
+                showApplyFreeChip = false
+            }
         }
 
         // Left-side Tag Shake / Playful Wobble Animation (runs periodically every ~2.6 seconds)
@@ -1466,6 +1481,7 @@ fun WorkerHomeScreen(
                 Row(
                     modifier = Modifier
                         .clickable {
+                            showApplyFreeChip = false
                             android.widget.Toast.makeText(
                                 context,
                                 "DutyPe Guarantee: 100% Free · Direct Spot Hiring · Zero Agent Fees",
@@ -1488,7 +1504,6 @@ fun WorkerHomeScreen(
                     )
                     SmoothFadeText(
                         text = "Apply jobs for free",
-                        isTriggered = triggerTextFade,
                         color = Color(0xFF222222),
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
@@ -1871,52 +1886,58 @@ internal fun WorkerOutOfAreaBottomSheet(
 
 /**
  * Fade Up Characters / Slow Fade On: Smoothly reveals text with transparency transitions.
- * Staggers each character with a smooth upward float and alpha transparency reveal.
+ * Staggers each character with a smooth upward float (translationY: 14f -> 0f) and alpha transparency transitions (alpha: 0f -> 1f).
+ * Driven by an explicit Animatable starting from 0f so the animation is 100% guaranteed to execute,
+ * and repeats periodically every 4.5 seconds so it remains engaging and noticeable.
  */
 @Composable
 fun SmoothFadeText(
     text: String,
-    isTriggered: Boolean,
     modifier: Modifier = Modifier,
     color: Color = Color(0xFF222222),
     fontSize: androidx.compose.ui.unit.TextUnit = 14.5.sp,
     fontWeight: FontWeight = FontWeight.Bold
 ) {
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+
+    LaunchedEffect(text) {
+        while (true) {
+            progress.snapTo(0f)
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = 950,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                )
+            )
+            delay(4500L) // Stays fully revealed for 4.5s before smoothly re-triggering
+        }
+    }
+
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val totalChars = text.length
         text.forEachIndexed { index, char ->
-            val charAlpha by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (isTriggered) 1f else 0f,
-                animationSpec = androidx.compose.animation.core.tween(
-                    durationMillis = 400,
-                    delayMillis = if (isTriggered) (index * 26).coerceAtMost(380) else 0,
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing
-                ),
-                label = "charAlpha_$index"
-            )
-            val charTranslateY by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (isTriggered) 0f else 10f,
-                animationSpec = androidx.compose.animation.core.tween(
-                    durationMillis = 420,
-                    delayMillis = if (isTriggered) (index * 26).coerceAtMost(380) else 0,
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing
-                ),
-                label = "charTransY_$index"
-            )
+            if (char == ' ') {
+                Spacer(modifier = Modifier.width(4.dp))
+            } else {
+                val charStart = (index.toFloat() / (totalChars + 2)).coerceIn(0f, 0.75f)
+                val charEnd = (charStart + 0.35f).coerceAtMost(1f)
+                val charProgress = ((progress.value - charStart) / (charEnd - charStart)).coerceIn(0f, 1f)
 
-            Text(
-                text = char.toString(),
-                color = color.copy(alpha = charAlpha),
-                fontSize = fontSize,
-                fontWeight = fontWeight,
-                letterSpacing = 0.2.sp,
-                modifier = Modifier.graphicsLayer {
-                    alpha = charAlpha
-                    translationY = charTranslateY
-                }
-            )
+                Text(
+                    text = char.toString(),
+                    color = color.copy(alpha = charProgress),
+                    fontSize = fontSize,
+                    fontWeight = fontWeight,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = charProgress
+                        translationY = (1f - charProgress) * 14f
+                    }
+                )
+            }
         }
     }
 }

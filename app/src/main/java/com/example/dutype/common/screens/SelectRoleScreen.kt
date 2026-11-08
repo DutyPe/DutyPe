@@ -1,5 +1,12 @@
 package com.example.dutype.common.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -7,6 +14,25 @@ import android.app.Activity
 import android.content.Intent
 import com.example.dutype.MainActivity
 import com.dutype.app.R
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloat
@@ -51,6 +77,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -216,6 +243,7 @@ fun SelectRoleScreen(
                 iconBg = WorkerIconBg.bg(),
                 iconTint = WorkerIconTint.fg(),
                 selected = selectedRole == "WORKER",
+                accentColor = Color(0xFF10B981),
                 onClick = { selectedRole = "WORKER" }
             )
 
@@ -228,6 +256,7 @@ fun SelectRoleScreen(
                 iconBg = EmployerIconBg.bg(),
                 iconTint = EmployerIconTint.fg(),
                 selected = selectedRole == "EMPLOYER",
+                accentColor = Color(0xFF2563EB),
                 onClick = { selectedRole = "EMPLOYER" }
             )
 
@@ -240,6 +269,7 @@ fun SelectRoleScreen(
                 iconBg = ServicesIconBg.bg(),
                 iconTint = ServicesIconTint.fg(),
                 selected = selectedRole == "SERVICES",
+                accentColor = Color(0xFF8B5CF6),
                 onClick = { selectedRole = "SERVICES" }
             )
 
@@ -251,8 +281,35 @@ fun SelectRoleScreen(
                 else -> if (isTelugu) "ఇంటి సర్వీసులను చూడండి" else "Explore Home Services"
             }
 
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { _ ->
+                applyRole(selectedRole, asGuest = true)
+            }
+
+            val onContinueClick: () -> Unit = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val isGranted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!isGranted) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        applyRole(selectedRole, asGuest = true)
+                    }
+                } else {
+                    applyRole(selectedRole, asGuest = true)
+                }
+            }
+
             ContinueButton(
-                onClick = { applyRole(selectedRole, asGuest = true) },
+                onClick = onContinueClick,
+                accentColor = when (selectedRole) {
+                    "WORKER" -> Color(0xFF10B981)
+                    "EMPLOYER" -> Color(0xFF2563EB)
+                    else -> Color(0xFF8B5CF6)
+                },
                 buttonText = buttonText
             )
 
@@ -271,7 +328,30 @@ fun SelectRoleScreen(
 
 @Composable
 private fun HeadlineBlock() {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
+    val titleOffsetY by animateFloatAsState(
+        targetValue = if (isVisible) 0f else -10f,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "heroTitleY"
+    )
+    val titleAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "heroTitleAlpha"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                translationY = titleOffsetY
+                alpha = titleAlpha
+            }
+    ) {
         Text(
             text = stringResource(R.string.select_role_headline),
             style = MaterialTheme.typography.headlineMedium.copy(
@@ -287,29 +367,93 @@ private fun HeadlineBlock() {
 @Composable
 private fun ContinueButton(
     onClick: () -> Unit,
-    buttonText: String = stringResource(R.string.continue_text)
+    buttonText: String = stringResource(R.string.continue_text),
+    accentColor: Color = Color(0xFF0F172A)
 ) {
-    Button(
-        onClick = onClick,
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "btnBounce"
+    )
+
+    // Swiggy-style continuous subtle shimmer beam passing across the surface every 3 seconds
+    val infiniteTransition = rememberInfiniteTransition(label = "swiggyCtaShimmer")
+    val shimmerTranslate by infiniteTransition.animateFloat(
+        initialValue = -1f,
+        targetValue = 2.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, delayMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerTranslate"
+    )
+
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp),
-        shape = RoundedCornerShape(16.dp),
-        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF222222),
-            contentColor = Color.White
-        )
-    ) {
-        Text(
-            text = buttonText,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+            .height(54.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
             ),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF0F172A),
+        shadowElevation = 4.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    drawContent()
+                    val width = size.width
+                    val height = size.height
+                    val x = shimmerTranslate * width
+                    val brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.22f),
+                            Color.Transparent
+                        ),
+                        start = Offset(x - 80f, 0f),
+                        end = Offset(x + 80f, height)
+                    )
+                    drawRect(brush = brush)
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = buttonText,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 
@@ -321,28 +465,60 @@ private fun RoleSelectCard(
     iconBg: Color,
     iconTint: Color,
     selected: Boolean,
+    accentColor: Color,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(20.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Spring Bounce on Touch: Subtle scale down to 0.97f on press and bounce back with Spring.StiffnessMediumLow
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "roleCardSpringScale"
+    )
+
+    // Dynamic Selection State: Selected card expands border with glowing accent color
+    val targetBorderColor = if (selected) accentColor else BorderNeutral.bd()
     val borderColor by animateColorAsState(
-        // Selected: strong outline (white in dark mode); others: a quiet line.
-        targetValue = if (selected) InkColor.fg() else BorderNeutral.bd(),
-        animationSpec = tween(durationMillis = 200),
+        targetValue = targetBorderColor,
+        animationSpec = tween(durationMillis = 250),
         label = "roleCardBorder"
     )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selected) 2.dp else 1.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "roleBorderWidth"
+    )
+    val cardBg by animateColorAsState(
+        targetValue = if (selected) accentColor.copy(alpha = 0.06f) else Color.White.bg(),
+        animationSpec = tween(durationMillis = 250),
+        label = "roleCardBg"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 112.dp)
+            .heightIn(min = 108.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(shape)
-            .background(if (selected) SelectedTint.bg() else Color.White.bg())
+            .background(cardBg)
             .border(
-                width = if (selected) 2.dp else 1.dp,
+                width = borderWidth,
                 color = borderColor,
                 shape = shape
             )
             .selectable(
                 selected = selected,
+                interactionSource = interactionSource,
+                indication = null,
                 onClick = onClick
             )
             .padding(16.dp),
@@ -392,35 +568,44 @@ private fun RoleSelectCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            SelectionIndicator(selected = selected)
+            SelectionIndicator(selected = selected, accentColor = accentColor)
         }
     }
 }
 
 @Composable
-private fun SelectionIndicator(selected: Boolean) {
-    if (selected) {
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(InkColor.bg()),
-            contentAlignment = Alignment.Center
+private fun SelectionIndicator(selected: Boolean, accentColor: Color) {
+    Box(
+        modifier = Modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .border(1.5.dp, if (selected) accentColor else RadioRing.bd(), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedVisibility(
+            visible = selected,
+            enter = scaleIn(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeIn(),
+            exit = scaleOut() + fadeOut()
         ) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(14.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(accentColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
-    } else {
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .border(1.5.dp, RadioRing.bd(), CircleShape)
-        )
     }
 }
 
