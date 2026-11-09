@@ -565,7 +565,7 @@ private fun Pill(text: String, color: Color, modifier: Modifier = Modifier, icon
 @Composable
 fun HomeServicesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth().bouncyClickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, SvcLine.bg())
@@ -592,7 +592,7 @@ fun HomeServicesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF0F172A))
-                    .clickable(onClick = onClick)
+                    .bouncyClickable(onClick = onClick)
                     .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
                 Text(stringResource(R.string.svc_book), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -955,7 +955,7 @@ internal fun ActiveBookingStrip(b: ServiceBooking, onClick: () -> Unit, modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White.bg())
             .border(1.5.dp, color.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(14.dp)
     ) {
         Row(
@@ -1511,7 +1511,7 @@ fun NormalBannerBookButton(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -6606,7 +6606,7 @@ internal fun BookingRow(b: ServiceBooking, onClick: () -> Unit) {
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White.bg())
             .border(1.dp, SvcLine.bg(), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -8168,7 +8168,7 @@ private fun RowScope.NeedTile(icon: ImageVector, title: String, sub: String, col
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White.bg())
             .border(1.dp, SvcLine.bg(), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(12.dp)
     ) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
@@ -8586,7 +8586,7 @@ private fun HomeServicesTabItem(
 
     Column(
         modifier = Modifier
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -9067,7 +9067,7 @@ private fun ServicesProfileRowItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

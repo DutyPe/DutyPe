@@ -6,6 +6,7 @@ import com.example.dutype.ui.theme.fg
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HourglassTop
 import com.dutype.app.R
+import com.example.dutype.components.cascadeEnter
 import timber.log.Timber
 import android.app.Activity
 import android.content.Context
@@ -752,15 +753,17 @@ private fun HiringRoomReplicatedLayout(
                         }
                     }
                     else -> {
-                        itemsIndexed(matchedWorkers, key = { index, w -> "${w.workerId}_$index" }) { _, worker ->
-                            MatchedWorkerCardMockup(
-                                worker = worker,
-                                defaultJobTitle = jobTitle,
-                                isJobClosed = !isJobLive || isJobFilled,
-                                onClick = { onWorkerClick(worker.workerId) },
-                                onCall = { onCallMatchedWorker(worker) },
-                                onWhatsApp = { onWhatsAppMatchedWorker(worker) }
-                            )
+                        itemsIndexed(matchedWorkers, key = { index, w -> "${w.workerId}_$index" }) { index, worker ->
+                            Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(6))) {
+                                MatchedWorkerCardMockup(
+                                    worker = worker,
+                                    defaultJobTitle = jobTitle,
+                                    isJobClosed = !isJobLive || isJobFilled,
+                                    onClick = { onWorkerClick(worker.workerId) },
+                                    onCall = { onCallMatchedWorker(worker) },
+                                    onWhatsApp = { onWhatsAppMatchedWorker(worker) }
+                                )
+                            }
                         }
                     }
                 }
@@ -784,19 +787,21 @@ private fun HiringRoomReplicatedLayout(
                         }
                     }
                     else -> {
-                        itemsIndexed(applications, key = { index, a -> "${a.id}_$index" }) { _, app ->
-                            AppliedCandidateCardMockup(
-                                application = app,
-                                defaultJobTitle = jobTitle,
-                                isJobClosed = !isJobLive || isJobFilled,
-                                hasAlreadyRated = app.id in ratedApplicationIds,
-                                onClick = { onApplicationClick(app) },
-                                onCall = { onCallApplicant(app) },
-                                onWhatsApp = { onWhatsAppApplicant(app) },
-                                onAccept = { onAcceptApplicant(app) },
-                                onReject = { onRejectApplicant(app) },
-                                onRate = { onRateApplicant(app) }
-                            )
+                        itemsIndexed(applications, key = { index, a -> "${a.id}_$index" }) { index, app ->
+                            Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(6))) {
+                                AppliedCandidateCardMockup(
+                                    application = app,
+                                    defaultJobTitle = jobTitle,
+                                    isJobClosed = !isJobLive || isJobFilled,
+                                    hasAlreadyRated = app.id in ratedApplicationIds,
+                                    onClick = { onApplicationClick(app) },
+                                    onCall = { onCallApplicant(app) },
+                                    onWhatsApp = { onWhatsAppApplicant(app) },
+                                    onAccept = { onAcceptApplicant(app) },
+                                    onReject = { onRejectApplicant(app) },
+                                    onRate = { onRateApplicant(app) }
+                                )
+                            }
                         }
                     }
                 }

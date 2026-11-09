@@ -12,6 +12,13 @@ import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.drawWithContent
+import kotlinx.coroutines.delay
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOutQuart
 import androidx.compose.animation.core.EaseInOutSine
@@ -321,7 +328,7 @@ fun JobDescriptionScreen(
                 // Same origin as the feed: a place the worker picked (e.g. Delhi) when they chose one,
                 // else where the phone is now (last known position), else the saved location.
                 val device = if (locationPreferences.isManualLocationLocked()) null
-                    else com.example.dutype.worker.components.lastDeviceLatLng(context)
+                    else lastDeviceLatLng(context)
                 jobViewModel.getJob(jobId).fold(
                     onSuccess = { fetchedJob ->
                         val here = device ?: currentLocation
@@ -718,37 +725,50 @@ private fun BottomActionBar(
     onApplyClick: () -> Unit = {},
     onLoginRequired: (String) -> Unit = {} // Callback for guest mode login
 ) {
-    // Stitch design spec sticky bar: bookmark square button + full-width
-    // "Apply Now (1-Tap) →" black pill. The Call action stays reachable via
-    // the inline Call+Apply row shown further up the page (ActionButtonsContent),
-    // so the real "call the employer" feature is not lost — just not
-    // duplicated in this literal 2-element bottom bar.
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(WorkerColors.CardBackground)
-            .border(BorderStroke(1.dp, WorkerColors.Border))
+    var isBarVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(100L)
+        isBarVisible = true
+    }
+
+    AnimatedVisibility(
+        visible = isBarVisible,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        ) + fadeIn(animationSpec = tween(280)),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .background(WorkerColors.CardBackground)
+                .border(BorderStroke(1.dp, WorkerColors.Border))
         ) {
-            // Call the employer + Apply now (save moved to the top bar, next to share).
-            ActionButtonsContent(
-                job = job,
-                currentUser = currentUser,
-                context = context,
-                navController = navController,
-                hasApplied = hasApplied,
-                applicationStatus = applicationStatus,
-                onCallClick = onCallClick,
-                onApplyClick = onApplyClick,
-                onLoginRequired = onLoginRequired
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Call the employer + Apply now
+                ActionButtonsContent(
+                    job = job,
+                    currentUser = currentUser,
+                    context = context,
+                    navController = navController,
+                    hasApplied = hasApplied,
+                    applicationStatus = applicationStatus,
+                    onCallClick = onCallClick,
+                    onApplyClick = onApplyClick,
+                    onLoginRequired = onLoginRequired
+                )
+            }
         }
     }
 }
@@ -868,7 +888,35 @@ private fun RowScope.ActionButtonsContent(
     onApplyClick: () -> Unit,
     onLoginRequired: (String) -> Unit,
 ) {
-    // Call / WhatsApp Button - Half width with verified green accent
+    val callInteraction = remember { MutableInteractionSource() }
+    val isCallPressed by callInteraction.collectIsPressedAsState()
+    val callScale by animateFloatAsState(
+        targetValue = if (isCallPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "callScale"
+    )
+
+    val applyInteraction = remember { MutableInteractionSource() }
+    val isApplyPressed by applyInteraction.collectIsPressedAsState()
+    val applyScale by animateFloatAsState(
+        targetValue = if (isApplyPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "applyScale"
+    )
+
+    // Shimmer beam across active Apply Now CTA (Swiggy / CRED style)
+    val shimmerInfinite = rememberInfiniteTransition(label = "applyShimmer")
+    val shimmerTranslate by shimmerInfinite.animateFloat(
+        initialValue = -1.2f,
+        targetValue = 2.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "applyShimmerBeam"
+    )
+
+    // Call / WhatsApp Button - Half width with verified green accent & spring press
     OutlinedButton(
         onClick = {
             if (currentUser == null) {
@@ -877,7 +925,14 @@ private fun RowScope.ActionButtonsContent(
                 onCallClick(job)
             }
         },
-        modifier = Modifier.weight(1f).height(56.dp),
+        interactionSource = callInteraction,
+        modifier = Modifier
+            .weight(1f)
+            .height(56.dp)
+            .graphicsLayer {
+                scaleX = callScale
+                scaleY = callScale
+            },
         shape = RoundedCornerShape(28.dp),
         border = BorderStroke(1.5.dp, Color(0xFF10B981)),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -897,7 +952,14 @@ private fun RowScope.ActionButtonsContent(
             onClick = {
                 com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
             },
-            modifier = Modifier.weight(1f).height(56.dp),
+            interactionSource = applyInteraction,
+            modifier = Modifier
+                .weight(1f)
+                .height(56.dp)
+                .graphicsLayer {
+                    scaleX = applyScale
+                    scaleY = applyScale
+                },
             colors = ButtonDefaults.buttonColors(
                 containerColor = when (applicationStatus) {
                     "ACCEPTED" -> WorkerColors.Success
@@ -961,7 +1023,29 @@ private fun RowScope.ActionButtonsContent(
                     onApplyClick()
                 }
             },
-            modifier = Modifier.weight(1f).height(56.dp),
+            interactionSource = applyInteraction,
+            modifier = Modifier
+                .weight(1f)
+                .height(56.dp)
+                .graphicsLayer {
+                    scaleX = applyScale
+                    scaleY = applyScale
+                }
+                .drawWithContent {
+                    drawContent()
+                    val width = size.width
+                    val beamX = width * shimmerTranslate
+                    val shimmerBrush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.22f),
+                            Color.Transparent
+                        ),
+                        start = Offset(beamX - width * 0.35f, 0f),
+                        end = Offset(beamX + width * 0.35f, size.height)
+                    )
+                    drawRect(brush = shimmerBrush)
+                },
             colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
             shape = RoundedCornerShape(28.dp)
         ) {
@@ -1863,5 +1947,24 @@ fun ContactEmployerBottomSheet(
                 }
             }
         }
+    }
+}
+
+
+private suspend fun lastDeviceLatLng(context: android.content.Context): Pair<Double, Double>? {
+    val fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION)
+    val coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+    if (fine != android.content.pm.PackageManager.PERMISSION_GRANTED && coarse != android.content.pm.PackageManager.PERMISSION_GRANTED) return null
+    return try {
+        val location = kotlinx.coroutines.withTimeoutOrNull(1500L) {
+            com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context).lastLocation.await()
+        }
+        location?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }?.let { it.latitude to it.longitude }
+    } catch (e: SecurityException) {
+        null
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 }

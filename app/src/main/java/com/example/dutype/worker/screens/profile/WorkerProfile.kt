@@ -1069,7 +1069,7 @@ private fun ProfileListRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

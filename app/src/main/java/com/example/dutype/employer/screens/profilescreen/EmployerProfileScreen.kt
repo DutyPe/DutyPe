@@ -171,7 +171,7 @@ private fun EmpAvatar(ui: EmpProfileUi, onClick: () -> Unit, size: androidx.comp
             .clip(CircleShape)
             .background(Color(0xFFF7F7F7).bg())
             .border(1.5.dp, Color(0xFFE2E8F0).bd(), CircleShape)
-            .clickable(onClick = onClick),
+            .bouncyClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         when {
@@ -300,7 +300,7 @@ private fun EmpCompletenessCard(ui: EmpProfileUi, onClick: () -> Unit) {
             Text(
                 text = stringResource(R.string.emp_profile_add_action),
                 style = profileTextStyle(12.sp, FontWeight.SemiBold, EmpCobalt.fg()),
-                modifier = Modifier.clickable(onClick = onClick)
+                modifier = Modifier.bouncyClickable(onClick = onClick)
             )
         }
     }
@@ -332,7 +332,7 @@ private fun EmpMenuRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(horizontal = 20.5.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.myJobs
 
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -506,8 +508,10 @@ private fun MyJobsStatusListContent(
                 itemsIndexed(
                     items = items,
                     key = { index, application -> "myjobs_${application.id.ifBlank { "app" }}_$index" }
-                ) { _, application ->
-                    itemContent(application)
+                ) { index, application ->
+                    Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(8))) {
+                        itemContent(application)
+                    }
                 }
             }
         }
@@ -525,7 +529,7 @@ private fun MyJobsPillTab(label: String, selected: Boolean, onClick: () -> Unit)
             .then(
                 if (!selected) Modifier.border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(28.dp)) else Modifier
             )
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {

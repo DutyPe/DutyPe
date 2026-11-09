@@ -415,57 +415,6 @@ fun ApplicationListItemShimmer() {
     }
 }
 
-/**
- * Full-page shimmer for application management screens
- */
-@Composable
-fun ApplicationManagementShimmer(
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(WorkerColors.ChipBackground)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ShimmerBox(width = 40.dp, height = 40.dp)
-            Spacer(modifier = Modifier.width(12.dp))
-            ShimmerBox(width = 150.dp, height = 24.dp)
-        }
-        
-        // Tabs shimmer
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            repeat(4) {
-                ShimmerBox(width = 70.dp, height = 32.dp, shape = RoundedCornerShape(16.dp))
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        // Application list
-        LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(5) {
-                ApplicationListItemShimmer()
-            }
-        }
-    }
-}
 
 // ============================================
 // NOTIFICATION SHIMMER COMPONENTS
@@ -493,44 +442,6 @@ fun NotificationItemShimmer() {
     }
 }
 
-/**
- * Full-page shimmer for notification screens
- */
-@Composable
-fun NotificationShimmer(
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ShimmerBox(width = 40.dp, height = 40.dp)
-            Spacer(modifier = Modifier.width(12.dp))
-            ShimmerBox(width = 120.dp, height = 24.dp)
-            Spacer(modifier = Modifier.weight(1f))
-            ShimmerBox(width = 80.dp, height = 32.dp, shape = RoundedCornerShape(8.dp))
-        }
-        
-        // Divider
-        Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(WorkerColors.Border))
-        
-        // Notification list
-        LazyColumn {
-            items(8) {
-                NotificationItemShimmer()
-                Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(WorkerColors.ChipBackground))
-            }
-        }
-    }
-}
 
 // ============================================
 // WORKER HOME SHIMMER COMPONENTS

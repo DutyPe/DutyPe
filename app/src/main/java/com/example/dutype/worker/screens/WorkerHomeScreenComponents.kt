@@ -180,7 +180,7 @@ import androidx.navigation.NavController
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.BirthdayBanner
 import com.example.dutype.components.CategoryIcon
-import com.example.dutype.components.GuestWelcomeBonusCard
+
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ReusableSearchBar

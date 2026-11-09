@@ -115,7 +115,7 @@ import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.AppUpdatePrompt
 import com.example.dutype.components.OptimizedImage
-import com.example.dutype.components.GuestWelcomeBonusCard
+
 import com.example.dutype.components.WelcomeCelebrationOverlay
 import com.example.dutype.components.consumeWelcomeCelebrationFlag
 import com.example.dutype.components.cascadeEnter
@@ -1068,7 +1068,7 @@ fun EmployerQuickPostSection(
                 Column(
                     modifier = Modifier
                         .width(135.dp)
-                        .clickable { onRoleClick(role.title) }
+                        .bouncyClickable { onRoleClick(role.title) }
                 ) {
                     Box(
                         modifier = Modifier
@@ -1242,7 +1242,7 @@ fun EmployerExecutiveHeroCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .clickable { onCardClick?.invoke() ?: onPostJob() },
+            .bouncyClickable { onCardClick?.invoke() ?: onPostJob() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF4DB)),
         border = BorderStroke(1.dp, Color(0xFFFDE68A)),
@@ -1337,7 +1337,7 @@ fun EmployerExecutiveInstantHelpCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .clickable { onPostUrgent() },
+            .bouncyClickable { onPostUrgent() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
@@ -1517,7 +1517,7 @@ fun EmployerCompactPostActionRow(
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF0F172A))
-                .clickable { onVoiceJob() },
+                .bouncyClickable { onVoiceJob() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -1534,7 +1534,7 @@ fun EmployerCompactPostActionRow(
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFFFEF2F2))
                 .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(12.dp))
-                .clickable { onPostUrgent() },
+                .bouncyClickable { onPostUrgent() },
             contentAlignment = Alignment.Center
         ) {
             Icon(

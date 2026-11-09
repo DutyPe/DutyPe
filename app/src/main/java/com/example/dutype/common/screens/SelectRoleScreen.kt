@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
+import com.example.dutype.components.cascadeEnter
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -236,42 +237,48 @@ fun SelectRoleScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            RoleSelectCard(
-                icon = Icons.Default.Engineering,
-                title = stringResource(R.string.select_role_looking_for_work),
-                subtitle = stringResource(R.string.select_role_worker_desc),
-                iconBg = WorkerIconBg.bg(),
-                iconTint = WorkerIconTint.fg(),
-                selected = selectedRole == "WORKER",
-                accentColor = Color(0xFF10B981),
-                onClick = { selectedRole = "WORKER" }
-            )
+            Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                RoleSelectCard(
+                    icon = Icons.Default.Engineering,
+                    title = stringResource(R.string.select_role_looking_for_work),
+                    subtitle = stringResource(R.string.select_role_worker_desc),
+                    iconBg = WorkerIconBg.bg(),
+                    iconTint = WorkerIconTint.fg(),
+                    selected = selectedRole == "WORKER",
+                    accentColor = Color(0xFF10B981),
+                    onClick = { selectedRole = "WORKER" }
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            RoleSelectCard(
-                icon = Icons.Default.Business,
-                title = stringResource(R.string.select_role_want_to_hire),
-                subtitle = stringResource(R.string.select_role_employer_desc),
-                iconBg = EmployerIconBg.bg(),
-                iconTint = EmployerIconTint.fg(),
-                selected = selectedRole == "EMPLOYER",
-                accentColor = Color(0xFF2563EB),
-                onClick = { selectedRole = "EMPLOYER" }
-            )
+            Box(modifier = Modifier.cascadeEnter(index = 2)) {
+                RoleSelectCard(
+                    icon = Icons.Default.Business,
+                    title = stringResource(R.string.select_role_want_to_hire),
+                    subtitle = stringResource(R.string.select_role_employer_desc),
+                    iconBg = EmployerIconBg.bg(),
+                    iconTint = EmployerIconTint.fg(),
+                    selected = selectedRole == "EMPLOYER",
+                    accentColor = Color(0xFF2563EB),
+                    onClick = { selectedRole = "EMPLOYER" }
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            RoleSelectCard(
-                icon = Icons.Default.HomeRepairService,
-                title = stringResource(R.string.select_role_home_services),
-                subtitle = stringResource(R.string.select_role_home_services_desc),
-                iconBg = ServicesIconBg.bg(),
-                iconTint = ServicesIconTint.fg(),
-                selected = selectedRole == "SERVICES",
-                accentColor = Color(0xFF8B5CF6),
-                onClick = { selectedRole = "SERVICES" }
-            )
+            Box(modifier = Modifier.cascadeEnter(index = 3)) {
+                RoleSelectCard(
+                    icon = Icons.Default.HomeRepairService,
+                    title = stringResource(R.string.select_role_home_services),
+                    subtitle = stringResource(R.string.select_role_home_services_desc),
+                    iconBg = ServicesIconBg.bg(),
+                    iconTint = ServicesIconTint.fg(),
+                    selected = selectedRole == "SERVICES",
+                    accentColor = Color(0xFF8B5CF6),
+                    onClick = { selectedRole = "SERVICES" }
+                )
+            }
 
             Spacer(modifier = Modifier.weight(0.85f))
 
@@ -303,15 +310,17 @@ fun SelectRoleScreen(
                 }
             }
 
-            ContinueButton(
-                onClick = onContinueClick,
-                accentColor = when (selectedRole) {
-                    "WORKER" -> Color(0xFF10B981)
-                    "EMPLOYER" -> Color(0xFF2563EB)
-                    else -> Color(0xFF8B5CF6)
-                },
-                buttonText = buttonText
-            )
+            Box(modifier = Modifier.cascadeEnter(index = 4)) {
+                ContinueButton(
+                    onClick = onContinueClick,
+                    accentColor = when (selectedRole) {
+                        "WORKER" -> Color(0xFF10B981)
+                        "EMPLOYER" -> Color(0xFF2563EB)
+                        else -> Color(0xFF8B5CF6)
+                    },
+                    buttonText = buttonText
+                )
+            }
 
 
 

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
@@ -83,82 +83,4 @@ fun OfflineBanner(
     }
 }
 
-/**
- * Compact Offline Indicator - Smaller version for bottom sheets or dialogs
- */
-@Composable
-fun CompactOfflineIndicator(
-    isOffline: Boolean,
-    modifier: Modifier = Modifier
-) {
-    AnimatedVisibility(
-        visible = isOffline,
-        enter = fadeIn(),
-        exit = fadeOut(),
-        modifier = modifier
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(WorkerColors.ErrorLight) // Light red background
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.CloudOff,
-                contentDescription = "Offline",
-                tint = WorkerColors.Error,
-                modifier = Modifier.size(16.dp)
-            )
-            
-            Text(
-                text = stringResource(R.string.auto_no_internet_connection),
-                color = WorkerColors.Error,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(start = 6.dp)
-            )
-        }
-    }
-}
 
-/**
- * Inline Offline Message - For use inside cards or sections
- */
-@Composable
-fun InlineOfflineMessage(
-    isOffline: Boolean,
-    message: String = "Connect to internet to see latest updates",
-    modifier: Modifier = Modifier
-) {
-    AnimatedVisibility(
-        visible = isOffline,
-        enter = fadeIn(),
-        exit = fadeOut(),
-        modifier = modifier
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(WorkerColors.ErrorLight, shape = MaterialTheme.shapes.small)
-                .padding(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.CloudOff,
-                contentDescription = "Offline",
-                tint = WorkerColors.Error,
-                modifier = Modifier.size(18.dp)
-            )
-            
-            Text(
-                text = message,
-                color = WorkerColors.Error,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-    }
-}

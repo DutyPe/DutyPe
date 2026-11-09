@@ -43,6 +43,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -195,7 +196,15 @@ fun WorkerMockupJobCard(
                 }
             }
 
-            // Top-Right Heart Button (no circle black shadow)
+            // Top-Right Heart Button with Spring Pulse
+            val heartScale by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (isSaved) 1.28f else 1f,
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                ),
+                label = "heartPulse"
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -208,7 +217,12 @@ fun WorkerMockupJobCard(
                     imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Save job",
                     tint = if (isSaved) Color(0xFFFF3B30) else if (photoUrl != null) Color.White else Color(0xFF475569),
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier
+                        .size(19.dp)
+                        .graphicsLayer {
+                            scaleX = heartScale
+                            scaleY = heartScale
+                        }
                 )
             }
             }

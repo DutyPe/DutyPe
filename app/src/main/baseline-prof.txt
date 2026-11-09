@@ -68,7 +68,7 @@ HSPLcom/example/dutype/worker/screens/WorkerHomeScreenKt;->**(**)**
 HSPLcom/example/dutype/worker/screens/WorkerHomeScreenKt$*;->**(**)**
 HSPLcom/example/dutype/worker/screens/WorkerHomeScreenComponentsKt;->**(**)**
 HSPLcom/example/dutype/worker/screens/WorkerHomeScreenComponentsKt$*;->**(**)**
-HSPLcom/example/dutype/worker/components/home/**;->**(**)**
+
 HSPLcom/example/dutype/employer/screens/EmployerHomeScreenKt;->**(**)**
 HSPLcom/example/dutype/employer/screens/EmployerHomeScreenKt$*;->**(**)**
 HSPLcom/example/dutype/employer/screens/EmployerHomeStitchComponentsKt;->**(**)**
@@ -76,7 +76,7 @@ HSPLcom/example/dutype/employer/screens/EmployerHomeStitchComponentsKt$*;->**(**
 HSPLcom/example/dutype/components/WorkerBottomBarKt;->**(**)**
 HSPLcom/example/dutype/components/EmployerBottomBarKt;->**(**)**
 HSPLcom/example/dutype/components/CommonHeaderKt;->**(**)**
-HSPLcom/example/dutype/components/DutyPeLoaderKt;->**(**)**
+
 HSPLcom/example/dutype/components/ShimmerComponentsKt;->**(**)**
 
 # ---------------------------------------------------------------------------
