@@ -272,7 +272,7 @@ private fun JobCardInternal(
                         text = statusLabel,
                         chipType = if (isExpired) ChipType.EXPIRED else ChipType.FILLED
                     )
-                    !isClosed && job.createdAt > 0L && (System.currentTimeMillis() - job.createdAt) <= (48L * 3600 * 1000L) -> ActiveTodayBadge()
+                    !isClosed && postedAt > 0L && (System.currentTimeMillis() - postedAt) <= (48L * 3600 * 1000L) -> ActiveTodayBadge()
                 }
             }
 

@@ -803,7 +803,22 @@ fun MandatoryEmployerProfileSetupScreen(
                     onDetectClick = {
                         if (locationService.hasLocationPermission()) {
                             fetchLocation()
-                        
+                        } else {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                    },
+                    onAddressChange = { businessAddress = it },
+                    onLocationChange = { lat, lng ->
+                        businessLatitude = lat
+                        businessLongitude = lng
+                    }
+                )
+
                 // Optional Referral Code section
                 if (!showReferralField && referralCodeInput.isBlank()) {
                     OutlinedButton(

@@ -2383,8 +2383,6 @@ fun ServicesHomeShimmer() {
 
 // ─────────────────────────── Social Proof Ticker ───────────────────────────
 
-@Composable
-
 /**
  * 🛡️ DutyPe 30-Day Service Guarantee Banner
  * Reassures customers with 100% free rework / re-inspection if issue repeats within 30 days.
@@ -2531,6 +2529,7 @@ fun TransparentRateCardsSection(
     }
 }
 
+@Composable
 fun ServicesAreaSocialProofBanner(
     modifier: Modifier = Modifier,
     cityName: String = "Khammam"

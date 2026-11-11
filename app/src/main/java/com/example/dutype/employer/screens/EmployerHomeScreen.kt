@@ -2218,7 +2218,8 @@ fun RecentJobsSection(
     context: android.content.Context,
     applicationsByJobId: Map<String, List<com.example.dutype.models.JobApplication>> = emptyMap(),
     onCallWorker: (com.example.dutype.models.JobApplication) -> Unit = {},
-    onHireWorker: (com.example.dutype.models.JobApplication) -> Unit = {}
+    onHireWorker: (com.example.dutype.models.JobApplication) -> Unit = {},
+    onRenewJob: (String) -> Unit = {}
 ) {
     Column {
         Row(
@@ -2336,14 +2337,7 @@ fun RecentJobsSection(
                                 onShareJob(jobId, job.title)
                             },
                         onRenewClick = { jobId ->
-                            viewModel.renewJob(jobId) { success, message ->
-                                if (success) {
-                                    Toast.makeText(context, "Job resumed for 7 days! ⚡", Toast.LENGTH_SHORT).show()
-                                    viewModel.loadMyJobs()
-                                } else {
-                                    Toast.makeText(context, message ?: "Failed to renew job", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            onRenewJob(jobId)
                         },
                         showActions = true, // Show actions for better interaction
                     )

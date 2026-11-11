@@ -288,8 +288,6 @@ private val WorkerAppliedAllEmojiCast = listOf(
 )
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-
 /**
  * 🎡 Play Spin & Win Game Card for Empty Jobs State
  * Engages workers when there are no job listings in their current location.
@@ -374,6 +372,7 @@ fun PlaySpinGameEmptyCard(
     }
 }
 
+@Composable
 fun EmptyJobsState(
     modifier: Modifier = Modifier,
     navController: NavController? = null,

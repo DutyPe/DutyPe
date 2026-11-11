@@ -2105,8 +2105,6 @@ private fun PostJobStep1(c: PostJobController) {
 }
 
 @Composable
-
-@Composable
 private fun QuickJobPresetChips(c: PostJobController) {
     Column(
         modifier = Modifier
@@ -2187,6 +2185,7 @@ private fun QuickJobPresetChips(c: PostJobController) {
     }
 }
 
+@Composable
 private fun PostJobQuickTitleChips(c: PostJobController) {
     PjFlow {
         PostJobQuickTitles.forEach { quick ->

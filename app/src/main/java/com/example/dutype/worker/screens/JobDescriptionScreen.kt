@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.WorkOff
 import com.dutype.app.R
+import androidx.compose.ui.res.painterResource
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
