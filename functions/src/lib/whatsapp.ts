@@ -144,6 +144,42 @@ export async function sendWaTemplate(
   }
 }
 
+/** Sends a direct WhatsApp text message (works within 24hr conversation window or to support/admin). */
+export async function sendWaText(
+  toE164: string,
+  bodyText: string,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<{ ok: boolean; error?: string }> {
+  if (!/^\+91[6-9]\d{9}$/.test(toE164)) return { ok: false, error: "bad_phone" };
+  const version = env.WHATSAPP_API_VERSION || "v21.0";
+  const url = `https://graph.facebook.com/${version}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await waNet.fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${(env.WHATSAPP_TOKEN || "").trim()}`,
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: toE164.replace(/^\+/, ""),
+        type: "text",
+        text: { preview_url: false, body: bodyText },
+      }),
+      signal: controller.signal,
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 1500)}` };
+  } catch (e) {
+    return { ok: false, error: String((e as Error)?.message || e).slice(0, 1500) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** WhatsApp can send business messages (token + phone number id present). */
 export function waReady(env: NodeJS.ProcessEnv = process.env): boolean {
   // whatsappConfigured also needs the login template; business messages only need the number.

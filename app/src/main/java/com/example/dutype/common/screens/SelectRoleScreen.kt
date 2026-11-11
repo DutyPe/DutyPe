@@ -288,31 +288,9 @@ fun SelectRoleScreen(
                 else -> if (isTelugu) "ఇంటి సర్వీసులను చూడండి" else "Explore Home Services"
             }
 
-            val notificationPermissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission()
-            ) { _ ->
-                applyRole(selectedRole, asGuest = true)
-            }
-
-            val onContinueClick: () -> Unit = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val isGranted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (!isGranted) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        applyRole(selectedRole, asGuest = true)
-                    }
-                } else {
-                    applyRole(selectedRole, asGuest = true)
-                }
-            }
-
             Box(modifier = Modifier.cascadeEnter(index = 4)) {
                 ContinueButton(
-                    onClick = onContinueClick,
+                    onClick = { applyRole(selectedRole, asGuest = true) },
                     accentColor = when (selectedRole) {
                         "WORKER" -> Color(0xFF10B981)
                         "EMPLOYER" -> Color(0xFF2563EB)

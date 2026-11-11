@@ -235,7 +235,68 @@ private val PostJobPerkOptions = listOf(
     "Mobile Allowance"
 )
 private val PostJobExtraPayTypes = listOf(PayType.HOURLY, PayType.NEGOTIABLE)
-private const val MIN_DESCRIPTION_CHARS = 10
+private const val MIN_DESCRIPTION_CHARS = 0
+
+data class QuickJobPreset(
+    val emoji: String,
+    val title: String,
+    val payAmount: String,
+    val payDisplay: String,
+    val category: JobCategory,
+    val description: String
+)
+
+val QuickJobPresets = listOf(
+    QuickJobPreset(
+        emoji = "🍳",
+        title = "Cook / Kitchen Helper",
+        payAmount = "14000",
+        payDisplay = "₹12,000 – ₹16,000",
+        category = JobCategory.COOK,
+        description = "Need experienced cook / kitchen helper. Timely salary and good work environment."
+    ),
+    QuickJobPreset(
+        emoji = "🛵",
+        title = "Delivery Boy",
+        payAmount = "16000",
+        payDisplay = "₹14,000 – ₹18,000",
+        category = JobCategory.DELIVERY,
+        description = "Looking for active delivery boy with bike/license. Timely delivery with daily/monthly incentives."
+    ),
+    QuickJobPreset(
+        emoji = "🏪",
+        title = "Retail Shop Helper",
+        payAmount = "12000",
+        payDisplay = "₹10,000 – ₹14,000",
+        category = JobCategory.HELPER,
+        description = "Need reliable shop assistant for retail counter and stock maintenance. Timely salary."
+    ),
+    QuickJobPreset(
+        emoji = "🚗",
+        title = "Driver",
+        payAmount = "18000",
+        payDisplay = "₹15,000 – ₹20,000",
+        category = JobCategory.DRIVER,
+        description = "Looking for experienced driver with valid driving license. Clean driving record and punctuality required."
+    ),
+    QuickJobPreset(
+        emoji = "🛡️",
+        title = "Security Guard",
+        payAmount = "13000",
+        payDisplay = "₹11,000 – ₹15,000",
+        category = JobCategory.SECURITY,
+        description = "Hiring vigilant security guard for premises monitoring. Day/night shifts available with timely salary."
+    ),
+    QuickJobPreset(
+        emoji = "🧹",
+        title = "Housekeeping / Cleaner",
+        payAmount = "11000",
+        payDisplay = "₹9,000 – ₹12,000",
+        category = JobCategory.MAID,
+        description = "Need hardworking housekeeping staff for cleaning and maintenance. Good environment and timely salary."
+    )
+)
+
 
 private fun postJobWithCustomOption(base: List<String>, current: String): List<String> {
     return if (current.isNotBlank() && current !in base) base + current else base
@@ -643,8 +704,12 @@ private class PostJobController(
     fun validateStep(step: Int): Boolean {
         return when (step) {
             1 -> {
-                if (title.isBlank() || description.trim().length < MIN_DESCRIPTION_CHARS) return false
-                val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
+                if (title.isBlank()) return false
+                val descToValidate = description.trim().ifBlank {
+                    val areaStr = if (location.isNotBlank()) location.trim() else "our location"
+                    "Looking for an experienced ${title.trim()} in $areaStr. Good work environment with timely salary."
+                }
+                val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, descToValidate)
                 scamValidationResult = scamCheck
                 scamCheck.isValid
             }
@@ -666,7 +731,10 @@ private class PostJobController(
 
     // --------------------------------------------------------------- publish
     private fun buildDescriptionText(): String {
-        val base = description.trim().ifBlank { "Hiring for ${title.trim()}. ${shift.displayName}." }
+        val cleanDesc = description.trim()
+        val areaStr = if (location.isNotBlank()) location.trim() else "our location"
+        val defaultFormalDesc = "Looking for an experienced ${title.trim()} in $areaStr. Good work environment with timely salary."
+        val base = if (cleanDesc.length >= 15) cleanDesc else if (cleanDesc.isNotBlank()) "$cleanDesc. $defaultFormalDesc" else defaultFormalDesc
         return if (startDate == "Immediately") base else "$base\n\nStart: $startDate"
     }
 
@@ -908,9 +976,9 @@ private class PostJobController(
             Toast.makeText(context, "Enter a job title", Toast.LENGTH_SHORT).show()
             return
         }
-        if (description.trim().length < MIN_DESCRIPTION_CHARS) {
-            Toast.makeText(context, R.string.post_job_description_required, Toast.LENGTH_LONG).show()
-            return
+        if (description.trim().isBlank()) {
+            val areaStr = if (location.isNotBlank()) location.trim() else "our location"
+            description = "Looking for an experienced ${title.trim()} in $areaStr. Good work environment with timely salary."
         }
         val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
         scamValidationResult = scamCheck
@@ -963,9 +1031,9 @@ private class PostJobController(
             Toast.makeText(context, "Enter a job title", Toast.LENGTH_SHORT).show()
             return
         }
-        if (description.trim().length < MIN_DESCRIPTION_CHARS) {
-            Toast.makeText(context, R.string.post_job_description_required, Toast.LENGTH_LONG).show()
-            return
+        if (description.trim().isBlank()) {
+            val areaStr = if (location.isNotBlank()) location.trim() else "our location"
+            description = "Looking for an experienced ${title.trim()} in $areaStr. Good work environment with timely salary."
         }
         val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
         scamValidationResult = scamCheck
@@ -1715,6 +1783,11 @@ private fun PostJobSinglePageForm(
             }
         }
 
+        // 1-Tap Presets
+        Box(modifier = Modifier.cascadeEnter(index = 0)) {
+            QuickJobPresetChips(c)
+        }
+
         // Job Title
         Box(modifier = Modifier.cascadeEnter(index = 1)) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -1751,14 +1824,12 @@ private fun PostJobSinglePageForm(
                     singleLine = false,
                     minHeight = 96.dp
                 )
-                if (c.description.isNotEmpty() && c.description.trim().length < MIN_DESCRIPTION_CHARS) {
-                    Text(
-                        text = stringResource(R.string.post_job_description_required),
-                        fontSize = 11.sp,
-                        color = EmployerColors.Error,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+                Text(
+                    text = "Optional • Standard description auto-generated if left blank",
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
 
@@ -2005,14 +2076,12 @@ private fun PostJobStep1(c: PostJobController) {
         singleLine = false,
         minHeight = 96.dp
     )
-    if (c.description.isNotEmpty() && c.description.trim().length < MIN_DESCRIPTION_CHARS) {
-        Text(
-            text = stringResource(R.string.post_job_description_required),
-            fontSize = 11.sp,
-            color = EmployerColors.Error,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-    }
+    Text(
+        text = "Optional • Standard description auto-generated if left blank",
+        fontSize = 11.sp,
+        color = Color(0xFF64748B),
+        modifier = Modifier.padding(top = 4.dp)
+    )
 
     PjSectionLabel("Photo (optional)")
     JobImageUploadSection(
@@ -2036,6 +2105,88 @@ private fun PostJobStep1(c: PostJobController) {
 }
 
 @Composable
+
+@Composable
+private fun QuickJobPresetChips(c: PostJobController) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Bolt,
+                contentDescription = null,
+                tint = Color(0xFFF59E0B),
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = "1-Tap Quick Job Presets",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+            Text(
+                text = "Tap to auto-fill",
+                fontSize = 11.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(QuickJobPresets) { preset ->
+                val isSelected = c.title.trim().equals(preset.title, ignoreCase = true)
+                Surface(
+                    onClick = {
+                        c.title = preset.title
+                        c.customCategory = preset.title
+                        c.category = preset.category
+                        c.payAmount = preset.payAmount
+                        c.payType = PayType.MONTHLY
+                        c.description = preset.description
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) Color(0xFFECFDF5) else Color.White,
+                    border = BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                    ),
+                    shadowElevation = if (isSelected) 2.dp else 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = preset.emoji, fontSize = 16.sp)
+                        Column {
+                            Text(
+                                text = preset.title,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) Color(0xFF007A3D) else Color(0xFF1E293B)
+                            )
+                            Text(
+                                text = preset.payDisplay,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isSelected) Color(0xFF059669) else Color(0xFF64748B)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun PostJobQuickTitleChips(c: PostJobController) {
     PjFlow {
         PostJobQuickTitles.forEach { quick ->

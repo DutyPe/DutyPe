@@ -154,6 +154,9 @@ class HomeServicesViewModel @Inject constructor(
     suspend fun submitBookingPayment(bookingId: String, utr: String): Result<Unit> =
         runCatching { repo.submitBookingPayment(bookingId, utr) }.mapError()
 
+    suspend fun payBookingFeeWithWallet(bookingId: String): Result<Map<String, Any?>> =
+        runCatching { repo.payBookingFeeWithWallet(bookingId) }.mapError()
+
     suspend fun cancel(bookingId: String, reason: String = ""): Result<Unit> = runCatching { repo.cancel(bookingId, reason) }.mapError()
 
     suspend fun rate(bookingId: String, stars: Int, review: String): Result<Unit> =

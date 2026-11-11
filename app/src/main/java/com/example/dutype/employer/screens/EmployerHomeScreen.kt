@@ -1750,9 +1750,18 @@ fun DashboardContent(
                     )
                 }
 
-                // Trust & Social Proof Card: 300+ Verified Local Workers Available
-                item(key = "employer_local_workers_proof") {
+                // "Post via WhatsApp" Hotline Banner Card (Frictionless hiring)
+                item(key = "employer_whatsapp_hire_hotline") {
                     Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        EmployerWhatsAppHireHotlineCard(
+                            modifier = Modifier.padding(bottom = 14.dp)
+                        )
+                    }
+                }
+
+                // Trust & Social Proof Card: 1000+ Verified Local Workers Available
+                item(key = "employer_local_workers_proof") {
+                    Box(modifier = Modifier.cascadeEnter(index = 2)) {
                         LocalWorkersSocialProofCard(
                             cityName = employerCity,
                             onHireClick = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
@@ -2326,6 +2335,16 @@ fun RecentJobsSection(
                                 Timber.d(" SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
                                 onShareJob(jobId, job.title)
                             },
+                        onRenewClick = { jobId ->
+                            viewModel.renewJob(jobId) { success, message ->
+                                if (success) {
+                                    Toast.makeText(context, "Job resumed for 7 days! ⚡", Toast.LENGTH_SHORT).show()
+                                    viewModel.loadMyJobs()
+                                } else {
+                                    Toast.makeText(context, message ?: "Failed to renew job", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
                         showActions = true, // Show actions for better interaction
                     )
                 }

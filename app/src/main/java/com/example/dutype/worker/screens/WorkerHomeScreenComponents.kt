@@ -289,6 +289,91 @@ private val WorkerAppliedAllEmojiCast = listOf(
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
+
+/**
+ * 🎡 Play Spin & Win Game Card for Empty Jobs State
+ * Engages workers when there are no job listings in their current location.
+ */
+@Composable
+fun PlaySpinGameEmptyCard(
+    onPlayClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onPlayClick,
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFFFFFBEB),
+        border = BorderStroke(1.2.dp, Color(0xFFFDE68A)),
+        shadowElevation = 2.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFEF3C7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "🎡", fontSize = 26.sp)
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Play Spin & Win Cash!",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF92400E)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFFF59E0B), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "FREE",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "While jobs load in your area, try your luck! Win real cash & bonus coins up to ₹100 every day.",
+                    fontSize = 12.sp,
+                    color = Color(0xFFB45309),
+                    lineHeight = 16.sp
+                )
+            }
+
+            Button(
+                onClick = onPlayClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Spin 🎡",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
 fun EmptyJobsState(
     modifier: Modifier = Modifier,
     navController: NavController? = null,
@@ -302,16 +387,24 @@ fun EmptyJobsState(
     if (isAppliedAllVariant) {
         // Applied to everything nearby: a friendly pat on the back, not a dead end.
         val humorMessage = remember(currentLocationName) { WorkerAppliedAllHumorMessages.random() }
-        com.example.dutype.components.DutyPeEmptyState(
-            icon = Icons.Default.CheckCircle,
-            art = com.example.dutype.components.EmptyArt.WAITING,
-            title = stringResource(R.string.worker_you_are_on_top),
-            message = humorMessage,
-            primary = onBrowseAll?.let {
-                com.example.dutype.components.EmptyStateAction(label = stringResource(R.string.home_browse_all_jobs), onClick = it)
-            },
-            modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)
-        )
+        Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            com.example.dutype.components.DutyPeEmptyState(
+                icon = Icons.Default.CheckCircle,
+                art = com.example.dutype.components.EmptyArt.WAITING,
+                title = stringResource(R.string.worker_you_are_on_top),
+                message = humorMessage,
+                primary = onBrowseAll?.let {
+                    com.example.dutype.components.EmptyStateAction(label = stringResource(R.string.home_browse_all_jobs), onClick = it)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            PlaySpinGameEmptyCard(
+                onPlayClick = {
+                    navController?.navigate(Routes.SPIN_AND_WIN)
+                }
+            )
+        }
         return
     }
     val place = currentLocationName?.substringBefore(",")?.trim().orEmpty()
@@ -448,6 +541,15 @@ fun EmptyJobsState(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Play Spin & Win Game card under empty state
+        PlaySpinGameEmptyCard(
+            onPlayClick = {
+                navController?.navigate(Routes.SPIN_AND_WIN)
+            }
+        )
     }
 }
 

@@ -58,7 +58,7 @@ private val AboutSlate600 = Color(0xFF475569)
 private val AboutPill = Color(0xFFF1F5F9)
 
 private const val ABOUT_PACKAGE = "com.dutype.app"
-private const val ABOUT_WHATSAPP_URL = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
+private const val ABOUT_WHATSAPP_URL = "https://chat.whatsapp.com/DYj1FQZfHrW0haVcML5eU3?s=cl&p=a&iam=2"
 
 private class AboutNavItem(
     @DrawableRes val icon: Int,

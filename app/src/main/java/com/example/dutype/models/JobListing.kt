@@ -58,7 +58,8 @@ data class JobListing(
     val isUrgent: Boolean get() = urgency == Values.Urgency.HIGH
 
     fun isExpired(): Boolean = status == Values.JobStatus.EXPIRED ||
-        (status == Values.JobStatus.OPEN && expiresAt > 0L && System.currentTimeMillis() > expiresAt)
+        (status == Values.JobStatus.OPEN && expiresAt > 0L && System.currentTimeMillis() > expiresAt) ||
+        (status == Values.JobStatus.OPEN && createdAt > 0L && (System.currentTimeMillis() - createdAt) > (7L * 24 * 60 * 60 * 1000L))
 
     fun isOpen(): Boolean = status == Values.JobStatus.OPEN && !isExpired()
 

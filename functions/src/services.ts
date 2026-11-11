@@ -34,7 +34,7 @@ import { distanceKm } from "./lib/geo";
 import { placeOf } from "./lib/places";
 import { notify } from "./lib/notify";
 import { WHATSAPP_TOKEN_SECRET } from "./lib/whatsapp";
-import { whatsappServiceAssigned } from "./whatsapp-messages";
+import { whatsappServiceAssigned, whatsappNotifyAdminNewBooking } from "./whatsapp-messages";
 import { normalizeLocale, tBody, tTitle } from "./notification-i18n";
 import { isCallerAdmin } from "./app-config";
 import {
@@ -415,7 +415,7 @@ export async function dispatchServiceWaves(nowMs: number): Promise<void> {
 
 // ─────────────────────────────── customer ───────────────────────────────
 
-export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceAppCheck: false }, async (raw: unknown, context) => {
+export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceAppCheck: false, secrets: [WHATSAPP_TOKEN_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
   const role = String(context.auth?.token.role || "");
@@ -514,7 +514,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
   }
 
   // Platform fee policy: 1st booking or VIP granted is FREE of platform fee only for standard prices; custom price always pays platform fee!
-  const isFreePlatformFee = !hasCustomPrice && (hasVipFreeBooking || (firstBooking && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree));
+  const isFreePlatformFee = !hasCustomPrice && (hasVipFreeBooking || firstBooking || (who.planMember && config.planMembersFeeFree) || config.firstBookingFeeFree);
   const effectiveBookingFee = isFreePlatformFee ? 0 : (q.bookingFee > 0 ? q.bookingFee : (config.bookingFee || 19));
 
   // Ensure customer has a closed-loop micro-wallet
@@ -542,9 +542,9 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     [BK.WHEN]: scheduled ? "scheduled" : "now",
     ...(scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {}),
     [BK.STATUS]: BS.SEARCHING, // Immediately start matching verified technicians in Khammam!
-    [BK.BOOKING_FEE_PAID]: true,
-    [BK.BOOKING_FEE_PAID_AT]: Timestamp.fromMillis(now),
-    walletDebited: effectiveBookingFee > 0,
+    [BK.BOOKING_FEE_PAID]: isFreePlatformFee,
+    ...(isFreePlatformFee ? { [BK.BOOKING_FEE_PAID_AT]: Timestamp.fromMillis(now) } : {}),
+    walletDebited: false,
     isFirstBookingFree: isFreePlatformFee,
     // A partner booking for their own home never gets their own job.
     [BK.EXCLUDED_PARTNER_IDS]: [uid],
@@ -559,6 +559,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     [BK.UPDATED_AT]: Timestamp.fromMillis(now),
   };
 
+  let feeActuallyPaid = isFreePlatformFee;
   let remainingWalletBalanceRupees = 0;
 
   await db.runTransaction(async (tx) => {
@@ -566,37 +567,30 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     if (w.data[Wallets.BLOCKED] === true) {
       fail("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
     }
-    // Every service booking customer must add wallet top-up money to initiate service booking
-    if (w.balancePaise <= 0) {
-      fail(
-        "failed-precondition",
-        "LOW_WALLET_BALANCE: Please add wallet top-up money (minimum ₹50) to start your booking."
-      );
-    }
-    // If platform fee is required (>0), check micro-wallet balance and auto-debit atomically
+    // Upfront mandatory ₹50 check is removed: customer can place booking immediately!
+    // If platform fee is required (>0), check if wallet has enough to auto-debit:
     if (effectiveBookingFee > 0) {
-      if (w.data[Wallets.BLOCKED] === true) {
-        fail("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
-      }
       const feePaise = effectiveBookingFee * 100;
-      if (w.balancePaise < feePaise) {
-        const curRupees = (w.balancePaise / 100).toFixed(0);
-        fail(
-          "failed-precondition",
-          `LOW_WALLET_BALANCE: You need ₹${effectiveBookingFee} platform fee in your DutyPe micro-wallet to book. Current balance is ₹${curRupees}. Please top up minimum ₹50 to continue 1-click booking.`
+      if (w.balancePaise >= feePaise) {
+        postEntry(
+          tx,
+          uid,
+          w,
+          `booking_fee_${ref.id}`,
+          Values.LedgerType.SERVICE_BOOKING_FEE,
+          -feePaise,
+          ref.id
         );
+        feeActuallyPaid = true;
+        remainingWalletBalanceRupees = (w.balancePaise - feePaise) / 100;
+      } else {
+        // Insufficient wallet balance: do not fail! Let booking proceed.
+        // Partner and customer contacts are masked until fee is paid post-booking.
+        feeActuallyPaid = false;
+        remainingWalletBalanceRupees = w.balancePaise / 100;
       }
-      postEntry(
-        tx,
-        uid,
-        w,
-        `booking_fee_${ref.id}`,
-        Values.LedgerType.SERVICE_BOOKING_FEE,
-        -feePaise,
-        ref.id
-      );
-      remainingWalletBalanceRupees = (w.balancePaise - feePaise) / 100;
     } else {
+      feeActuallyPaid = true;
       const wSnap = await tx.get(walletRef(uid));
       remainingWalletBalanceRupees = Number(wSnap.data()?.[Wallets.BALANCE_PAISE] || 0) / 100;
     }
@@ -632,6 +626,11 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
       });
     }
 
+    booking[BK.BOOKING_FEE_PAID] = feeActuallyPaid;
+    if (feeActuallyPaid) {
+      booking[BK.BOOKING_FEE_PAID_AT] = Timestamp.fromMillis(now);
+      booking.walletDebited = effectiveBookingFee > 0;
+    }
     tx.set(ref, booking);
     tx.set(db.collection(ServiceBookingSecrets.COLLECTION).doc(ref.id), {
       [ServiceBookingSecrets.CUSTOMER_ID]: uid,
@@ -646,6 +645,14 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     });
   }
 
+  // Notify DutyPe admin/support on WhatsApp (8019151847) so admin knows about the booking immediately
+  void whatsappNotifyAdminNewBooking({
+    id: ref.id,
+    ...booking,
+  }).catch((err) => {
+    functions.logger.warn(`whatsappNotifyAdminNewBooking failed for ${ref.id}:`, err);
+  });
+
   return {
     bookingId: ref.id,
     startOtp,
@@ -656,7 +663,8 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     total: q.total,
     status: BS.SEARCHING,
     isFirstBookingFree: isFreePlatformFee,
-    walletDebited: effectiveBookingFee > 0,
+    bookingFeePaid: feeActuallyPaid,
+    walletDebited: feeActuallyPaid && effectiveBookingFee > 0,
     remainingWalletBalanceRupees,
     upiId: config.upiId,
     upiName: config.upiName,
@@ -1010,6 +1018,82 @@ export const rateServiceBooking = onCallSecured({ enforceAppCheck: false }, asyn
   return { ok: true };
 });
 
+/** Pay booking platform fee from customer micro-wallet post-booking to unlock partner phone & WhatsApp */
+export const payBookingFeeWithWallet = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
+  const uid = context.auth!.uid;
+  const data = obj(raw);
+  const bookingId = str(data, "bookingId", { max: 40 });
+  const ref = db.collection(BK.COLLECTION).doc(bookingId);
+
+  let updatedBookingData: FirebaseFirestore.DocumentData | null = null;
+
+  await db.runTransaction(async (tx) => {
+    const bSnap = await tx.get(ref);
+    if (!bSnap.exists || bSnap.get(BK.CUSTOMER_ID) !== uid) {
+      fail("not-found", "Booking not found");
+    }
+    const b = bSnap.data()!;
+    const feePaid = b[BK.BOOKING_FEE_PAID] === true || b.walletDebited === true;
+    if (feePaid) {
+      updatedBookingData = b;
+      return;
+    }
+    const feeRupees = Number(b[BK.BOOKING_FEE] || 0);
+    if (feeRupees <= 0) {
+      const now = Timestamp.now();
+      tx.update(ref, {
+        [BK.BOOKING_FEE_PAID]: true,
+        [BK.BOOKING_FEE_PAID_AT]: now,
+        [BK.UPDATED_AT]: now,
+      });
+      updatedBookingData = { ...b, [BK.BOOKING_FEE_PAID]: true };
+      return;
+    }
+
+    const feePaise = feeRupees * 100;
+    const w = await readWallet(tx, uid);
+    if (w.data[Wallets.BLOCKED] === true) {
+      fail("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+    }
+    if (w.balancePaise < feePaise) {
+      const curRupees = (w.balancePaise / 100).toFixed(0);
+      fail(
+        "failed-precondition",
+        `LOW_WALLET_BALANCE: You need ₹${feeRupees} in your wallet to unlock partner contact. Current balance is ₹${curRupees}. Please top up your wallet.`
+      );
+    }
+
+    postEntry(
+      tx,
+      uid,
+      w,
+      `booking_fee_${bookingId}`,
+      Values.LedgerType.SERVICE_BOOKING_FEE,
+      -feePaise,
+      bookingId
+    );
+
+    const now = Timestamp.now();
+    const updates = {
+      [BK.BOOKING_FEE_PAID]: true,
+      [BK.BOOKING_FEE_PAID_AT]: now,
+      walletDebited: true,
+      [BK.UPDATED_AT]: now,
+    };
+    tx.update(ref, updates);
+    updatedBookingData = { ...b, ...updates };
+  });
+
+  // If partner is already assigned and fee was just paid, trigger WhatsApp notification now
+  if (updatedBookingData && (updatedBookingData as any)[BK.PARTNER_ID]) {
+    void whatsappServiceAssigned(updatedBookingData).catch((err) => {
+      functions.logger.warn(`whatsappServiceAssigned after fee payment failed for ${bookingId}:`, err);
+    });
+  }
+
+  return { ok: true, bookingId, bookingFeePaid: true };
+});
+
 export const submitBookingPayment = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
@@ -1018,7 +1102,8 @@ export const submitBookingPayment = onCallSecured({ enforceAppCheck: false }, as
   const ref = db.collection(BK.COLLECTION).doc(bookingId);
   const b = await ref.get();
   if (!b.exists || b.get(BK.CUSTOMER_ID) !== uid) fail("not-found", "Booking not found");
-  if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING) fail("failed-precondition", "Booking is not pending payment");
+  const feePaid = b.get(BK.BOOKING_FEE_PAID) === true || b.get("walletDebited") === true;
+  if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING && feePaid) fail("failed-precondition", "Booking fee is already paid");
   const fee = Number(b.get(BK.BOOKING_FEE) || 0);
   await ref.update({
     utr,
@@ -1389,8 +1474,11 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
     await tellCustomer(String(d[BK.CUSTOMER_ID]), bookingId, "SERVICE_ASSIGNED", {
       partner: String(d[BK.PARTNER_NAME]), service: String(d[BK.SERVICE_NAME]),
     });
-    // Services only: a WhatsApp confirmation to both sides (~₹0.13 each), when the templates are set up.
-    await whatsappServiceAssigned(d);
+    // WhatsApp confirmation to both sides: only if platform fee is paid or 1st booking is free!
+    const isFeePaid = d[BK.BOOKING_FEE_PAID] === true || d.walletDebited === true || Number(d[BK.BOOKING_FEE] || 0) === 0;
+    if (isFeePaid) {
+      await whatsappServiceAssigned(d);
+    }
   }
   return {
     result: "accepted",

@@ -19,6 +19,7 @@ import javax.inject.Singleton
  */
 
 enum class ReportType(val displayName: String, val description: String) {
+    ALREADY_FILLED("Position Already Filled", "Employer stated this job vacancy is filled or closed"),
     SCAM("Scam/Fraud", "This job is asking for money or seems fraudulent"),
     FAKE("Fake Job", "This job or company doesn't exist"),
     NON_PAYMENT("Not Paid", "I did the work but the employer has not paid me"),

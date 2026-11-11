@@ -344,6 +344,7 @@ private fun ImprovedReportTypeOption(
     onClick: () -> Unit
 ) {
     val icon = when (type) {
+        ReportType.ALREADY_FILLED -> Icons.Default.CheckCircle
         ReportType.SCAM -> Icons.Default.Warning
         ReportType.FAKE -> Icons.Default.Block
         ReportType.NON_PAYMENT -> Icons.Default.MoneyOff
@@ -356,6 +357,7 @@ private fun ImprovedReportTypeOption(
     }
     
     val iconColor = when (type) {
+        ReportType.ALREADY_FILLED -> Color(0xFF2563EB)
         ReportType.SCAM -> WorkerColors.Error
         ReportType.FAKE -> WorkerColors.Warning
         ReportType.NON_PAYMENT -> WorkerColors.Error

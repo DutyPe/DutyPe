@@ -49,7 +49,8 @@ fun EmployerJobCard(
     onShareClick: (String) -> Unit = {},
     showActions: Boolean = true,
     onViewTrack: (String) -> Unit = {},
-    onCardClick: ((String) -> Unit)? = null
+    onCardClick: ((String) -> Unit)? = null,
+    onRenewClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var showJobManagementDialog by remember { mutableStateOf(false) }
@@ -374,8 +375,58 @@ fun EmployerJobCard(
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             } else {
-                val isJobClosedOrFilled = jobPosting.status in listOf("filled", "closed", "expired", "deleted") || jobPosting.isExpired()
-                if (isJobClosedOrFilled) {
+                val isExpired = jobPosting.isExpired() || jobPosting.status.lowercase() == "expired"
+                val isJobClosedOrFilled = jobPosting.status in listOf("filled", "closed", "deleted") || isExpired
+                if (isExpired) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFFEF3C7).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A).bd()),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.EventBusy,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Job expired after 7 days",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF92400E),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    onRenewClick?.invoke(jobPosting.id) ?: onCardClick?.invoke(jobPosting.id)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00A859))
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Resume for Next 7 Days ⚡",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                } else if (isJobClosedOrFilled) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFFF7F7F7).bg(),

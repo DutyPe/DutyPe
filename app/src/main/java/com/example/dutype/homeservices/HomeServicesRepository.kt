@@ -305,7 +305,10 @@ data class ServiceBooking(
     val partnerLat: Double = 0.0,
     val partnerLng: Double = 0.0,
     val partnerBearing: Float = 0f,
-    val partnerLocationUpdatedAt: Long = 0L
+    val partnerLocationUpdatedAt: Long = 0L,
+    val bookingFeePaid: Boolean = false,
+    val isFirstBookingFree: Boolean = false,
+    val walletDebited: Boolean = false
 ) {
     val isOpen: Boolean get() = status in BookingStatus.OPEN
 }
@@ -956,6 +959,10 @@ class HomeServicesRepository @Inject constructor(
         call("submitBookingPayment", mapOf("bookingId" to bookingId, "utr" to utr))
     }
 
+    suspend fun payBookingFeeWithWallet(bookingId: String): Map<String, Any?> {
+        return call("payBookingFeeWithWallet", mapOf("bookingId" to bookingId))
+    }
+
     suspend fun cancel(bookingId: String, reason: String = "") {
         val payload = mutableMapOf<String, Any?>("bookingId" to bookingId)
         if (reason.isNotBlank()) payload["reason"] = reason
@@ -1216,7 +1223,10 @@ class HomeServicesRepository @Inject constructor(
         partnerLat = d.getDouble("partnerLat") ?: 0.0,
         partnerLng = d.getDouble("partnerLng") ?: 0.0,
         partnerBearing = (d.getDouble("partnerBearing") ?: 0.0).toFloat(),
-        partnerLocationUpdatedAt = d.getLong("partnerLocationUpdatedAt") ?: 0L
+        partnerLocationUpdatedAt = d.getLong("partnerLocationUpdatedAt") ?: 0L,
+        bookingFeePaid = d.getBoolean("bookingFeePaid") ?: (d.getBoolean("walletDebited") == true || (d.getLong("bookingFee") ?: 0L) == 0L),
+        isFirstBookingFree = d.getBoolean("isFirstBookingFree") == true || (d.getLong("bookingFee") ?: 0L) == 0L,
+        walletDebited = d.getBoolean("walletDebited") == true
     )
 
     companion object {

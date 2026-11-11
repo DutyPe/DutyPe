@@ -33,7 +33,7 @@ import com.dutype.app.R
 import com.example.dutype.ui.theme.fg
 import timber.log.Timber
 
-const val DUTYPE_WHATSAPP_URL = "https://chat.whatsapp.com/IfANFLqVQ6V5BFvpS1xxI9?s=cl&p=a&iam=2"
+const val DUTYPE_WHATSAPP_URL = "https://chat.whatsapp.com/DYj1FQZfHrW0haVcML5eU3?s=cl&p=a&iam=2"
 const val DUTYPE_INSTAGRAM_URL = "https://www.instagram.com/dutype.in?vrfl=Z3JnYzZjaGZybmd4"
 
 /**

@@ -272,6 +272,7 @@ private fun JobCardInternal(
                         text = statusLabel,
                         chipType = if (isExpired) ChipType.EXPIRED else ChipType.FILLED
                     )
+                    !isClosed && job.createdAt > 0L && (System.currentTimeMillis() - job.createdAt) <= (48L * 3600 * 1000L) -> ActiveTodayBadge()
                 }
             }
 
@@ -704,7 +705,8 @@ fun WorkerHomeJobCard(
                 isUrgent = isUrgent,
                 statusLabel = statusLabel,
                 isExpired = isExpired,
-                isClosed = isClosed
+                isClosed = isClosed,
+                createdAt = job.createdAt
             )
             if (subtitle.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
@@ -763,12 +765,37 @@ private fun HomeJobTile(imageUrl: String?, category: String, title: String, desc
 }
 
 @Composable
+fun ActiveTodayBadge(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .background(Color(0xFFECFDF5), RoundedCornerShape(6.dp))
+            .border(0.8.dp, Color(0xFFA7F3D0), RoundedCornerShape(6.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(Color(0xFF10B981), CircleShape)
+        )
+        Text(
+            text = "Active Today",
+            color = Color(0xFF047857),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
 private fun HomeJobTitleRow(
     title: String,
     isUrgent: Boolean,
     statusLabel: String?,
     isExpired: Boolean,
-    isClosed: Boolean
+    isClosed: Boolean,
+    createdAt: Long = 0L
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -803,6 +830,9 @@ private fun HomeJobTitleRow(
                 text = statusLabel,
                 chipType = if (isExpired) ChipType.EXPIRED else ChipType.FILLED
             )
+        } else if (!isClosed && createdAt > 0L && (System.currentTimeMillis() - createdAt) <= (48L * 3600 * 1000L)) {
+            Spacer(modifier = Modifier.width(6.dp))
+            ActiveTodayBadge()
         }
     }
 }

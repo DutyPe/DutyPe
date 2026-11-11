@@ -198,7 +198,7 @@ fun MandatoryEmployerProfileSetupScreen(
 
     // Form state
     var fullNameInput by rememberSaveable { mutableStateOf("") }
-    var currentStep by rememberSaveable { mutableIntStateOf(1) }
+    var showReferralField by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var shopOrBusinessName by rememberSaveable { mutableStateOf("") }
     var contactPhone by rememberSaveable { mutableStateOf("") }
@@ -376,7 +376,7 @@ fun MandatoryEmployerProfileSetupScreen(
     val isNameValid = fullNameInput.trim().length >= 3
     val isEmailValid = email.isBlank() || android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
     val isLocationValid = (GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude) || QuickLocations.matchCoordinates(businessAddress) != null) && businessAddress.isNotBlank()
-    val isFormValid = isNameValid && isEmailValid && isLocationValid
+    val isFormValid = isNameValid && isLocationValid
 
     var isCompletionInProgress by remember { mutableStateOf(false) }
 
@@ -604,75 +604,16 @@ fun MandatoryEmployerProfileSetupScreen(
     Scaffold(
         containerColor = LocalRoleColors.current.screenBackground,
         topBar = {
-            if (currentStep == 1) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (navController.previousBackStackEntry != null) {
-                            IconButton(
-                                onClick = { navController.popBackStack() },
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = stringResource(R.string.back),
-                                    tint = Color(0xFF0F172A)
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.width(40.dp))
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "Step 1 of 2",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF64748B),
-                            modifier = Modifier.padding(end = 12.dp)
-                        )
-                    }
-
-                    // 2-segment progress bar
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color(0xFF00B159))
-                        )
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color(0xFFE2E8F0))
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (navController.previousBackStackEntry != null) {
                     IconButton(
-                        onClick = { currentStep = 1 },
+                        onClick = { navController.popBackStack() },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
@@ -682,6 +623,7 @@ fun MandatoryEmployerProfileSetupScreen(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.weight(1f))
             }
         },
         bottomBar = {
@@ -698,34 +640,10 @@ fun MandatoryEmployerProfileSetupScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (currentStep == 1) {
-                        Button(
-                            onClick = {
-                                showValidationErrors = true
-                                if (isFormValid) {
-                                    currentStep = 2
-                                }
-                            },
-                            enabled = !isLoading,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isFormValid) Color(0xFF00B159) else Color(0xFFCBD5E1),
-                                disabledContainerColor = Color(0xFFCBD5E1)
-                            )
-                        ) {
-                            Text(
-                                text = "Continue to Next Step →",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    } else {
-                        Button(
-                            onClick = {
+                    Button(
+                        onClick = {
+                            showValidationErrors = true
+                            if (isFormValid) {
                                 val rawCode = referralCodeInput.trim()
                                 if (rawCode.isNotBlank()) {
                                     val normalized = normalizeReferralCode(rawCode)
@@ -744,43 +662,30 @@ fun MandatoryEmployerProfileSetupScreen(
                                 } else {
                                     handleCompletion(referralCodeToApply = null)
                                 }
-                            },
-                            enabled = !isLoading && !isCheckingReferral,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF00B159),
-                                disabledContainerColor = Color(0xFFCBD5E1)
-                            )
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(22.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.5.dp
-                                )
-                            } else {
-                                Text(
-                                    text = "Continue",
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
                             }
-                        }
-
-                        TextButton(
-                            onClick = { handleCompletion() },
-                            enabled = !isLoading,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        },
+                        enabled = !isLoading && !isCheckingReferral,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isFormValid) Color(0xFF00B159) else Color(0xFFCBD5E1),
+                            disabledContainerColor = Color(0xFFCBD5E1)
+                        )
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
                             Text(
-                                text = "Skip for now",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF00B159)
+                                text = "Complete Profile & Start Hiring →",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -797,7 +702,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (currentStep == 1) {
+            
                 // Header: "Help us know you better" (Clean Title, no mascot)
                 Column(
                     modifier = Modifier
@@ -843,15 +748,6 @@ fun MandatoryEmployerProfileSetupScreen(
                     value = shopOrBusinessName,
                     onValueChange = { shopOrBusinessName = it },
                     placeholder = "Shop / Business name (optional)"
-                )
-
-                // 3. Email (Optional) - inside placeholder only
-                StitchTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = "Email (optional)",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    errorMessage = if (showValidationErrors && !isEmailValid) "Please enter a valid email address" else null
                 )
 
                 // 4. Mobile Number (Verified badge)
@@ -907,135 +803,140 @@ fun MandatoryEmployerProfileSetupScreen(
                     onDetectClick = {
                         if (locationService.hasLocationPermission()) {
                             fetchLocation()
-                        } else {
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
+                        
+                // Optional Referral Code section
+                if (!showReferralField && referralCodeInput.isBlank()) {
+                    OutlinedButton(
+                        onClick = { showReferralField = true },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFF8FAFC))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = Color(0xFF00B159),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Have a referral code? (Optional)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A)
                             )
                         }
-                    },
-                    onAddressChange = { businessAddress = it },
-                    onLocationChange = { lat, lng ->
-                        businessLatitude = lat
-                        businessLongitude = lng
                     }
-                )
-            } else {
-                // Step 2: Referral Code Entry (Matches Image 3 exactly)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_handshake_partnership),
-                        contentDescription = "Referral Partnership",
-                        modifier = Modifier
-                            .size(170.dp)
-                            .padding(bottom = 12.dp),
-                        contentScale = ContentScale.Fit
-                    )
-
-                    Text(
-                        text = "Enter referral code",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "It's optional, you can skip this",
-                        fontSize = 14.sp,
-                        color = Color(0xFF94A3B8),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    OutlinedTextField(
-                        value = referralCodeInput,
-                        onValueChange = { input ->
-                            referralCodeInput = normalizeReferralCode(input).take(20)
-                            referralErrorMessage = null
-                        },
-                        placeholder = {
-                            Text(
-                                text = "Enter referral code (e.g. DUTY1234)",
-                                fontSize = 15.sp,
-                                color = Color(0xFF94A3B8)
-                            )
-                        },
-                        singleLine = true,
-                        isError = referralErrorMessage != null,
-                        trailingIcon = {
-                            if (isCheckingReferral) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color(0xFF00B159)
-                                )
-                            } else if (verifiedReferrerName != null) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Valid Code",
-                                    tint = Color(0xFF00B159)
-                                )
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFF00B159),
-                            unfocusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFFCBD5E1),
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = Color(0xFF111827),
-                            unfocusedTextColor = Color(0xFF111827),
-                            cursorColor = Color(0xFF00B159),
-                            errorBorderColor = Color(0xFFEF4444)
-                        ),
-                        textStyle = TextStyle(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Characters
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (verifiedReferrerName != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "✓ Valid referral from $verifiedReferrerName",
-                            color = Color(0xFF059669),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    if (referralErrorMessage != null) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = referralErrorMessage ?: "",
-                            color = Color(0xFFDC2626),
-                            fontSize = 12.sp,
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    ) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 4.dp)
-                        )
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Referral Code (Optional)",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF475569)
+                                )
+                                IconButton(
+                                    onClick = {
+                                        showReferralField = false
+                                        referralCodeInput = ""
+                                        referralErrorMessage = null
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Cancel",
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            OutlinedTextField(
+                                value = referralCodeInput,
+                                onValueChange = { input ->
+                                    referralCodeInput = normalizeReferralCode(input).take(20)
+                                    referralErrorMessage = null
+                                },
+                                placeholder = {
+                                    Text(
+                                        text = "e.g. DUTY1234",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF94A3B8)
+                                    )
+                                },
+                                singleLine = true,
+                                isError = referralErrorMessage != null,
+                                trailingIcon = {
+                                    if (isCheckingReferral) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color(0xFF00B159)
+                                        )
+                                    } else if (verifiedReferrerName != null) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Valid Code",
+                                            tint = Color(0xFF00B159)
+                                        )
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF00B159),
+                                    unfocusedBorderColor = Color(0xFFCBD5E1),
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White
+                                ),
+                                textStyle = TextStyle(
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 1.sp
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Characters
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (verifiedReferrerName != null) {
+                                Text(
+                                    text = "✓ Valid referral from $verifiedReferrerName",
+                                    color = Color(0xFF059669),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            if (referralErrorMessage != null) {
+                                Text(
+                                    text = referralErrorMessage ?: "",
+                                    color = Color(0xFFDC2626),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
-            }
-
-            // Error display if any
+// Error display if any
             if (errorMessage != null) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

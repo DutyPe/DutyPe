@@ -462,19 +462,37 @@ fun JobDescriptionScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(WorkerColors.CardBackground)
-                                .border(1.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            onClick = {
+                                try {
+                                    com.example.dutype.services.JobShareService().shareJobToWhatsApp(context, currentJob)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, context.getString(R.string.failed_share_job), android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = WorkerColors.CardBackground,
+                            border = BorderStroke(1.dp, WorkerColors.Border),
+                            modifier = Modifier.height(40.dp)
                         ) {
-                            ShareJobIconButton(
-                                job = currentJob,
-                                tint = WorkerColors.TextPrimary,
-                                modifier = Modifier.size(40.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Share",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = WorkerColors.TextPrimary
+                                )
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_whatsapp),
+                                    contentDescription = stringResource(R.string.share_job_content_description),
+                                    tint = Color(0xFF25D366),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -684,7 +702,7 @@ fun JobDescriptionScreen(
             onWhatsApp = { phoneToChat ->
                 val cleanDigits = phoneToChat.filter { it.isDigit() }
                 val finalPhone = if (cleanDigits.length == 10) "91$cleanDigits" else cleanDigits
-                val msg = "Namaste, I saw your job post '${job?.title}' on DutyPe. I am interested and available to join immediately. Can we speak?"
+                val msg = "Hi, I saw your job posting for ${job?.title ?: "this position"} on DutyPe. Is this position still open?"
                 val uri = android.net.Uri.parse("https://wa.me/$finalPhone?text=${android.net.Uri.encode(msg)}")
                 try {
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))

@@ -55,7 +55,7 @@ fun DutyPeWhatsAppCommunityCard(
     modifier: Modifier = Modifier,
     title: String = "Join DutyPe Jobs Group",
     subtitle: String = "Get daily job updates & direct hiring on WhatsApp",
-    whatsAppGroupUrl: String = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
+    whatsAppGroupUrl: String = "https://chat.whatsapp.com/DYj1FQZfHrW0haVcML5eU3?s=cl&p=a&iam=2"
 ) {
     val context = LocalContext.current
     val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()

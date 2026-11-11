@@ -1259,7 +1259,7 @@ private fun ProfileSettingsCard(
 }
 
 // TODO: replace with the real community invite if this one changes.
-private const val WHATSAPP_COMMUNITY_URL = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
+private const val WHATSAPP_COMMUNITY_URL = "https://chat.whatsapp.com/DYj1FQZfHrW0haVcML5eU3?s=cl&p=a&iam=2"
 private const val PLAY_STORE_PACKAGE = "com.dutype.app"
 
 private fun openPlayStoreListing(context: android.content.Context) {

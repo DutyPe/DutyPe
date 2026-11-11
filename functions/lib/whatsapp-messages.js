@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fetchTelanganaEmployers = exports.sendWhatsappEmployerBroadcast = exports.sendWhatsappPromo = exports.whatsappPromos = void 0;
+exports.fetchTelanganaEmployers = exports.sendWhatsappEmployerBroadcast = exports.sendWhatsappPromo = exports.whatsappPromos = exports.DUTYPE_ADMIN_SUPPORT_PHONE = void 0;
 exports.whatsappServiceAssigned = whatsappServiceAssigned;
+exports.whatsappNotifyAdminNewBooking = whatsappNotifyAdminNewBooking;
 exports.stopWhatsappPromos = stopWhatsappPromos;
 /**
  * WhatsApp beyond login (see lib/whatsapp.ts for the rules):
@@ -82,6 +83,60 @@ async function whatsappServiceAssigned(b) {
         functions.logger.warn("WhatsApp service updates failed", e);
         return 0;
     }
+}
+exports.DUTYPE_ADMIN_SUPPORT_PHONE = "+918019151847";
+/**
+ * Sends a WhatsApp notification to DutyPe admin/support (+918019151847)
+ * immediately whenever any customer books a home service.
+ */
+async function whatsappNotifyAdminNewBooking(b) {
+    const serviceName = String(b[schema_1.ServiceBookings.SERVICE_NAME] || "Home Service");
+    const customerName = String(b[schema_1.ServiceBookings.CUSTOMER_NAME] || "Customer");
+    const customerPhone = String(b[schema_1.ServiceBookings.CUSTOMER_PHONE] || "N/A");
+    const area = String(b[schema_1.ServiceBookings.AREA] || "");
+    const address = String(b[schema_1.ServiceBookings.ADDRESS_TEXT] || "");
+    const where = [area, address].filter(Boolean).join(", ") || "Khammam";
+    const total = Number(b[schema_1.ServiceBookings.TOTAL] || b[schema_1.ServiceBookings.PRICE] || 0);
+    const fee = Number(b[schema_1.ServiceBookings.BOOKING_FEE] || 0);
+    const bookingId = String(b.id || b.bookingId || "");
+    const when = String(b[schema_1.ServiceBookings.WHEN] || "now");
+    const messageText = [
+        `🚨 *New DutyPe Service Booking!*`,
+        ``,
+        `🛠 *Service:* ${serviceName}`,
+        `👤 *Customer:* ${customerName}`,
+        `📞 *Phone:* ${customerPhone}`,
+        `📍 *Location:* ${where}`,
+        `💰 *Service Total:* ₹${total}`,
+        `🏷 *Platform Fee:* ₹${fee}`,
+        `⏰ *Timing:* ${when === "scheduled" ? "Scheduled" : "Instant (Now)"}`,
+        `🆔 *Booking ID:* #${bookingId.slice(0, 8).toUpperCase()}`,
+        ``,
+        `👉 Open Admin Panel to view live tracking and assign partners.`
+    ].join("\n");
+    try {
+        // Attempt 1: Direct text message to support number
+        const textRes = await (0, whatsapp_1.sendWaText)(exports.DUTYPE_ADMIN_SUPPORT_PHONE, messageText);
+        if (textRes.ok) {
+            functions.logger.info(`Admin WhatsApp alert sent successfully for booking ${bookingId}`);
+            return true;
+        }
+        functions.logger.warn(`Admin WhatsApp text alert failed: ${textRes.error}. Trying template fallback.`);
+        // Attempt 2: Fallback to approved UTILITY template (dutype_service_job_confirmed)
+        const t = (0, whatsapp_1.serviceTemplates)();
+        if (t === null || t === void 0 ? void 0 : t.partner) {
+            const tmplRes = await (0, whatsapp_1.sendWaTemplate)(exports.DUTYPE_ADMIN_SUPPORT_PHONE, t.partner, "en", [serviceName, customerName, customerPhone, where.slice(0, 60)]);
+            if (tmplRes.ok) {
+                functions.logger.info(`Admin WhatsApp template fallback sent successfully for booking ${bookingId}`);
+                return true;
+            }
+            functions.logger.warn(`Admin WhatsApp template fallback failed: ${tmplRes.error}`);
+        }
+    }
+    catch (err) {
+        functions.logger.warn(`whatsappNotifyAdminNewBooking failed for ${bookingId}:`, err);
+    }
+    return false;
 }
 // ─────────────────────────────── offers (MARKETING) ───────────────────────────────
 async function phoneOf(uid, token) {

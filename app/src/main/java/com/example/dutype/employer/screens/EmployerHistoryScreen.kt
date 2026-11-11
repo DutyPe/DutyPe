@@ -201,17 +201,24 @@ fun EmployerHistoryScreen(
         }
 
         repostingJobId = job.id
-        scope.launch {
-            runCatching {
-                val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "GUEST"
-                employerJobViewModel.jobDraftDataStore.saveDraft(job.toRepostDraft().copy(employerId = employerId))
-            }.onSuccess {
-                Toast.makeText(context, context.getString(R.string.review_publish_repost), Toast.LENGTH_SHORT).show()
-                navController.navigate(Routes.EMPLOYER_POST_JOB)
-            }.onFailure { error ->
-                Toast.makeText(context, error.message ?: context.getString(R.string.unable_prepare_repost), Toast.LENGTH_LONG).show()
-            }
+        employerJobViewModel.renewJob(job.id) { success, message ->
             repostingJobId = null
+            if (success) {
+                Toast.makeText(context, "Job resumed for 7 days! ⚡", Toast.LENGTH_SHORT).show()
+                employerJobViewModel.loadMyJobs()
+            } else {
+                scope.launch {
+                    runCatching {
+                        val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "GUEST"
+                        employerJobViewModel.jobDraftDataStore.saveDraft(job.toRepostDraft().copy(employerId = employerId))
+                    }.onSuccess {
+                        Toast.makeText(context, context.getString(R.string.review_publish_repost), Toast.LENGTH_SHORT).show()
+                        navController.navigate(Routes.EMPLOYER_POST_JOB)
+                    }.onFailure { error ->
+                        Toast.makeText(context, error.message ?: context.getString(R.string.unable_prepare_repost), Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
         }
     }
 
@@ -676,16 +683,24 @@ private fun TimelineJobCard(
                 }
 
                 if (isExpired) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
                         onClick = onRepostExpiredJob,
                         enabled = !isReposting,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00A859))
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isReposting) stringResource(R.string.reposting_ellipsis) else stringResource(R.string.repost_same_job))
+                        Text(
+                            text = if (isReposting) "Resuming..." else "Resume for Next 7 Days ⚡",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -846,16 +861,24 @@ private fun HistoryJobCard(
             )
 
             if (isExpired) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
                     onClick = onRepostExpiredJob,
                     enabled = !isReposting,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00A859))
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (isReposting) stringResource(R.string.reposting_ellipsis) else stringResource(R.string.repost_same_job))
+                    Text(
+                        text = if (isReposting) "Resuming..." else "Resume for Next 7 Days ⚡",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
             }
         }

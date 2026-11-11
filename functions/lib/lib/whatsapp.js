@@ -6,6 +6,7 @@ exports.waLang = waLang;
 exports.langList = langList;
 exports.waTextTemplateBody = waTextTemplateBody;
 exports.sendWaTemplate = sendWaTemplate;
+exports.sendWaText = sendWaText;
 exports.waReady = waReady;
 exports.serviceTemplates = serviceTemplates;
 exports.promoDue = promoDue;
@@ -113,6 +114,41 @@ async function sendWaTemplate(toE164, template, lang, params, env = process.env,
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${(env.WHATSAPP_TOKEN || "").trim()}` },
             body: JSON.stringify(waTextTemplateBody(toE164, template, lang, params, options)),
+            signal: controller.signal,
+        });
+        if (res.ok)
+            return { ok: true };
+        return { ok: false, error: `${res.status} ${(await res.text()).slice(0, 1500)}` };
+    }
+    catch (e) {
+        return { ok: false, error: String((e === null || e === void 0 ? void 0 : e.message) || e).slice(0, 1500) };
+    }
+    finally {
+        clearTimeout(timer);
+    }
+}
+/** Sends a direct WhatsApp text message (works within 24hr conversation window or to support/admin). */
+async function sendWaText(toE164, bodyText, env = process.env) {
+    if (!/^\+91[6-9]\d{9}$/.test(toE164))
+        return { ok: false, error: "bad_phone" };
+    const version = env.WHATSAPP_API_VERSION || "v21.0";
+    const url = `https://graph.facebook.com/${version}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+        const res = await exports.waNet.fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${(env.WHATSAPP_TOKEN || "").trim()}`,
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: toE164.replace(/^\+/, ""),
+                type: "text",
+                text: { preview_url: false, body: bodyText },
+            }),
             signal: controller.signal,
         });
         if (res.ok)

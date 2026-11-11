@@ -1,5 +1,10 @@
 package com.example.dutype.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
@@ -223,7 +228,40 @@ fun WorkerNavGraph(
                 androidx.navigation.navDeepLink {
                     uriPattern = "https://dutype.in/jobs/{jobId}"
                 }
-            )
+            ),
+            enterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + scaleIn(
+                    initialScale = 0.95f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + fadeIn(animationSpec = tween(220))
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = tween(200)
+                ) + fadeOut(animationSpec = tween(180))
+            },
+            popEnterTransition = {
+                scaleIn(initialScale = 0.96f) + fadeIn(animationSpec = tween(200))
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + scaleOut(targetScale = 0.95f) + fadeOut(animationSpec = tween(180))
+            }
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             Timber.i("🔗 DEEP LINK: JobDescriptionScreen opened with jobId: $jobId")
@@ -470,8 +508,25 @@ fun WorkerNavGraph(
             )
         }
 
-        // Spin & Win Viral Wheel
-        composable(Routes.SPIN_AND_WIN) {
+        // Spin & Win Viral Wheel - Playful Zoom Entrance
+        composable(
+            route = Routes.SPIN_AND_WIN,
+            enterTransition = {
+                scaleIn(
+                    initialScale = 0.90f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + fadeIn(animationSpec = tween(240))
+            },
+            popExitTransition = {
+                scaleOut(
+                    targetScale = 0.90f,
+                    animationSpec = tween(200)
+                ) + fadeOut(animationSpec = tween(180))
+            }
+        ) {
             com.example.dutype.worker.screens.SpinAndWinScreen(
                 navController = navController
             )

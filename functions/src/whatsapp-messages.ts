@@ -16,7 +16,7 @@ import { isCallerAdmin } from "./app-config";
 import { fail, obj, str } from "./lib/input";
 import { istDayKey } from "./lib/phone-otp";
 import {
-  PROMO_GAP_DAYS_DEFAULT, PROMO_MAX_PER_RUN, WHATSAPP_TOKEN_SECRET, langList, promoDue, sendWaTemplate, serviceTemplates, waLang, waReady,
+  PROMO_GAP_DAYS_DEFAULT, PROMO_MAX_PER_RUN, WHATSAPP_TOKEN_SECRET, langList, promoDue, sendWaTemplate, sendWaText, serviceTemplates, waLang, waReady,
 } from "./lib/whatsapp";
 import {
   EmployerProfiles, JobContacts, Jobs, OtpDaily, ServiceBookings as BK, ServicePartners, UserTokens, Values, WhatsappCampaigns as WC,
@@ -83,6 +83,71 @@ export async function whatsappServiceAssigned(b: FirebaseFirestore.DocumentData)
     functions.logger.warn("WhatsApp service updates failed", e);
     return 0;
   }
+}
+
+export const DUTYPE_ADMIN_SUPPORT_PHONE = "+918019151847";
+
+/**
+ * Sends a WhatsApp notification to DutyPe admin/support (+918019151847)
+ * immediately whenever any customer books a home service.
+ */
+export async function whatsappNotifyAdminNewBooking(b: FirebaseFirestore.DocumentData): Promise<boolean> {
+  const serviceName = String(b[BK.SERVICE_NAME] || "Home Service");
+  const customerName = String(b[BK.CUSTOMER_NAME] || "Customer");
+  const customerPhone = String(b[BK.CUSTOMER_PHONE] || "N/A");
+  const area = String(b[BK.AREA] || "");
+  const address = String(b[BK.ADDRESS_TEXT] || "");
+  const where = [area, address].filter(Boolean).join(", ") || "Khammam";
+  const total = Number(b[BK.TOTAL] || b[BK.PRICE] || 0);
+  const fee = Number(b[BK.BOOKING_FEE] || 0);
+  const bookingId = String(b.id || b.bookingId || "");
+  const when = String(b[BK.WHEN] || "now");
+
+  const messageText = [
+    `🚨 *New DutyPe Service Booking!*`,
+    ``,
+    `🛠 *Service:* ${serviceName}`,
+    `👤 *Customer:* ${customerName}`,
+    `📞 *Phone:* ${customerPhone}`,
+    `📍 *Location:* ${where}`,
+    `💰 *Service Total:* ₹${total}`,
+    `🏷 *Platform Fee:* ₹${fee}`,
+    `⏰ *Timing:* ${when === "scheduled" ? "Scheduled" : "Instant (Now)"}`,
+    `🆔 *Booking ID:* #${bookingId.slice(0, 8).toUpperCase()}`,
+    ``,
+    `👉 Open Admin Panel to view live tracking and assign partners.`
+  ].join("\n");
+
+  try {
+    // Attempt 1: Direct text message to support number
+    const textRes = await sendWaText(DUTYPE_ADMIN_SUPPORT_PHONE, messageText);
+    if (textRes.ok) {
+      functions.logger.info(`Admin WhatsApp alert sent successfully for booking ${bookingId}`);
+      return true;
+    }
+
+    functions.logger.warn(`Admin WhatsApp text alert failed: ${textRes.error}. Trying template fallback.`);
+
+    // Attempt 2: Fallback to approved UTILITY template (dutype_service_job_confirmed)
+    const t = serviceTemplates();
+    if (t?.partner) {
+      const tmplRes = await sendWaTemplate(
+        DUTYPE_ADMIN_SUPPORT_PHONE,
+        t.partner,
+        "en",
+        [serviceName, customerName, customerPhone, where.slice(0, 60)]
+      );
+      if (tmplRes.ok) {
+        functions.logger.info(`Admin WhatsApp template fallback sent successfully for booking ${bookingId}`);
+        return true;
+      }
+      functions.logger.warn(`Admin WhatsApp template fallback failed: ${tmplRes.error}`);
+    }
+  } catch (err) {
+    functions.logger.warn(`whatsappNotifyAdminNewBooking failed for ${bookingId}:`, err);
+  }
+
+  return false;
 }
 
 // ─────────────────────────────── offers (MARKETING) ───────────────────────────────

@@ -2141,6 +2141,11 @@ fun CategoryServicesScreen(
                         }
                     }
                 }
+                item(key = "category_30_day_guarantee_card") {
+                    DutyPe30DayGuaranteeBanner(
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
                 if (isNightClosed) {
                     item(key = "night_closed_banner") {
                         ServiceHoursNightClosedBanner()
@@ -2371,6 +2376,215 @@ fun ServicesHomeShimmer() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ─────────────────────────── Social Proof Ticker ───────────────────────────
+
+@Composable
+
+/**
+ * 🛡️ DutyPe 30-Day Service Guarantee Banner
+ * Reassures customers with 100% free rework / re-inspection if issue repeats within 30 days.
+ */
+@Composable
+fun DutyPe30DayGuaranteeBanner(
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFF0FDF4),
+        border = BorderStroke(1.2.dp, Color(0xFF86EFAC)),
+        shadowElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFDCFCE7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🛡️", fontSize = 20.sp)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "30-Day DutyPe Assured Guarantee",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF065F46)
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "If the problem repeats within 30 days, technician re-inspection and fix is 100% FREE. Zero hidden charges.",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF047857),
+                    lineHeight = 15.5.sp
+                )
+            }
+        }
+    }
+}
+
+data class TransparentRateItem(
+    val icon: String,
+    val title: String,
+    val price: String,
+    val categoryId: String = "electrician",
+    val unit: String = "onwards"
+)
+
+val FixedStartingRates = listOf(
+    TransparentRateItem("🔌", "Switchboard Repair", "₹99", "electrician"),
+    TransparentRateItem("🌀", "Fan Install / Repair", "₹149", "electrician"),
+    TransparentRateItem("🚰", "Tap / Leak Repair", "₹129", "plumber"),
+    TransparentRateItem("❄️", "AC Deep Jet Clean", "₹499", "appliance")
+)
+
+/**
+ * Transparent Fixed Starting Rate Cards (Fixed Starting Prices)
+ */
+@Composable
+fun TransparentRateCardsSection(
+    onSelectService: (String) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("🏷️", fontSize = 14.sp)
+                Text(
+                    text = "Transparent Fixed Rates",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SvcInk.fg()
+                )
+            }
+            Text(
+                text = "Zero Hidden Fees",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF059669)
+            )
+        }
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(FixedStartingRates) { rate ->
+                Surface(
+                    onClick = { onSelectService(rate.categoryId) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    shadowElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(text = rate.icon, fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = rate.title,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SvcInk.fg()
+                            )
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = rate.price,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF00B159)
+                                )
+                                Spacer(Modifier.width(3.dp))
+                                Text(
+                                    text = rate.unit,
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun ServicesAreaSocialProofBanner(
+    modifier: Modifier = Modifier,
+    cityName: String = "Khammam"
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF0FDF4),
+        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFDCFCE7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🔥", fontSize = 18.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "100+ Services Booked",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp,
+                        color = Color(0xFF14532D)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF16A34A))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            "In Your Area",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Verified technicians nearby • 15-min instant arrival • 4.9 ★ rating",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF166534),
+                    lineHeight = 15.sp
+                )
             }
         }
     }
@@ -2873,6 +3087,36 @@ fun ServicesHomeScreen(
                         Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                             RateLastServiceCard(bookings, onOpen = { nav.navigate(Routes.servicesBookingRoute(it)) })
                         }
+                    }
+                }
+
+                // 1.5 Social proof banner: "100+ Services Booked in Your Area"
+                item(key = "social_proof_ticker") {
+                    Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        ServicesAreaSocialProofBanner(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                // Transparent Fixed Rate Cards (Fixed Starting Prices)
+                item(key = "fixed_rate_cards_ticker") {
+                    Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        TransparentRateCardsSection(
+                            onSelectService = { catId ->
+                                nav.navigate(Routes.servicesCategoryRoute(catId))
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                // 30-Day DutyPe Assured Guarantee
+                item(key = "home_30_day_guarantee") {
+                    Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        DutyPe30DayGuaranteeBanner(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
                     }
                 }
 
@@ -4658,29 +4902,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                         showAddAddressSheet = true
                                     }
                                 } else {
-                                    val walletBal = (wallet?.balancePaise ?: 0L) / 100
-                                    val isFirstFree = !isCustomPriceEnabled && (q?.firstBooking == true || q?.bookingFee == 0 || (c.firstBookingFeeFree && (q?.firstBooking ?: false)))
-                                    val reqFee = if (isCustomPriceEnabled) (q?.bookingFee ?: 19) else (q?.bookingFee ?: 9)
-                                    // Requirement 3: Every service booking person must add wallet top-up money to start/confirm booking
-                                    if (walletBal <= 0) {
-                                        Toast.makeText(
-                                            context,
-                                            if (lang == "te") "బుకింగ్ ప్రారంభించడానికి దయచేసి వాలెట్ టాప్-అప్ (కనీసం ₹50) చేయండి"
-                                            else "Please add wallet money (minimum ₹50) to start your service booking",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        showWalletTopupSheet = true
-                                    } else if (!isFirstFree && walletBal < reqFee) {
-                                        Toast.makeText(
-                                            context,
-                                            if (lang == "te") "ప్లాట్‌ఫారమ్ ఫీజు ₹$reqFee కోసం దయచేసి వాలెట్ టాప్-అప్ చేయండి"
-                                            else "Please top up your wallet for ₹$reqFee booking fee",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                        showWalletTopupSheet = true
-                                    } else {
-                                        doBook()
-                                    }
+                                    doBook()
                                 }
                             },
                             enabled = !submitting && !quoting && (!isNightClosed || (scheduled && slot != null)) && (!scheduled || slot != null),
@@ -7081,8 +7303,19 @@ private fun StartOtpSecureCard(code: String) {
 @Composable
 private fun AssignedPartnerCard(
     b: ServiceBooking,
-    onCall: () -> Unit
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit,
+    onPayFeeToUnlock: () -> Unit
 ) {
+    val isFeePaid = b.bookingFeePaid || b.isFirstBookingFree || b.bookingFee <= 0
+    val displayName = if (isFeePaid) b.partnerName else "Verified Technician"
+    val displayPhone = if (isFeePaid) {
+        if (b.partnerPhone.startsWith("+91")) b.partnerPhone else "+91 ${b.partnerPhone}"
+    } else {
+        val last2 = b.partnerPhone.takeLast(2).ifBlank { "00" }
+        "+91 ••••••$last2"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -7143,7 +7376,7 @@ private fun AssignedPartnerCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            b.partnerName.take(1).uppercase().ifBlank { "T" },
+                            displayName.take(1).uppercase().ifBlank { "T" },
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 22.sp
@@ -7171,10 +7404,17 @@ private fun AssignedPartnerCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        b.partnerName,
+                        displayName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = SvcInk.fg()
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        displayPhone,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = if (isFeePaid) Color(0xFF15803D) else SvcMuted.fg()
                     )
                     Spacer(Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -7235,19 +7475,216 @@ private fun AssignedPartnerCard(
                 )
             }
 
-            // Action: Call Button
-            if (b.partnerPhone.isNotBlank() && b.isOpen) {
+            // If fee is NOT paid: Prompt to pay service fee to unlock call & WhatsApp!
+            if (!isFeePaid) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFFBEB),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Direct Call & WhatsApp Locked",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp,
+                                color = Color(0xFF92400E)
+                            )
+                        }
+                        Text(
+                            "Pay ₹${b.bookingFee} platform service fee to instantly unlock technician's direct phone number and WhatsApp chat.",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF78350F),
+                            lineHeight = 16.sp
+                        )
+                        Button(
+                            onClick = onPayFeeToUnlock,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                        ) {
+                            Text(
+                                "⚡ Pay ₹${b.bookingFee} to Unlock Contact",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 13.5.sp
+                            )
+                        }
+                    }
+                }
+            } else if (b.isOpen) {
+                // Actions: Call Button & WhatsApp Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onCall,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Call", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    }
+                    Button(
+                        onClick = onWhatsApp,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(Modifier.width(6.dp))
+                        Text("WhatsApp", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UnlockServiceFeeSheet(
+    booking: ServiceBooking,
+    walletBalanceRupees: Long,
+    isUnlocking: Boolean,
+    onPayFromWallet: () -> Unit,
+    onTopupWallet: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val reqFee = booking.bookingFee
+    val hasEnoughWallet = walletBalanceRupees >= reqFee
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp, vertical = 14.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEF3C7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("Unlock Technician Contact", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SvcInk.fg())
+                        Text("DutyPe Platform Service Fee", fontSize = 12.sp, color = SvcMuted.fg())
+                    }
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = SvcMuted.fg())
+                }
+            }
+
+            // Fee explanation card
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF8FAFC).bg(),
+                border = BorderStroke(1.dp, SvcLine.bg()),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Platform Service Fee", fontSize = 14.sp, color = SvcInk.fg())
+                        Text("₹$reqFee", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF16A34A))
+                    }
+                    HorizontalDivider(color = SvcLine.bg())
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Your DutyPe Wallet Balance", fontSize = 13.sp, color = SvcMuted.fg())
+                        Text("₹$walletBalanceRupees", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (hasEnoughWallet) Color(0xFF16A34A) else Color(0xFFDC2626))
+                    }
+                }
+            }
+
+            if (hasEnoughWallet) {
+                Text(
+                    "You have sufficient balance! 1-click debit ₹$reqFee to instantly unlock the technician's phone number and WhatsApp chat.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF15803D),
+                    lineHeight = 16.sp
+                )
                 Button(
-                    onClick = onCall,
+                    onClick = onPayFromWallet,
+                    enabled = !isUnlocking,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    if (isUnlocking) {
+                        com.example.dutype.components.ButtonThreeDotsLoader()
+                    } else {
+                        Text("⚡ Pay ₹$reqFee from Wallet & Unlock", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                    }
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFEF2F2),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Wallet balance (₹$walletBalanceRupees) is less than ₹$reqFee. Please top up to unlock.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF991B1B)
+                        )
+                    }
+                }
+                Button(
+                    onClick = onTopupWallet,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Call Partner (${b.partnerName.split(" ").firstOrNull() ?: "Partner"})", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    Text("Top Up Wallet (Min ₹50) & Unlock", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                 }
             }
         }
@@ -7315,6 +7752,10 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
     var busy by remember { mutableStateOf(false) }
     var stars by remember { mutableIntStateOf(0) }
     var review by remember { mutableStateOf("") }
+    var showUnlockSheet by remember { mutableStateOf(false) }
+    var showWalletTopupSheet by remember { mutableStateOf(false) }
+    val wallet by viewModel.wallet.collectAsState()
+    var isUnlockingFee by remember { mutableStateOf(false) }
 
     LaunchedEffect(bookingId) { code = viewModel.startCode(bookingId) }
 
@@ -7455,6 +7896,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     StartOtpSecureCard(code)
                 }
 
+                val isFeePaid = b.bookingFeePaid || b.isFirstBookingFree || b.bookingFee <= 0
                 // ── Live OpenFreeMap Tracker (Technician En Route) ──
                 if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
                     com.example.dutype.components.OpenFreeMapTrackerView(
@@ -7463,15 +7905,27 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                         partnerLat = b.partnerLat,
                         partnerLng = b.partnerLng,
                         customerLabel = b.addressText.ifBlank { b.area },
-                        partnerName = b.partnerName.ifBlank { "Technician" },
-                        partnerPhone = b.partnerPhone,
+                        partnerName = if (isFeePaid) b.partnerName.ifBlank { "Technician" } else "Verified Technician",
+                        partnerPhone = if (isFeePaid) b.partnerPhone else "",
                         partnerBearing = b.partnerBearing,
                         isPartnerMode = false
                     )
                 }
 
                 if (b.partnerName.isNotBlank() && b.status != BookingStatus.CANCELLED) {
-                    AssignedPartnerCard(b, onCall = { dial(context, b.partnerPhone) })
+                    AssignedPartnerCard(
+                        b = b,
+                        onCall = { dial(context, b.partnerPhone) },
+                        onWhatsApp = {
+                            val cleanPhone = b.partnerPhone.replace("+91", "").trim()
+                            val msg = "Hi ${b.partnerName}, I booked DutyPe service #${b.id.takeLast(6)} (${b.serviceName})."
+                            val waUri = Uri.parse("https://wa.me/91${cleanPhone}?text=${Uri.encode(msg)}")
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, waUri)) }
+                        },
+                        onPayFeeToUnlock = {
+                            showUnlockSheet = true
+                        }
+                    )
                 }
 
                 StatusTimeline(b)
@@ -7723,6 +8177,55 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text(stringResource(R.string.svc_no)) } }
             )
         }
+    }
+
+    val currentDetailBooking = load.booking
+    if (showUnlockSheet && currentDetailBooking != null) {
+        val walletBal = (wallet?.balancePaise ?: 0L) / 100
+        UnlockServiceFeeSheet(
+            booking = currentDetailBooking,
+            walletBalanceRupees = walletBal,
+            isUnlocking = isUnlockingFee,
+            onPayFromWallet = {
+                isUnlockingFee = true
+                scope.launch {
+                    viewModel.payBookingFeeWithWallet(currentDetailBooking.id)
+                        .onSuccess {
+                            Toast.makeText(context, "Partner contact unlocked!", Toast.LENGTH_SHORT).show()
+                            showUnlockSheet = false
+                        }
+                        .onFailure {
+                            Toast.makeText(context, it.message ?: "Failed to unlock", Toast.LENGTH_SHORT).show()
+                        }
+                    isUnlockingFee = false
+                }
+            },
+            onTopupWallet = {
+                showUnlockSheet = false
+                showWalletTopupSheet = true
+            },
+            onDismiss = { showUnlockSheet = false }
+        )
+    }
+
+    if (showWalletTopupSheet && currentDetailBooking != null) {
+        val walletBal = (wallet?.balancePaise ?: 0L) / 100
+        MicroWalletTopupSheet(
+            currentBalanceRupees = walletBal,
+            requiredFeeRupees = currentDetailBooking.bookingFee,
+            onDismiss = { showWalletTopupSheet = false },
+            onTopupSuccess = {
+                showWalletTopupSheet = false
+                scope.launch {
+                    viewModel.payBookingFeeWithWallet(currentDetailBooking.id)
+                        .onSuccess {
+                            Toast.makeText(context, "Partner contact unlocked!", Toast.LENGTH_SHORT).show()
+                        }
+                }
+            },
+            navController = navController,
+            viewModel = viewModel
+        )
     }
 }
 

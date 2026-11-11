@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.verifyWalletDeposit = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
+exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.payBookingFeeWithWallet = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.verifyWalletDeposit = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
 exports.loadConfig = loadConfig;
 exports.clearConfigCache = clearConfigCache;
 exports.inServiceArea = inServiceArea;
@@ -383,7 +383,7 @@ async function dispatchServiceWaves(nowMs) {
     await expireServiceBookings(nowMs);
 }
 // ─────────────────────────────── customer ───────────────────────────────
-exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, enforceAppCheck: false }, async (raw, context) => {
+exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, enforceAppCheck: false, secrets: [whatsapp_1.WHATSAPP_TOKEN_SECRET] }, async (raw, context) => {
     var _a, _b;
     const uid = context.auth.uid;
     // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
@@ -476,16 +476,17 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         }
     }
     // Platform fee policy: 1st booking or VIP granted is FREE of platform fee only for standard prices; custom price always pays platform fee!
-    const isFreePlatformFee = !hasCustomPrice && (hasVipFreeBooking || (firstBooking && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree));
+    const isFreePlatformFee = !hasCustomPrice && (hasVipFreeBooking || firstBooking || (who.planMember && config.planMembersFeeFree) || config.firstBookingFeeFree);
     const effectiveBookingFee = isFreePlatformFee ? 0 : (q.bookingFee > 0 ? q.bookingFee : (config.bookingFee || 19));
     // Ensure customer has a closed-loop micro-wallet
     await (0, referrals_1.ensureWallet)(uid);
     const ref = db.collection(BK.COLLECTION).doc();
     const startOtp = (0, service_catalog_1.newStartOtp)();
     const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
-    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: effectiveBookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, [BK.BOOKING_FEE_PAID]: true, [BK.BOOKING_FEE_PAID_AT]: Timestamp.fromMillis(now), walletDebited: effectiveBookingFee > 0, isFirstBookingFree: isFreePlatformFee, 
+    const booking = Object.assign(Object.assign(Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: effectiveBookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, [BK.BOOKING_FEE_PAID]: isFreePlatformFee }), (isFreePlatformFee ? { [BK.BOOKING_FEE_PAID_AT]: Timestamp.fromMillis(now) } : {})), { walletDebited: false, isFirstBookingFree: isFreePlatformFee, 
         // A partner booking for their own home never gets their own job.
         [BK.EXCLUDED_PARTNER_IDS]: [uid], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.DISCOUNT]: q.discount, [BK.DISCOUNT_LABEL]: q.discountLabel, [BK.COUPON_CODE]: q.couponCode, [BK.TOTAL]: q.total, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
+    let feeActuallyPaid = isFreePlatformFee;
     let remainingWalletBalanceRupees = 0;
     await db.runTransaction(async (tx) => {
         var _a;
@@ -493,24 +494,24 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         if (w.data[schema_1.Wallets.BLOCKED] === true) {
             (0, input_1.fail)("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
         }
-        // Every service booking customer must add wallet top-up money to initiate service booking
-        if (w.balancePaise <= 0) {
-            (0, input_1.fail)("failed-precondition", "LOW_WALLET_BALANCE: Please add wallet top-up money (minimum ₹50) to start your booking.");
-        }
-        // If platform fee is required (>0), check micro-wallet balance and auto-debit atomically
+        // Upfront mandatory ₹50 check is removed: customer can place booking immediately!
+        // If platform fee is required (>0), check if wallet has enough to auto-debit:
         if (effectiveBookingFee > 0) {
-            if (w.data[schema_1.Wallets.BLOCKED] === true) {
-                (0, input_1.fail)("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
-            }
             const feePaise = effectiveBookingFee * 100;
-            if (w.balancePaise < feePaise) {
-                const curRupees = (w.balancePaise / 100).toFixed(0);
-                (0, input_1.fail)("failed-precondition", `LOW_WALLET_BALANCE: You need ₹${effectiveBookingFee} platform fee in your DutyPe micro-wallet to book. Current balance is ₹${curRupees}. Please top up minimum ₹50 to continue 1-click booking.`);
+            if (w.balancePaise >= feePaise) {
+                (0, referrals_1.postEntry)(tx, uid, w, `booking_fee_${ref.id}`, schema_1.Values.LedgerType.SERVICE_BOOKING_FEE, -feePaise, ref.id);
+                feeActuallyPaid = true;
+                remainingWalletBalanceRupees = (w.balancePaise - feePaise) / 100;
             }
-            (0, referrals_1.postEntry)(tx, uid, w, `booking_fee_${ref.id}`, schema_1.Values.LedgerType.SERVICE_BOOKING_FEE, -feePaise, ref.id);
-            remainingWalletBalanceRupees = (w.balancePaise - feePaise) / 100;
+            else {
+                // Insufficient wallet balance: do not fail! Let booking proceed.
+                // Partner and customer contacts are masked until fee is paid post-booking.
+                feeActuallyPaid = false;
+                remainingWalletBalanceRupees = w.balancePaise / 100;
+            }
         }
         else {
+            feeActuallyPaid = true;
             const wSnap = await tx.get((0, referrals_1.walletRef)(uid));
             remainingWalletBalanceRupees = Number(((_a = wSnap.data()) === null || _a === void 0 ? void 0 : _a[schema_1.Wallets.BALANCE_PAISE]) || 0) / 100;
         }
@@ -546,6 +547,11 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
                 [schema_1.CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
             });
         }
+        booking[BK.BOOKING_FEE_PAID] = feeActuallyPaid;
+        if (feeActuallyPaid) {
+            booking[BK.BOOKING_FEE_PAID_AT] = Timestamp.fromMillis(now);
+            booking.walletDebited = effectiveBookingFee > 0;
+        }
         tx.set(ref, booking);
         tx.set(db.collection(schema_1.ServiceBookingSecrets.COLLECTION).doc(ref.id), {
             [schema_1.ServiceBookingSecrets.CUSTOMER_ID]: uid,
@@ -558,6 +564,10 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
             functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
         });
     }
+    // Notify DutyPe admin/support on WhatsApp (8019151847) so admin knows about the booking immediately
+    void (0, whatsapp_messages_1.whatsappNotifyAdminNewBooking)(Object.assign({ id: ref.id }, booking)).catch((err) => {
+        functions.logger.warn(`whatsappNotifyAdminNewBooking failed for ${ref.id}:`, err);
+    });
     return {
         bookingId: ref.id,
         startOtp,
@@ -568,7 +578,8 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         total: q.total,
         status: BS.SEARCHING,
         isFirstBookingFree: isFreePlatformFee,
-        walletDebited: effectiveBookingFee > 0,
+        bookingFeePaid: feeActuallyPaid,
+        walletDebited: feeActuallyPaid && effectiveBookingFee > 0,
         remainingWalletBalanceRupees,
         upiId: config.upiId,
         upiName: config.upiName,
@@ -887,6 +898,63 @@ exports.rateServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceAppCh
     });
     return { ok: true };
 });
+/** Pay booking platform fee from customer micro-wallet post-booking to unlock partner phone & WhatsApp */
+exports.payBookingFeeWithWallet = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    const uid = context.auth.uid;
+    const data = (0, input_1.obj)(raw);
+    const bookingId = (0, input_1.str)(data, "bookingId", { max: 40 });
+    const ref = db.collection(BK.COLLECTION).doc(bookingId);
+    let updatedBookingData = null;
+    await db.runTransaction(async (tx) => {
+        const bSnap = await tx.get(ref);
+        if (!bSnap.exists || bSnap.get(BK.CUSTOMER_ID) !== uid) {
+            (0, input_1.fail)("not-found", "Booking not found");
+        }
+        const b = bSnap.data();
+        const feePaid = b[BK.BOOKING_FEE_PAID] === true || b.walletDebited === true;
+        if (feePaid) {
+            updatedBookingData = b;
+            return;
+        }
+        const feeRupees = Number(b[BK.BOOKING_FEE] || 0);
+        if (feeRupees <= 0) {
+            const now = Timestamp.now();
+            tx.update(ref, {
+                [BK.BOOKING_FEE_PAID]: true,
+                [BK.BOOKING_FEE_PAID_AT]: now,
+                [BK.UPDATED_AT]: now,
+            });
+            updatedBookingData = Object.assign(Object.assign({}, b), { [BK.BOOKING_FEE_PAID]: true });
+            return;
+        }
+        const feePaise = feeRupees * 100;
+        const w = await (0, referrals_1.readWallet)(tx, uid);
+        if (w.data[schema_1.Wallets.BLOCKED] === true) {
+            (0, input_1.fail)("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+        }
+        if (w.balancePaise < feePaise) {
+            const curRupees = (w.balancePaise / 100).toFixed(0);
+            (0, input_1.fail)("failed-precondition", `LOW_WALLET_BALANCE: You need ₹${feeRupees} in your wallet to unlock partner contact. Current balance is ₹${curRupees}. Please top up your wallet.`);
+        }
+        (0, referrals_1.postEntry)(tx, uid, w, `booking_fee_${bookingId}`, schema_1.Values.LedgerType.SERVICE_BOOKING_FEE, -feePaise, bookingId);
+        const now = Timestamp.now();
+        const updates = {
+            [BK.BOOKING_FEE_PAID]: true,
+            [BK.BOOKING_FEE_PAID_AT]: now,
+            walletDebited: true,
+            [BK.UPDATED_AT]: now,
+        };
+        tx.update(ref, updates);
+        updatedBookingData = Object.assign(Object.assign({}, b), updates);
+    });
+    // If partner is already assigned and fee was just paid, trigger WhatsApp notification now
+    if (updatedBookingData && updatedBookingData[BK.PARTNER_ID]) {
+        void (0, whatsapp_messages_1.whatsappServiceAssigned)(updatedBookingData).catch((err) => {
+            functions.logger.warn(`whatsappServiceAssigned after fee payment failed for ${bookingId}:`, err);
+        });
+    }
+    return { ok: true, bookingId, bookingFeePaid: true };
+});
 exports.submitBookingPayment = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
@@ -896,8 +964,9 @@ exports.submitBookingPayment = (0, secure_callable_1.onCallSecured)({ enforceApp
     const b = await ref.get();
     if (!b.exists || b.get(BK.CUSTOMER_ID) !== uid)
         (0, input_1.fail)("not-found", "Booking not found");
-    if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING)
-        (0, input_1.fail)("failed-precondition", "Booking is not pending payment");
+    const feePaid = b.get(BK.BOOKING_FEE_PAID) === true || b.get("walletDebited") === true;
+    if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING && feePaid)
+        (0, input_1.fail)("failed-precondition", "Booking fee is already paid");
     const fee = Number(b.get(BK.BOOKING_FEE) || 0);
     await ref.update({
         utr,
@@ -1274,8 +1343,11 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         await tellCustomer(String(d[BK.CUSTOMER_ID]), bookingId, "SERVICE_ASSIGNED", {
             partner: String(d[BK.PARTNER_NAME]), service: String(d[BK.SERVICE_NAME]),
         });
-        // Services only: a WhatsApp confirmation to both sides (~₹0.13 each), when the templates are set up.
-        await (0, whatsapp_messages_1.whatsappServiceAssigned)(d);
+        // WhatsApp confirmation to both sides: only if platform fee is paid or 1st booking is free!
+        const isFeePaid = d[BK.BOOKING_FEE_PAID] === true || d.walletDebited === true || Number(d[BK.BOOKING_FEE] || 0) === 0;
+        if (isFeePaid) {
+            await (0, whatsapp_messages_1.whatsappServiceAssigned)(d);
+        }
     }
     return {
         result: "accepted",

@@ -1506,7 +1506,7 @@ fun LocalWorkersSocialProofCard(
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     Text(
-                        text = "300+",
+                        text = "1000+",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF047857)
@@ -1546,7 +1546,7 @@ fun LocalWorkersSocialProofCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "In $locationLabel, over 100+ employers hired staff through DutyPe. Over 300+ phone-verified workers are available across helpers, cooks, drivers, cleaners & delivery roles.",
+                text = "In $locationLabel, over 100+ employers hired staff through DutyPe. Over 1000+ phone-verified workers are available across helpers, cooks, drivers, cleaners & delivery roles.",
                 fontSize = 12.sp,
                 color = Color(0xFF475569).fg(),
                 lineHeight = 16.5.sp
@@ -1671,6 +1671,101 @@ fun LocalWorkersSocialProofCard(
     }
 }
 
+
+
+/**
+ * Frictionless "Post via WhatsApp" Hotline Banner Card for Employer Home
+ * Enables busy shopkeepers / contractors to tap and send requirements to DutyPe team (+91 8019151847)
+ */
+@Composable
+fun EmployerWhatsAppHireHotlineCard(
+    modifier: Modifier = Modifier
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Surface(
+        onClick = {
+            val message = "Hi DutyPe team, I want to post a job vacancy for my business. Please post it for me."
+            val encoded = java.net.URLEncoder.encode(message, "UTF-8")
+            val uri = android.net.Uri.parse("https://api.whatsapp.com/send?phone=918019151847&text=$encoded")
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Opening WhatsApp...", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFF0FDF4),
+        border = BorderStroke(1.2.dp, Color(0xFF86EFAC)),
+        shadowElevation = 2.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(Color(0xFF25D366)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                    contentDescription = "WhatsApp",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Post via WhatsApp Hotline",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF065F46)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFFDCFCE7), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "FREE • 2 MIN",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF16A34A)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Don't want to type? Tap here to send your requirement on WhatsApp to +91 8019151847 — DutyPe team will post it for you in 2 minutes for free.",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF047857),
+                    lineHeight = 15.5.sp
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Open WhatsApp",
+                tint = Color(0xFF16A34A),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
 
 /**
  * 48-Hour Free Trial Countdown Banner / Badge for Employer Home Screen

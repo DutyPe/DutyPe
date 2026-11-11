@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.ContentCopy
@@ -2448,21 +2449,75 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
             if (b.inspection) Text(stringResource(R.string.svc_inspection_info), color = SvcOrange, fontSize = 13.sp)
             if (b.note.isNotBlank()) Text("“${b.note}”", color = SvcMuted)
 
+            val isFeePaid = b.bookingFeePaid || b.isFirstBookingFree || b.bookingFee <= 0
+            val maskedPhone = if (isFeePaid) {
+                if (b.customerPhone.startsWith("+91")) b.customerPhone else "+91 ${b.customerPhone}"
+            } else {
+                val last2 = b.customerPhone.takeLast(2).ifBlank { "00" }
+                "+91 ••••••$last2"
+            }
+
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(b.customerName, fontWeight = FontWeight.Bold)
                     Text(b.addressText, color = SvcMuted, fontSize = 13.sp)
+                    Text(maskedPhone, color = if (isFeePaid) Color(0xFF15803D) else SvcMuted, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     if (b.isOpen) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { dial(context, b.customerPhone) }) {
-                                Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.svc_job_call))
+                        if (!isFeePaid) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFFFFBEB),
+                                border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Filled.Lock, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "Customer phone & WhatsApp unlock once customer confirms platform service fee.",
+                                        fontSize = 11.5.sp,
+                                        color = Color(0xFF78350F),
+                                        lineHeight = 15.sp
+                                    )
+                                }
                             }
-                            OutlinedButton(onClick = { openMaps(context, b.lat, b.lng) }) {
-                                Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.svc_job_navigate))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { openMaps(context, b.lat, b.lng) }, modifier = Modifier.fillMaxWidth()) {
+                                    Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stringResource(R.string.svc_job_navigate))
+                                }
+                            }
+                        } else {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { dial(context, b.customerPhone) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stringResource(R.string.svc_job_call))
+                                }
+                                Button(
+                                    onClick = {
+                                        val cleanPhone = b.customerPhone.replace("+91", "").trim()
+                                        val msg = "Hi ${b.customerName}, I am your DutyPe service partner for #${b.id.takeLast(6)} (${b.serviceName})."
+                                        val waUri = android.net.Uri.parse("https://wa.me/91${cleanPhone}?text=${android.net.Uri.encode(msg)}")
+                                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, waUri)) }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("WhatsApp")
+                                }
+                                OutlinedButton(onClick = { openMaps(context, b.lat, b.lng) }) {
+                                    Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
                             }
                         }
                     }
@@ -2478,7 +2533,7 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                     partnerLng = b.partnerLng,
                     customerLabel = b.addressText.ifBlank { "Customer Doorstep" },
                     partnerName = "My Location",
-                    partnerPhone = b.customerPhone,
+                    partnerPhone = if (isFeePaid) b.customerPhone else "",
                     partnerBearing = b.partnerBearing,
                     isPartnerMode = true,
                     onNavigateClick = { openMaps(context, b.lat, b.lng) }
