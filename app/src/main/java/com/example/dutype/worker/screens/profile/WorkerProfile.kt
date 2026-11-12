@@ -6,6 +6,7 @@ import com.example.dutype.components.bouncyClickable
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.WorkerColors
 import com.dutype.app.R
 import com.example.dutype.components.UserReviewsBottomSheet
 import kotlinx.coroutines.launch
@@ -283,9 +284,10 @@ fun WorkerProfileScreen(
         }
     }
 
-    // Status bar color - White for profile screen
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+    // Status bar color - adapt to theme for profile screen
+    val statusBarColor = WorkerColors.StatusBarColor
+    LaunchedEffect(statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
         delay(200)
         isVisible = true
     }
@@ -521,7 +523,7 @@ fun WorkerProfileScreen(
                                 }
                             },
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
+                        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {

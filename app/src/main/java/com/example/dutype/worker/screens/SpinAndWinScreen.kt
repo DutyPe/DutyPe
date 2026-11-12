@@ -1,5 +1,12 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.WorkerColors
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
+
 import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.auth.FirebaseAuth
@@ -399,12 +406,12 @@ fun SpinAndWinScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White,
+        containerColor = WorkerColors.ScreenBackground,
         topBar = {
             Surface(
-                color = Color.White,
+                color = WorkerColors.CardBackground,
                 shadowElevation = 0.5.dp,
-                border = BorderStroke(0.5.dp, Color(0xFFE2E8F0)),
+                border = BorderStroke(0.5.dp, Color(0xFFE2E8F0).bd()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
@@ -422,12 +429,12 @@ fun SpinAndWinScreen(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFF1F5F9))
+                            .background(Color(0xFFF1F5F9).bg())
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF0F172A)
+                            contentDescription = stringResource(R.string.back),
+                            tint = Color(0xFF0F172A).fg()
                         )
                     }
 
@@ -438,8 +445,8 @@ fun SpinAndWinScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(50),
-                            color = Color(0xFFFFFBEB),
-                            border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                            color = Color(0xFFFFFBEB).bg(),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A).bd())
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -447,7 +454,7 @@ fun SpinAndWinScreen(
                             ) {
                                 Text(
                                     text = "🪙 $totalDummyCoins Coins",
-                                    color = Color(0xFFD97706),
+                                    color = Color(0xFFD97706).fg(),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -456,8 +463,8 @@ fun SpinAndWinScreen(
 
                         Surface(
                             shape = RoundedCornerShape(50),
-                            color = Color(0xFFF0FDF4),
-                            border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                            color = Color(0xFFF0FDF4).bg(),
+                            border = BorderStroke(1.dp, Color(0xFFBBF7D0).bd())
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -465,7 +472,7 @@ fun SpinAndWinScreen(
                             ) {
                                 Text(
                                     text = "💵 ₹$totalDummyCash Won",
-                                    color = Color(0xFF059669),
+                                    color = Color(0xFF059669).fg(),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -488,14 +495,14 @@ fun SpinAndWinScreen(
             // Headline
             Text(
                 text = "SPIN & WIN UP TO ₹100",
-                color = Color(0xFF0F172A),
+                color = Color(0xFF0F172A).fg(),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 0.5.sp
             )
             Text(
                 text = "చక్రం తిప్పండి - ఉచిత బహుమతులు గెలవండి",
-                color = Color(0xFF64748B),
+                color = Color(0xFF64748B).fg(),
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(top = 2.dp)
@@ -507,8 +514,8 @@ fun SpinAndWinScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFEFF6FF),
-                border = BorderStroke(0.8.dp, Color(0xFFBFDBFE))
+                color = Color(0xFFEFF6FF).bg(),
+                border = BorderStroke(0.8.dp, Color(0xFFBFDBFE).bd())
             ) {
                 Row(
                     modifier = Modifier.padding(10.dp),
@@ -517,13 +524,13 @@ fun SpinAndWinScreen(
                     Icon(
                         imageVector = Icons.Filled.Info,
                         contentDescription = null,
-                        tint = Color(0xFF2563EB),
+                        tint = Color(0xFF2563EB).fg(),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = "🎮 For Fun & Entertainment Timepass Only: DutyPe Coins are dummy game tokens. Spin for fun!",
-                        color = Color(0xFF1E40AF),
+                        color = Color(0xFF1E40AF).fg(),
                         fontSize = 11.sp,
                         lineHeight = 15.sp,
                         fontWeight = FontWeight.Medium
@@ -538,8 +545,8 @@ fun SpinAndWinScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFFFFBEB),
-                border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                color = Color(0xFFFFFBEB).bg(),
+                border = BorderStroke(1.dp, Color(0xFFFDE68A).bd())
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
@@ -549,13 +556,13 @@ fun SpinAndWinScreen(
                     ) {
                         Text(
                             text = "🎁 Golden Scratch Card (Every 5th Spin)",
-                            color = Color(0xFFB45309),
+                            color = Color(0xFFB45309).fg(),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = "$currentInFive / 5 Spins",
-                            color = Color(0xFFD97706),
+                            color = Color(0xFFD97706).fg(),
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -566,7 +573,7 @@ fun SpinAndWinScreen(
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(Color(0xFFE2E8F0))
+                            .background(Color(0xFFE2E8F0).bd())
                     ) {
                         Box(
                             modifier = Modifier
@@ -667,7 +674,7 @@ fun SpinAndWinScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Filled.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(text = "Share & Unlock Spins", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(text = stringResource(R.string.share_unlock_spins), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -687,19 +694,19 @@ fun SpinAndWinScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                color = WorkerColors.CardBackground,
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 shadowElevation = 8.dp
             ) {
                 Column(
                     modifier = Modifier.padding(22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(text = "🎉 Congratulations!", color = Color(0xFFD97706), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text(text = "🎉 Congratulations!", color = Color(0xFFD97706).fg(), fontSize = 20.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(10.dp))
                     Text(
                         text = if (seg.coinValue > 0) "You won ${seg.coinValue} DutyPe Coins! 🪙" else if (seg.cashValue > 0) "You won ₹${seg.cashValue} Cash! 💵" else "Nice try! Better luck next spin! 🤞",
-                        color = Color(0xFF0F172A),
+                        color = Color(0xFF0F172A).fg(),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
@@ -710,7 +717,7 @@ fun SpinAndWinScreen(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
                     ) {
-                        Text("Claim & Spin Again", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.claim_spin_again), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -728,8 +735,8 @@ fun SpinAndWinScreen(
                     .fillMaxWidth()
                     .padding(12.dp),
                 shape = RoundedCornerShape(24.dp),
-                color = Color.White,
-                border = BorderStroke(1.5.dp, Color(0xFFF59E0B)),
+                color = WorkerColors.CardBackground,
+                border = BorderStroke(1.5.dp, Color(0xFFF59E0B).bd()),
                 shadowElevation = 10.dp
             ) {
                 Column(
@@ -737,15 +744,15 @@ fun SpinAndWinScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "⭐ 5th SPIN GOLDEN REWARD ⭐",
-                        color = Color(0xFFD97706),
+                        text = stringResource(R.string.golden_scratch_reward),
+                        color = Color(0xFFD97706).fg(),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Black
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Scratch the card to reveal your guaranteed prize!",
-                        color = Color(0xFF64748B),
+                        text = stringResource(R.string.scratch_card_prompt),
+                        color = Color(0xFF64748B).fg(),
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     )
@@ -802,7 +809,7 @@ fun SpinAndWinScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "👉 Scratch Here with Finger 👈",
+                                    text = stringResource(R.string.scratch_here_with_finger),
                                     color = Color(0xFF1E293B),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.ExtraBold

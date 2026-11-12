@@ -1,5 +1,11 @@
 package com.example.dutype.homeservices
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.window.Dialog
@@ -133,10 +139,10 @@ fun ServiceWalletScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Services Wallet",
+                            text = stringResource(R.string.services_wallet_title),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A),
+                            color = Color(0xFF0F172A).fg(),
                             fontFamily = MeeshoFontFamily
                         )
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -149,7 +155,7 @@ fun ServiceWalletScreen(
                             Text(
                                 text = "100% Razorpay Secured • Zero Hidden Fees",
                                 fontSize = 11.sp,
-                                color = Color(0xFF64748B),
+                                color = Color(0xFF64748B).fg(),
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -159,15 +165,15 @@ fun ServiceWalletScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF0F172A)
+                            contentDescription = stringResource(R.string.back),
+                            tint = Color(0xFF0F172A).fg()
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White.bg())
             )
         },
-        containerColor = Color(0xFFF7F7F7)
+        containerColor = Color(0xFFF7F7F7).bg()
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -223,7 +229,7 @@ fun ServiceWalletScreen(
                                         )
                                     }
                                     Text(
-                                        text = "DutyPe Service Wallet",
+                                        text = stringResource(R.string.services_wallet_title),
                                         color = Color(0xFFE2E8F0),
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.SemiBold
@@ -236,7 +242,7 @@ fun ServiceWalletScreen(
                                     border = BorderStroke(1.dp, Color(0xFF22C55E).copy(alpha = 0.4f))
                                 ) {
                                     Text(
-                                        text = "● Active",
+                                        text = "● " + stringResource(R.string.active_status),
                                         color = Color(0xFF4ADE80),
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Bold,
@@ -249,7 +255,7 @@ fun ServiceWalletScreen(
 
                             Column {
                                 Text(
-                                    text = "Available Balance",
+                                    text = stringResource(R.string.wallet_available_balance),
                                     color = Color(0xFF94A3B8),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
@@ -280,7 +286,7 @@ fun ServiceWalletScreen(
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        text = "Closed-loop PPI wallet • 1-click home service checkout",
+                                        text = stringResource(R.string.wallet_ppi_desc),
                                         color = Color(0xFFCBD5E1),
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Medium
@@ -297,25 +303,25 @@ fun ServiceWalletScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "Add Money to Wallet",
+                            text = stringResource(R.string.add_money_to_wallet),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A),
+                            color = Color(0xFF0F172A).fg(),
                             fontFamily = MeeshoFontFamily
                         )
 
                         Text(
-                            text = "Select a quick amount or enter custom recharge value (Min ₹50):",
+                            text = stringResource(R.string.select_quick_amount_prompt),
                             fontSize = 12.5.sp,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B).fg()
                         )
 
                         // Quick Chips
@@ -334,14 +340,14 @@ fun ServiceWalletScreen(
                                             customAmountText = amt.toString()
                                         },
                                     shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9),
-                                    border = BorderStroke(1.5.dp, if (isSelected) Color(0xFF0F172A) else Color(0xFFE2E8F0))
+                                    color = if (isSelected) Color(0xFF0F172A).bg() else Color(0xFFF1F5F9).bg(),
+                                    border = BorderStroke(1.5.dp, if (isSelected) Color(0xFF0F172A).bd() else Color(0xFFE2E8F0).bd())
                                 ) {
                                     Text(
                                         text = "₹$amt",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else Color(0xFF334155),
+                                        color = if (isSelected) Color.White else Color(0xFF334155).fg(),
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(vertical = 12.dp)
                                     )
@@ -359,13 +365,13 @@ fun ServiceWalletScreen(
                                 val num = clean.toIntOrNull() ?: 0
                                 selectedAmount = num
                             },
-                            label = { Text("Recharge Amount (₹)") },
+                            label = { Text(stringResource(R.string.recharge_amount_label), color = Color(0xFF64748B).fg()) },
                             prefix = {
                                 Text(
                                     "₹ ",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A)
+                                    color = Color(0xFF0F172A).fg()
                                 )
                             },
                             singleLine = true,
@@ -373,14 +379,18 @@ fun ServiceWalletScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF0F172A),
-                                unfocusedBorderColor = Color(0xFFCBD5E1)
+                                focusedBorderColor = Color(0xFF0F172A).bd(),
+                                unfocusedBorderColor = Color(0xFFCBD5E1).bd(),
+                                focusedTextColor = Color(0xFF0F172A).fg(),
+                                unfocusedTextColor = Color(0xFF0F172A).fg(),
+                                focusedContainerColor = Color.White.bg(),
+                                unfocusedContainerColor = Color.White.bg()
                             )
                         )
 
                         if (!isAmountValid) {
                             Text(
-                                text = "⚠️ Minimum deposit amount is ₹50",
+                                text = stringResource(R.string.min_deposit_warning),
                                 fontSize = 12.sp,
                                 color = Color(0xFFDC2626),
                                 fontWeight = FontWeight.Medium
@@ -431,7 +441,7 @@ fun ServiceWalletScreen(
                                 .fillMaxWidth()
                                 .height(52.dp),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A).bg())
                         ) {
                             Icon(
                                 Icons.Default.Lock,
@@ -441,7 +451,7 @@ fun ServiceWalletScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Add ₹$currentRechargeAmount via Razorpay ➔",
+                                text = stringResource(R.string.add_amount_via_razorpay, currentRechargeAmount),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -456,37 +466,37 @@ fun ServiceWalletScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Why use DutyPe Service Wallet?",
+                            text = stringResource(R.string.why_use_wallet_title),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = Color(0xFF0F172A).fg()
                         )
 
                         WalletBenefitRow(
                             icon = Icons.Default.Bolt,
                             iconTint = Color(0xFFEAB308),
-                            title = "Instant 1-Click Bookings",
-                            desc = "Zero payment failures or bank OTP delays during urgent service bookings"
+                            title = stringResource(R.string.wallet_benefit_instant_title),
+                            desc = stringResource(R.string.wallet_benefit_instant_desc)
                         )
                         WalletBenefitRow(
                             icon = Icons.Default.Security,
                             iconTint = Color(0xFF16A34A),
-                            title = "100% Refundable Guarantee",
-                            desc = "Unused money can be refunded back to your bank account anytime"
+                            title = stringResource(R.string.wallet_benefit_refund_title),
+                            desc = stringResource(R.string.wallet_benefit_refund_desc)
                         )
                         WalletBenefitRow(
                             icon = Icons.Default.Shield,
                             iconTint = Color(0xFF2563EB),
-                            title = "Razorpay Bank-Grade Security",
-                            desc = "Encrypted 256-bit SSL checkout supporting UPI (GPay, PhonePe, Paytm), Cards & NetBanking"
+                            title = stringResource(R.string.wallet_benefit_security_title),
+                            desc = stringResource(R.string.wallet_benefit_security_desc)
                         )
                     }
                 }
@@ -495,10 +505,10 @@ fun ServiceWalletScreen(
             // 4. TRANSACTION HISTORY
             item {
                 Text(
-                    text = "Recent Transactions",
+                    text = stringResource(R.string.recent_transactions_title),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
+                    color = Color(0xFF0F172A).fg(),
                     fontFamily = MeeshoFontFamily,
                     modifier = Modifier.padding(top = 8.dp)
                 )
@@ -524,8 +534,8 @@ fun ServiceWalletScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
                     ) {
                         Column(
                             modifier = Modifier
@@ -541,15 +551,15 @@ fun ServiceWalletScreen(
                                 modifier = Modifier.size(36.dp)
                             )
                             Text(
-                                text = "No Transactions Yet",
+                                text = stringResource(R.string.no_transactions_yet),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF334155)
+                                color = Color(0xFF334155).fg()
                             )
                             Text(
-                                text = "Your wallet top-ups and service booking payments will appear here.",
+                                text = stringResource(R.string.no_transactions_desc),
                                 fontSize = 12.sp,
-                                color = Color(0xFF64748B),
+                                color = Color(0xFF64748B).fg(),
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -568,7 +578,7 @@ fun ServiceWalletScreen(
         Dialog(onDismissRequest = {}) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
                 elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 Row(
@@ -585,7 +595,7 @@ fun ServiceWalletScreen(
                         text = paymentProcessingMessage,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFF0F172A)
+                        color = Color(0xFF0F172A).fg()
                     )
                 }
             }
@@ -597,7 +607,7 @@ fun ServiceWalletScreen(
         AlertDialog(
             onDismissRequest = { successfulRechargeAmount = null },
             shape = RoundedCornerShape(20.dp),
-            containerColor = Color.White,
+            containerColor = Color.White.bg(),
             title = null,
             text = {
                 Column(
@@ -611,7 +621,7 @@ fun ServiceWalletScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFDCFCE7)),
+                            .background(Color(0xFFDCFCE7).bg()),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -623,17 +633,17 @@ fun ServiceWalletScreen(
                     }
 
                     Text(
-                        text = "Wallet Recharge Successful! 🎉",
+                        text = stringResource(R.string.wallet_recharge_successful),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF0F172A),
+                        color = Color(0xFF0F172A).fg(),
                         fontFamily = MeeshoFontFamily
                     )
 
                     Text(
                         text = "₹$successfulRechargeAmount has been loaded into your DutyPe Service Wallet immediately.",
                         fontSize = 13.sp,
-                        color = Color(0xFF475569),
+                        color = Color(0xFF475569).fg(),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -643,9 +653,9 @@ fun ServiceWalletScreen(
                     onClick = { successfulRechargeAmount = null },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A).bg())
                 ) {
-                    Text("Done", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.done), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         )
@@ -674,8 +684,8 @@ private fun WalletBenefitRow(
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(15.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E293B))
-            Text(desc, fontSize = 11.5.sp, color = Color(0xFF64748B), lineHeight = 16.sp)
+            Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E293B).fg())
+            Text(desc, fontSize = 11.5.sp, color = Color(0xFF64748B).fg(), lineHeight = 16.sp)
         }
     }
 }
@@ -692,8 +702,8 @@ private fun TransactionItemCard(entry: LedgerEntry) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9).bd())
     ) {
         Row(
             modifier = Modifier
@@ -710,7 +720,7 @@ private fun TransactionItemCard(entry: LedgerEntry) {
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(if (isCredit) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)),
+                        .background(if (isCredit) Color(0xFFDCFCE7).bg() else Color(0xFFFEE2E2).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -723,19 +733,19 @@ private fun TransactionItemCard(entry: LedgerEntry) {
                 Column {
                     Text(
                         text = when {
-                            entry.type.contains("DEPOSIT", ignoreCase = true) -> "Wallet Recharge (Razorpay)"
-                            entry.type.contains("REFUND", ignoreCase = true) -> "Booking Fee Refund"
-                            entry.type.contains("BOOKING", ignoreCase = true) -> "Service Booking Payment"
+                            entry.type.contains("DEPOSIT", ignoreCase = true) -> stringResource(R.string.wallet_recharge_razorpay)
+                            entry.type.contains("REFUND", ignoreCase = true) -> stringResource(R.string.wallet_booking_refund)
+                            entry.type.contains("BOOKING", ignoreCase = true) -> stringResource(R.string.wallet_service_booking_payment)
                             else -> entry.label
                         },
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF0F172A)
+                        color = Color(0xFF0F172A).fg()
                     )
                     Text(
                         text = formattedDate,
                         fontSize = 11.sp,
-                        color = Color(0xFF94A3B8)
+                        color = Color(0xFF94A3B8).fg()
                     )
                 }
             }

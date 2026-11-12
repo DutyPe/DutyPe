@@ -1580,9 +1580,9 @@ private fun InstantRequestCard(
             .fillMaxWidth()
             .clickable(onClick = onApply),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).bd().copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -2065,8 +2065,8 @@ fun HighlightedWorkerJobCard(
             .clip(RoundedCornerShape(16.dp))
             .clickable { onCardClick() },
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        color = Color.White.bg(),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
         shadowElevation = 0.5.dp
     ) {
         Column(
@@ -2084,7 +2084,7 @@ fun HighlightedWorkerJobCard(
                     modifier = Modifier
                         .size(50.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE0F2FE)),
+                        .background(Color(0xFFE0F2FE).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!job.photoUrl.isNullOrBlank()) {
@@ -2104,7 +2104,7 @@ fun HighlightedWorkerJobCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = job.title,
-                        color = Color(0xFF0F172A),
+                        color = Color(0xFF0F172A).fg(),
                         fontSize = 16.5.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -2117,7 +2117,7 @@ fun HighlightedWorkerJobCard(
                     ) {
                         Text(
                             text = "${job.companyName.ifBlank { "DutyPe Partner" }} · $timeAgo",
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -2178,13 +2178,13 @@ fun HighlightedWorkerJobCard(
             ) {
                 Text(
                     text = "₹${SalaryFormatter.amount(payAmount)}/$payTypeShort",
-                    color = Color(0xFF0F172A),
+                    color = Color(0xFF0F172A).fg(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
                     text = "paid $payFrequency",
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF64748B).fg(),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(bottom = 1.dp)
@@ -2206,7 +2206,7 @@ fun HighlightedWorkerJobCard(
                 )
                 Text(
                     text = locationDisplay,
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF64748B).fg(),
                     fontSize = 12.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -2229,12 +2229,12 @@ fun HighlightedWorkerJobCard(
                     // Vacancy Pill
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = Color(0xFFEFF6FF),
-                        border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                        color = Color(0xFFEFF6FF).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFBFDBFE).bd())
                     ) {
                         Text(
                             text = vacanciesText,
-                            color = Color(0xFF1D4ED8),
+                            color = Color(0xFF1D4ED8).fg(),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
@@ -2244,12 +2244,12 @@ fun HighlightedWorkerJobCard(
                     // Part-time / Full-time Pill
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = Color(0xFFF0FDF4),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                        color = Color(0xFFF0FDF4).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0).bd())
                     ) {
                         Text(
                             text = workType,
-                            color = Color(0xFF15803D),
+                            color = Color(0xFF15803D).fg(),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
@@ -2260,12 +2260,12 @@ fun HighlightedWorkerJobCard(
                     if (job.isUrgent) {
                         Surface(
                             shape = RoundedCornerShape(50),
-                            color = Color(0xFFFFFBEB),
-                            border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                            color = Color(0xFFFFFBEB).bg(),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A).bd())
                         ) {
                             Text(
                                 text = "Urgent",
-                                color = Color(0xFFB45309),
+                                color = Color(0xFFB45309).fg(),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
@@ -2433,7 +2433,7 @@ fun WorkerPayoutTickerPill(
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = Color.White,
+            containerColor = WorkerColors.CardBackground,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
@@ -2449,23 +2449,23 @@ fun WorkerPayoutTickerPill(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(text = "💰 Recent Direct Payouts", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text(text = stringResource(R.string.recent_direct_payouts), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                         Text(
-                            text = "Live verified settlements • 100% Direct UPI • ₹0 Cut",
+                            text = stringResource(R.string.live_verified_settlements),
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B),
+                            color = WorkerColors.TextSecondary,
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
 
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = Color(0xFFECFDF5),
-                        border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                        color = Color(0xFFECFDF5).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFA7F3D0).bd())
                     ) {
                         Text(
-                            text = "Verified ✓",
-                            color = Color(0xFF047857),
+                            text = "${stringResource(R.string.verified_label)} ✓",
+                            color = Color(0xFF047857).fg(),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
@@ -2492,13 +2492,13 @@ fun WorkerPayoutTickerPill(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF1F5F9)),
+                                    .background(Color(0xFFF1F5F9).bg()),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = item.name.take(1),
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0284C7),
+                                    color = Color(0xFF0284C7).fg(),
                                     fontSize = 14.sp
                                 )
                             }
@@ -2507,12 +2507,12 @@ fun WorkerPayoutTickerPill(
                                     text = "${item.name} · ${item.location}",
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1E293B)
+                                    color = WorkerColors.TextPrimary
                                 )
                                 Text(
                                     text = "${item.role} • Direct UPI Transfer",
                                     fontSize = 11.5.sp,
-                                    color = Color(0xFF64748B)
+                                    color = WorkerColors.TextSecondary
                                 )
                             }
                         }
@@ -2522,12 +2522,12 @@ fun WorkerPayoutTickerPill(
                                 text = "+₹${item.amountEarnedToday}",
                                 fontSize = 14.5.sp,
                                 fontWeight = FontWeight.Black,
-                                color = Color(0xFF059669)
+                                color = Color(0xFF059669).fg()
                             )
-                            Text(text = item.timeAgo, fontSize = 10.5.sp, color = Color(0xFF94A3B8))
+                            Text(text = item.timeAgo, fontSize = 10.5.sp, color = WorkerColors.TextSecondary)
                         }
                     }
-                    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFF1F5F9))
+                    HorizontalDivider(thickness = 0.5.dp, color = WorkerColors.Border)
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -2535,8 +2535,8 @@ fun WorkerPayoutTickerPill(
                 // Bottom Guarantee Box
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    color = Color(0xFFF8FAFC).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -2548,7 +2548,7 @@ fun WorkerPayoutTickerPill(
                         Text(
                             text = "DutyPe Guarantee: Employers settle wages directly via UPI or cash on spot. Zero commission taken.",
                             fontSize = 11.5.sp,
-                            color = Color(0xFF475569),
+                            color = WorkerColors.TextSecondary,
                             lineHeight = 16.sp
                         )
                     }

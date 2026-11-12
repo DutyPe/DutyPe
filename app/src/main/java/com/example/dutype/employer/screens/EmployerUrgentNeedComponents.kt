@@ -394,7 +394,7 @@ private fun InstantHiringPillTabs(
                     .clip(RoundedCornerShape(10.dp))
                     .clickable { onTabSelected(0) },
                 shape = RoundedCornerShape(10.dp),
-                color = if (tab0Selected) Color.White else Color.Transparent,
+                color = if (tab0Selected) Color.White.bg() else Color.Transparent,
                 shadowElevation = if (tab0Selected) 2.dp else 0.dp
             ) {
                 Row(
@@ -410,10 +410,10 @@ private fun InstantHiringPillTabs(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Nearby Matches ($nearbyCount)",
+                        text = stringResource(R.string.nearby_matches_format, nearbyCount),
                         fontSize = 13.sp,
                         fontWeight = if (tab0Selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (tab0Selected) Color(0xFF0F172A) else Color(0xFF64748B)
+                        color = if (tab0Selected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
                     )
                 }
             }
@@ -425,7 +425,7 @@ private fun InstantHiringPillTabs(
                     .clip(RoundedCornerShape(10.dp))
                     .clickable { onTabSelected(1) },
                 shape = RoundedCornerShape(10.dp),
-                color = if (tab1Selected) Color.White else Color.Transparent,
+                color = if (tab1Selected) Color.White.bg() else Color.Transparent,
                 shadowElevation = if (tab1Selected) 2.dp else 0.dp
             ) {
                 Row(
@@ -441,10 +441,10 @@ private fun InstantHiringPillTabs(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Ready Workers ($readyCount)",
+                        text = stringResource(R.string.ready_workers_format, readyCount),
                         fontSize = 13.sp,
                         fontWeight = if (tab1Selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (tab1Selected) Color(0xFF0F172A) else Color(0xFF64748B)
+                        color = if (tab1Selected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
                     )
                 }
             }
@@ -536,8 +536,8 @@ internal fun EmployerUrgentNeedDetailContent(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
@@ -554,7 +554,7 @@ internal fun EmployerUrgentNeedDetailContent(
                                             text = request.title,
                                             style = MaterialTheme.typography.titleMedium.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF0F172A)
+                                                color = Color(0xFF0F172A).fg()
                                             ),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -562,7 +562,7 @@ internal fun EmployerUrgentNeedDetailContent(
                                         Text(
                                             text = listOf(request.category, request.budgetText, request.durationText)
                                                 .filter { it.isNotBlank() }.joinToString(" • "),
-                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B).fg()),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -681,7 +681,7 @@ internal fun EmployerUrgentNeedDetailContent(
                                         icon = Icons.Filled.Refresh,
                                         onClick = onRefreshMatchedWorkers
                                     ),
-                                    modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(14.dp))
+                                    modifier = Modifier.fillMaxWidth().background(Color.White.bg(), RoundedCornerShape(14.dp))
                                 )
                             }
                         } else {
@@ -715,7 +715,7 @@ internal fun EmployerUrgentNeedDetailContent(
                                         icon = Icons.Filled.Verified,
                                         onClick = { selectedTab = 0 }
                                     ),
-                                    modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(14.dp))
+                                    modifier = Modifier.fillMaxWidth().background(Color.White.bg(), RoundedCornerShape(14.dp))
                                 )
                             }
                         } else {
@@ -1339,9 +1339,9 @@ private fun InstantResponseRow(
             .fillMaxWidth()
             .clickable { onOpenWorkerProfile(response) },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1357,13 +1357,13 @@ private fun InstantResponseRow(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF1F5F9)),
+                        .background(Color(0xFFF1F5F9).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = Color(0xFF64748B).fg(),
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -1377,7 +1377,7 @@ private fun InstantResponseRow(
                             text = response.workerName,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = Color(0xFF0F172A).fg()
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1391,7 +1391,7 @@ private fun InstantResponseRow(
                     }
                     Text(
                         text = response.workerSkills.take(3).joinToString(", ").ifBlank { stringResource(R.string.worker_profile_fallback) },
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B).fg()),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1420,7 +1420,7 @@ private fun InstantResponseRow(
                     ) {
                         Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Call", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                        Text(stringResource(R.string.call), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
 
                     // Hire Button
@@ -1450,7 +1450,7 @@ private fun InstantResponseRow(
                     ) {
                         Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Call", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                        Text(stringResource(R.string.call), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
 
                     Button(

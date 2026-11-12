@@ -1203,7 +1203,7 @@ fun PostBookingRatingModal(
                 if (isSubmitting) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
-                    Text("Submit Rating", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                    Text(stringResource(R.string.rate_and_review), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
                 }
             }
 
@@ -1211,7 +1211,7 @@ fun PostBookingRatingModal(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Ask Me Later", color = Color(0xFF64748B), fontSize = 13.sp)
+                Text(stringResource(R.string.later), color = Color(0xFF64748B).fg(), fontSize = 13.sp)
             }
         }
     }
@@ -1226,7 +1226,7 @@ internal fun RateLastServiceCard(bookings: List<ServiceBooking>, onOpen: (String
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFFFFFBEB).bg())
-            .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFFDE68A).bd(), RoundedCornerShape(16.dp))
             .clickable { onOpen(b.id) }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1247,7 +1247,7 @@ internal fun RateLastServiceCard(bookings: List<ServiceBooking>, onOpen: (String
 private fun ServicesSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    containerColor: Color = Color.White,
+    containerColor: Color = Color.White.bg(),
     modifier: Modifier = Modifier
 ) {
     val serviceSuggestions = remember {
@@ -1277,8 +1277,8 @@ private fun ServicesSearchBar(
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(containerColor)
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+            .background(containerColor.bg())
+            .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1296,8 +1296,8 @@ private fun ServicesSearchBar(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Search for ",
-                        color = Color(0xFF94A3B8),
+                        text = stringResource(R.string.search_for_prefix),
+                        color = Color(0xFF94A3B8).fg(),
                         fontSize = 13.5.sp
                     )
                     AnimatedContent<String>(
@@ -1310,7 +1310,7 @@ private fun ServicesSearchBar(
                     ) { suggestion ->
                         Text(
                             text = "'$suggestion'...",
-                            color = Color(0xFF94A3B8),
+                            color = Color(0xFF94A3B8).fg(),
                             fontSize = 13.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1323,7 +1323,7 @@ private fun ServicesSearchBar(
                 onValueChange = onQueryChange,
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    color = Color(0xFF0F172A),
+                    color = Color(0xFF0F172A).fg(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 ),
@@ -1596,7 +1596,7 @@ private fun ServicesIntegratedHeroBanner(
                             overflow = TextOverflow.Ellipsis
                         )
                         NormalBannerBookButton(
-                            text = banner.cta.ifBlank { "Book Now" },
+                            text = banner.cta.ifBlank { stringResource(R.string.svc_book) },
                             onClick = { onBookPromo(banner.targetServiceId, banner.targetCategoryId, banner.targetShowcaseId) }
                         )
                     }
@@ -2312,7 +2312,7 @@ fun ServicesHomeShimmer() {
                     Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF334155)))
                 }
                 Spacer(Modifier.height(14.dp))
-                Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(Color.White))
+                Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.bg()))
             }
         }
 
@@ -2339,8 +2339,8 @@ fun ServicesHomeShimmer() {
                         .weight(1f)
                         .height(84.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White)
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
+                        .background(Color.White.bg())
+                        .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(shimmerColor))
@@ -2363,8 +2363,8 @@ fun ServicesHomeShimmer() {
                         .fillMaxWidth()
                         .height(90.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+                        .background(Color.White.bg())
+                        .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp))
                         .padding(12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3972,8 +3972,8 @@ private fun ServiceRow(
                     Modifier
                         .size(82.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+                        .background(Color.White.bg())
+                        .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     ServiceClayImage(
@@ -8577,15 +8577,17 @@ private fun PaymentPendingCard(
                         value = utrInput,
                         onValueChange = { if (it.length <= 12 && it.all { ch -> ch.isDigit() }) utrInput = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Enter 12-digit UPI Ref / UTR number", fontSize = 13.sp) },
+                        placeholder = { Text(stringResource(R.string.enter_utr_placeholder), fontSize = 13.sp, color = Color(0xFF94A3B8).fg()) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         shape = RoundedCornerShape(10.dp),
                         colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color(0xFFCA8A04),
-                            unfocusedBorderColor = Color(0xFFE2E8F0)
+                            focusedContainerColor = Color.White.bg(),
+                            unfocusedContainerColor = Color.White.bg(),
+                            focusedBorderColor = Color(0xFFCA8A04).bd(),
+                            unfocusedBorderColor = Color(0xFFE2E8F0).bd(),
+                            focusedTextColor = Color(0xFF0F172A).fg(),
+                            unfocusedTextColor = Color(0xFF0F172A).fg()
                         )
                     )
 

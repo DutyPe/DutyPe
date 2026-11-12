@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import androidx.compose.material.icons.filled.Add
@@ -423,8 +424,7 @@ fun EmployerHomeScreen(
     // Helper functions to handle job actions
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
 
-    val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
-    val employerStatusBarColor = Color.White
+    val employerStatusBarColor = com.example.dutype.ui.theme.EmployerColors.StatusBarColor
     LaunchedEffect(employerStatusBarColor) {
         onStatusBarColorChange(employerStatusBarColor)
     }
@@ -777,7 +777,7 @@ fun EmployerBentoGrid(
             modifier = Modifier
                 .weight(1.15f)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFFFFF0E8))
+                .background(Color(0xFFFFF0E8).bg())
                 .bouncyClickable(onClick = onActiveJobClick)
                 .padding(16.dp)
         ) {
@@ -792,15 +792,15 @@ fun EmployerBentoGrid(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Active job",
+                        text = stringResource(R.string.active_job),
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF111827)
+                        color = Color(0xFF111827).fg()
                     )
                     Icon(
                         imageVector = Icons.Outlined.WorkOutline,
                         contentDescription = null,
-                        tint = Color(0xFF111827),
+                        tint = Color(0xFF111827).fg(),
                         modifier = Modifier.size(19.dp)
                     )
                 }
@@ -819,11 +819,12 @@ fun EmployerBentoGrid(
                     } else {
                         0f
                     }
+                    val trackColor = Color(0xFFFFD8C2).bg()
                     Canvas(modifier = Modifier.size(86.dp)) {
                         val strokeW = 10.dp.toPx()
                         // Background track ring
                         drawCircle(
-                            color = Color(0xFFFFD8C2),
+                            color = trackColor,
                             radius = (size.minDimension - strokeW) / 2f,
                             style = Stroke(width = strokeW)
                         )
@@ -845,7 +846,7 @@ fun EmployerBentoGrid(
                         text = activeJobTitle,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827),
+                        color = Color(0xFF111827).fg(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 12.dp)
@@ -863,22 +864,22 @@ fun EmployerBentoGrid(
                             text = matchCount.toString(),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "of $totalMatches matches",
+                            text = stringResource(R.string.of_matches_format, totalMatches),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF7C6C65),
+                            color = Color(0xFF7C6C65).fg(),
                             modifier = Modifier.padding(bottom = 2.dp)
                         )
                     } else {
                         Text(
-                            text = "0 active matches",
+                            text = stringResource(R.string.zero_active_matches),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF7C6C65),
+                            color = Color(0xFF7C6C65).fg(),
                             modifier = Modifier.padding(bottom = 2.dp)
                         )
                     }
@@ -896,8 +897,8 @@ fun EmployerBentoGrid(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(20.dp))
+                    .background(Color.White.bg())
+                    .border(1.dp, Color(0xFFF1F5F9).bd(), RoundedCornerShape(20.dp))
                     .bouncyClickable(onClick = onCallReadyClick)
                     .padding(14.dp)
             ) {
@@ -908,10 +909,10 @@ fun EmployerBentoGrid(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Call-ready",
+                            text = stringResource(R.string.call_ready),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Icon(
                             imageVector = Icons.Filled.Call,
@@ -928,14 +929,14 @@ fun EmployerBentoGrid(
                             text = callReadyCount.toString(),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = if (callReadyCount == 1) "worker" else "workers",
+                            text = if (callReadyCount == 1) stringResource(R.string.worker_unit_single) else stringResource(R.string.worker_unit_plural),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal,
-                            color = Color(0xFF8E8E93),
+                            color = Color(0xFF8E8E93).fg(),
                             modifier = Modifier.padding(bottom = 2.dp)
                         )
                     }
@@ -978,16 +979,16 @@ fun EmployerBentoGrid(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFFFFF0E8))
+                    .background(Color(0xFFFFF0E8).bg())
                     .bouncyClickable(onClick = onNearbyClick)
                     .padding(14.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Nearby",
+                        text = stringResource(R.string.nearby),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF111827)
+                        color = Color(0xFF111827).fg()
                     )
 
                     Spacer(Modifier.height(6.dp))
@@ -997,14 +998,14 @@ fun EmployerBentoGrid(
                             text = nearbyCount.toString(),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "in 3 km",
+                            text = stringResource(R.string.in_radius_km, "3"),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF7C6C65),
+                            color = Color(0xFF7C6C65).fg(),
                             modifier = Modifier.padding(bottom = 2.dp)
                         )
                     }
@@ -1028,14 +1029,12 @@ fun EmployerQuickPostSection(
     onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val quickPostRoles = remember {
-        listOf(
-            QuickPostRole("Cook", "Post in 2 minutes", R.drawable.ic_chef_hat, Color(0xFFFFF0E8), Color(0xFFE85D04)),
-            QuickPostRole("Helper", "Post in 2 minutes", R.drawable.ic_role_helper, Color(0xFFE8EFFF), Color(0xFF2563EB)),
-            QuickPostRole("Driver", "Post in 2 minutes", R.drawable.ic_role_driver, Color(0xFFE6F7F0), Color(0xFF10B981)),
-            QuickPostRole("Security", "Post in 2 minutes", R.drawable.ic_role_security, Color(0xFFF3E8FF), Color(0xFF8B5CF6))
-        )
-    }
+    val quickPostRoles = listOf(
+        QuickPostRole(stringResource(R.string.role_cook), stringResource(R.string.post_in_2_minutes), R.drawable.ic_chef_hat, Color(0xFFFFF0E8).bg(), Color(0xFFE85D04)),
+        QuickPostRole(stringResource(R.string.role_helper), stringResource(R.string.post_in_2_minutes), R.drawable.ic_role_helper, Color(0xFFE8EFFF).bg(), Color(0xFF2563EB)),
+        QuickPostRole(stringResource(R.string.role_driver), stringResource(R.string.post_in_2_minutes), R.drawable.ic_role_driver, Color(0xFFE6F7F0).bg(), Color(0xFF10B981)),
+        QuickPostRole(stringResource(R.string.role_security), stringResource(R.string.post_in_2_minutes), R.drawable.ic_role_security, Color(0xFFF3E8FF).bg(), Color(0xFF8B5CF6))
+    )
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -1044,16 +1043,16 @@ fun EmployerQuickPostSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Quick post",
+                text = stringResource(R.string.quick_post_title),
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF111827)
+                color = Color(0xFF111827).fg()
             )
             Text(
-                text = "See all",
+                text = stringResource(R.string.see_all),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF8E8E93),
+                color = Color(0xFF8E8E93).fg(),
                 modifier = Modifier.clickable { onSeeAllClick() }
             )
         }
@@ -1085,13 +1084,13 @@ fun EmployerQuickPostSection(
                                 .padding(8.dp)
                                 .size(20.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.85f)),
+                                .background(Color.White.bg().copy(alpha = 0.85f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.AddCircleOutline,
                                 contentDescription = null,
-                                tint = Color(0xFF111827),
+                                tint = Color(0xFF111827).fg(),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1111,7 +1110,7 @@ fun EmployerQuickPostSection(
                         text = role.title,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        color = Color(0xFF111827).fg()
                     )
 
                     Spacer(Modifier.height(2.dp))
@@ -1119,7 +1118,7 @@ fun EmployerQuickPostSection(
                     Text(
                         text = role.subtitle,
                         fontSize = 11.5.sp,
-                        color = Color(0xFF8E8E93)
+                        color = Color(0xFF8E8E93).fg()
                     )
                 }
             }
@@ -1147,23 +1146,23 @@ fun EmployerHomeServicesSection(
         ) {
             Column {
                 Text(
-                    text = "Home Services in Khammam",
+                    text = stringResource(R.string.home_services_in_city, "Khammam"),
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827)
+                    color = Color(0xFF111827).fg()
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Doorstep verified technicians in 30–45 mins",
+                    text = stringResource(R.string.home_services_tagline),
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B).fg()
                 )
             }
             Text(
-                text = "See all",
+                text = stringResource(R.string.see_all),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF8E8E93),
+                color = Color(0xFF8E8E93).fg(),
                 modifier = Modifier.clickable { onOpenServices() }
             )
         }
@@ -1175,20 +1174,18 @@ fun EmployerHomeServicesSection(
             contentPadding = PaddingValues(horizontal = 2.dp)
         ) {
             items(categories, key = { it.id }) { category ->
-                val price = remember(effectiveCatalog, category.id) {
-                    val minPrice = effectiveCatalog.services
-                        .filter { it.category.equals(category.id, ignoreCase = true) }
-                        .minOfOrNull { it.price }
-                    if (minPrice != null && minPrice > 0) "From ₹$minPrice" else "From ₹99"
-                }
+                val minPrice = effectiveCatalog.services
+                    .filter { it.category.equals(category.id, ignoreCase = true) }
+                    .minOfOrNull { it.price }
+                val price = if (minPrice != null && minPrice > 0) stringResource(R.string.from_price, minPrice) else stringResource(R.string.from_price, 99)
                 Card(
                     modifier = Modifier
                         .width(122.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .clickable { onOpenServices() },
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    border = BorderStroke(1.dp, Color(0xFFF1F5F9).bd()),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column {
@@ -1196,7 +1193,7 @@ fun EmployerHomeServicesSection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(82.dp)
-                                .background(Color.White),
+                                .background(Color.White.bg()),
                             contentAlignment = Alignment.Center
                         ) {
                             OptimizedImage(
@@ -1211,7 +1208,7 @@ fun EmployerHomeServicesSection(
                                 text = category.name,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF111827),
+                                color = Color(0xFF111827).fg(),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1258,7 +1255,7 @@ fun EmployerExecutiveHeroCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = "⚡ NEED SOMEONE TODAY?",
+                    text = stringResource(R.string.need_urgent_help_today),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFFEA580C),
@@ -1266,18 +1263,18 @@ fun EmployerExecutiveHeroCard(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Hire Verified Staff & Workers",
+                    text = stringResource(R.string.hire_verified_staff_title),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
+                    color = Color(0xFF0F172A).fg(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Daily helpers, cooks, cleaners, shop staff & more. Speak directly using Liri voice.",
+                    text = stringResource(R.string.hire_verified_staff_desc),
                     fontSize = 11.5.sp,
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF64748B).fg(),
                     lineHeight = 16.sp
                 )
                 Spacer(Modifier.height(10.dp))
@@ -1285,7 +1282,7 @@ fun EmployerExecutiveHeroCard(
                     onClick = onVoiceJob,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0B132B),
+                        containerColor = Color(0xFF0B132B).bg(),
                         contentColor = Color.White
                     ),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.5.dp)
@@ -1298,7 +1295,7 @@ fun EmployerExecutiveHeroCard(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Ask Liri to Post",
+                        text = stringResource(R.string.ask_liri_to_post),
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.5.sp,
                         color = Color.White,
@@ -1319,7 +1316,7 @@ fun EmployerExecutiveHeroCard(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.WorkOutline,
-                    contentDescription = "Post Job",
+                    contentDescription = stringResource(R.string.post_job),
                     tint = Color(0xFFEA580C),
                     modifier = Modifier.size(28.dp)
                 )
@@ -1366,7 +1363,7 @@ fun EmployerExecutiveInstantHelpCard(
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "NEED URGENT HELP TODAY?",
+                    text = stringResource(R.string.need_urgent_help_today),
                     fontSize = 10.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
                     color = Color(0xFFDC2626),
@@ -1374,28 +1371,28 @@ fun EmployerExecutiveInstantHelpCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Get Workers in 15 Mins",
+                    text = stringResource(R.string.get_workers_15_mins),
                     fontSize = 15.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = Color(0xFF0F172A).fg()
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Electricians, loaders, drivers & daily helpers",
+                    text = stringResource(R.string.urgent_workers_subtitle),
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B).fg()
                 )
             }
             Spacer(Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0F172A))
+                    .background(Color(0xFF0F172A).bg())
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Request ⚡",
+                    text = stringResource(R.string.request_urgent_badge),
                     color = Color.White,
                     fontSize = 11.5.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
@@ -1417,8 +1414,8 @@ fun EmployerExecutiveStatsBar(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
@@ -1428,7 +1425,7 @@ fun EmployerExecutiveStatsBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ExecutiveStatColumn(
-                label = "Active Openings",
+                label = stringResource(R.string.active_openings_stat),
                 value = activeJobs.toString(),
                 modifier = Modifier.weight(1f)
             )
@@ -1436,10 +1433,10 @@ fun EmployerExecutiveStatsBar(
                 modifier = Modifier
                     .width(1.dp)
                     .height(34.dp)
-                    .background(Color(0xFFE2E8F0))
+                    .background(Color(0xFFE2E8F0).bd())
             )
             ExecutiveStatColumn(
-                label = "Applications",
+                label = stringResource(R.string.applications_stat),
                 value = totalApplicants.toString(),
                 modifier = Modifier.weight(1f)
             )
@@ -1447,10 +1444,10 @@ fun EmployerExecutiveStatsBar(
                 modifier = Modifier
                     .width(1.dp)
                     .height(34.dp)
-                    .background(Color(0xFFE2E8F0))
+                    .background(Color(0xFFE2E8F0).bd())
             )
             ExecutiveStatColumn(
-                label = "Post Credits",
+                label = stringResource(R.string.post_credits_stat),
                 value = creditsLeft.toString(),
                 modifier = Modifier.weight(1f)
             )
@@ -1468,7 +1465,7 @@ private fun ExecutiveStatColumn(label: String, value: String, modifier: Modifier
             text = value,
             fontSize = 20.sp,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-            color = Color(0xFF0F172A)
+            color = Color(0xFF0F172A).fg()
         )
         Spacer(Modifier.height(2.dp))
         Text(
@@ -1476,7 +1473,7 @@ private fun ExecutiveStatColumn(label: String, value: String, modifier: Modifier
             fontSize = 10.sp,
             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
             letterSpacing = 0.5.sp,
-            color = Color(0xFF64748B),
+            color = Color(0xFF64748B).fg(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1502,27 +1499,27 @@ fun EmployerCompactPostActionRow(
                 .height(44.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF222222),
+                containerColor = Color(0xFF222222).bg(),
                 contentColor = Color.White
             ),
             contentPadding = PaddingValues(horizontal = 14.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Post Another Job", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 13.5.sp)
+            Text(stringResource(R.string.post_another_job), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 13.5.sp)
         }
 
         Box(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF0F172A))
+                .background(Color(0xFF0F172A).bg())
                 .bouncyClickable { onVoiceJob() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.Mic,
-                contentDescription = "Voice Post",
+                contentDescription = stringResource(R.string.voice_post),
                 tint = Color.White,
                 modifier = Modifier.size(20.dp)
             )
@@ -1532,14 +1529,14 @@ fun EmployerCompactPostActionRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFFEF2F2))
-                .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(12.dp))
+                .background(Color(0xFFFEF2F2).bg())
+                .border(1.dp, Color(0xFFFCA5A5).bd(), RoundedCornerShape(12.dp))
                 .bouncyClickable { onPostUrgent() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Filled.FlashOn,
-                contentDescription = "Urgent Request",
+                contentDescription = stringResource(R.string.urgent_request),
                 tint = Color(0xFFDC2626),
                 modifier = Modifier.size(20.dp)
             )

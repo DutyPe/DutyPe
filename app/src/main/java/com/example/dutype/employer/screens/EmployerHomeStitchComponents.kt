@@ -964,15 +964,15 @@ fun EmployerHomeHeader(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFF1F5F9), CircleShape)
+                    .background(Color.White.bg())
+                    .border(1.dp, Color(0xFFF1F5F9).bd(), CircleShape)
                     .clickable { onNotificationClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_bell_outline),
                     contentDescription = "Notifications",
-                    tint = Color(0xFF0F172A),
+                    tint = Color(0xFF0F172A).fg(),
                     modifier = Modifier.size(22.dp)
                 )
                 if (unreadCount > 0) {
@@ -1262,7 +1262,7 @@ fun EmployerNoActiveJobsCard(onPostJobClick: (() -> Unit)? = null, modifier: Mod
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Post a Job", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(stringResource(R.string.post_a_job), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     }

@@ -92,8 +92,9 @@ fun EmployerSupportScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(SupportBg)
+    val statusBar = SupportBg.bg()
+    LaunchedEffect(statusBar) {
+        onStatusBarColorChange(statusBar)
     }
 
     var searchQuery by remember { mutableStateOf("") }

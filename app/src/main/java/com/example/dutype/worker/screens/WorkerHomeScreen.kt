@@ -1801,7 +1801,7 @@ internal fun WorkerOutOfAreaBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
+        containerColor = WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -1814,7 +1814,7 @@ internal fun WorkerOutOfAreaBottomSheet(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFFEF2F2)),
+                    .background(Color(0xFFFEF2F2).bg()),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = "📍", fontSize = 26.sp)
@@ -1823,11 +1823,11 @@ internal fun WorkerOutOfAreaBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Outside Serviceable Area",
+                text = stringResource(R.string.outside_service_area_title),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = Color(0xFF0F172A)
+                    color = WorkerColors.TextPrimary
                 ),
                 textAlign = TextAlign.Center
             )
@@ -1835,7 +1835,7 @@ internal fun WorkerOutOfAreaBottomSheet(
             if (distanceKm > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "You are currently ${String.format("%.1f", distanceKm)} km away from Khammam City.",
+                    text = stringResource(R.string.outside_service_area_dist, distanceKm),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.5.sp,
@@ -1848,10 +1848,10 @@ internal fun WorkerOutOfAreaBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "DutyPe Instant Jobs & Home Services are currently active only within Khammam City (15 km radius). To turn ON duty and receive orders, you must be located within the Khammam service zone.",
+                text = stringResource(R.string.outside_service_area_desc),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontSize = 13.5.sp,
-                    color = Color(0xFF64748B),
+                    color = WorkerColors.TextSecondary,
                     lineHeight = 20.sp
                 ),
                 textAlign = TextAlign.Center
@@ -1866,12 +1866,12 @@ internal fun WorkerOutOfAreaBottomSheet(
                     .height(50.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
+                    containerColor = WorkerColors.Primary,
                     contentColor = Color.White
                 )
             ) {
                 Text(
-                    text = "Understood",
+                    text = stringResource(R.string.understood),
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp

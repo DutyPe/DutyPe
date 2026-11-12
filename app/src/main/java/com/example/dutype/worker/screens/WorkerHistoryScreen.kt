@@ -139,7 +139,7 @@ fun WorkerHistoryScreen(
         // Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
-            containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
+            containerColor = WorkerColors.CardBackground,
             contentColor = Color(0xFF0F172A).fg(),
             edgePadding = 16.dp,
             indicator = { tabPositions ->

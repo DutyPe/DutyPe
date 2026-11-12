@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.app.Activity
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -106,7 +109,7 @@ private fun StitchTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .background(backgroundColor, RoundedCornerShape(14.dp))
+                .background(backgroundColor.bg(), RoundedCornerShape(14.dp))
                 .border(
                     width = 1.dp,
                     color = if (errorMessage != null) EmployerColors.Error else StitchBorder.bd(),
@@ -629,7 +632,7 @@ fun MandatoryEmployerProfileSetupScreen(
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = Color.White.bg(),
                 shadowElevation = 8.dp
             ) {
                 Column(
@@ -919,14 +922,15 @@ fun MandatoryEmployerProfileSetupScreen(
                                 shape = RoundedCornerShape(10.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF00B159),
-                                    unfocusedBorderColor = Color(0xFFCBD5E1),
-                                    focusedContainerColor = Color.White,
-                                    unfocusedContainerColor = Color.White
+                                    unfocusedBorderColor = Color(0xFFCBD5E1).bd(),
+                                    focusedContainerColor = Color.White.bg(),
+                                    unfocusedContainerColor = Color.White.bg()
                                 ),
                                 textStyle = TextStyle(
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    letterSpacing = 1.sp
+                                    letterSpacing = 1.sp,
+                                    color = EmployerColors.TextPrimary
                                 ),
                                 keyboardOptions = KeyboardOptions(
                                     capitalization = KeyboardCapitalization.Characters
@@ -1003,12 +1007,12 @@ private fun LocationSectionCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isCoordsValid) Color(0xFFF0FDF4) else Color.White
+            containerColor = if (isCoordsValid) Color(0xFFF0FDF4).bg() else Color.White.bg()
         ),
         border = BorderStroke(
             width = if (isCoordsValid) 1.5.dp else 1.dp,
             color = if (showError) Color(0xFFEF4444)
-            else if (isCoordsValid) Color(0xFF86EFAC)
+            else if (isCoordsValid) Color(0xFF86EFAC).bd()
             else StitchBorder.bd()
         )
     ) {
@@ -1123,7 +1127,7 @@ private fun LocationSectionCard(
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Detecting GPS Location...", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.worker_setup_detecting_location), color = Color.White, fontWeight = FontWeight.Bold)
                     } else {
                         Icon(
                             Icons.Default.MyLocation,
@@ -1133,7 +1137,7 @@ private fun LocationSectionCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "📍 Detect My Current Location (GPS)",
+                            text = stringResource(R.string.detect_location_gps_btn),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
@@ -1203,8 +1207,8 @@ private fun LocationSectionCard(
                 // Verified Location Display with GPS Coordinates
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    color = Color.White.bg(),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0).bd()),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1220,10 +1224,10 @@ private fun LocationSectionCard(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = businessAddress.ifBlank { "GPS Coordinates Verified" },
+                                text = businessAddress.ifBlank { stringResource(R.string.worker_setup_location_detected) },
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF0F172A)
+                                color = Color(0xFF0F172A).fg()
                             )
                             Text(
                                 text = "GPS: %.4f° N, %.4f° E • Hyperlocal matching within 15 km".format(businessLatitude, businessLongitude),

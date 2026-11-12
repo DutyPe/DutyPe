@@ -76,8 +76,9 @@ fun EmployerPublicProfileScreen(
     var jobs by remember { mutableStateOf<List<EmployerPublicJobPreview>>(emptyList()) }
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange?.invoke(Color.White)
+    val statusBar = EmployerColors.StatusBarColor
+    LaunchedEffect(statusBar) {
+        onStatusBarColorChange?.invoke(statusBar)
     }
 
     LaunchedEffect(employerId) {

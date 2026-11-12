@@ -679,7 +679,7 @@ private fun ReferEarnTopSections(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
+            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
@@ -1509,7 +1509,7 @@ fun WithdrawalSuccessCelebrationDialog(
                 .fillMaxWidth()
                 .padding(8.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -1523,7 +1523,7 @@ fun WithdrawalSuccessCelebrationDialog(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFECFDF5)),
+                        .background(Color(0xFFECFDF5).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "🎉", fontSize = 32.sp)
@@ -1532,10 +1532,10 @@ fun WithdrawalSuccessCelebrationDialog(
                 Spacer(Modifier.height(14.dp))
 
                 Text(
-                    text = "Withdrawal Submitted!",
+                    text = stringResource(R.string.withdrawal_submitted_title),
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF0F172A),
+                    color = WorkerColors.TextPrimary,
                     textAlign = TextAlign.Center
                 )
 
@@ -1543,12 +1543,12 @@ fun WithdrawalSuccessCelebrationDialog(
 
                 Text(
                     text = if (amountRupees > 0) {
-                        "₹$amountRupees request received. It will be sent directly to your UPI ID once verified."
+                        stringResource(R.string.withdrawal_submitted_desc_with_amount, amountRupees)
                     } else {
-                        "Your request is received and will be sent directly to your UPI ID once verified."
+                        stringResource(R.string.withdrawal_submitted_desc_generic)
                     },
                     fontSize = 13.sp,
-                    color = Color(0xFF64748B),
+                    color = WorkerColors.TextSecondary,
                     textAlign = TextAlign.Center,
                     lineHeight = 18.sp
                 )
@@ -1560,9 +1560,9 @@ fun WithdrawalSuccessCelebrationDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFFBEB)
+                        containerColor = Color(0xFFFFFBEB).bg()
                     ),
-                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A).bd())
                 ) {
                     Row(
                         modifier = Modifier
@@ -1574,16 +1574,16 @@ fun WithdrawalSuccessCelebrationDialog(
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Spin & Win Up to ₹100",
+                                text = stringResource(R.string.spin_and_win_banner_title),
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF92400E)
+                                color = Color(0xFF92400E).fg()
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "Watch a quick 15-second sponsor video to claim a bonus spin on the wheel!",
+                                text = stringResource(R.string.watch_video_spin_desc),
                                 fontSize = 11.5.sp,
-                                color = Color(0xFFB45309),
+                                color = Color(0xFFB45309).fg(),
                                 lineHeight = 15.sp
                             )
                         }
@@ -1599,7 +1599,7 @@ fun WithdrawalSuccessCelebrationDialog(
                         .fillMaxWidth()
                         .height(46.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF059669)
+                        containerColor = WorkerColors.Primary
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -1615,7 +1615,7 @@ fun WithdrawalSuccessCelebrationDialog(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = if (isAdLoading) "Loading Sponsor Video..." else "Watch Video & Spin Wheel 🎡",
+                            text = if (isAdLoading) stringResource(R.string.loading_sponsor_video) else stringResource(R.string.watch_video_spin_wheel),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -1631,9 +1631,9 @@ fun WithdrawalSuccessCelebrationDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Maybe Later / Done",
+                        text = stringResource(R.string.maybe_later_done),
                         fontSize = 13.sp,
-                        color = Color(0xFF64748B),
+                        color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 }

@@ -1209,10 +1209,11 @@ fun MandatoryWorkerProfileSetupScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    if (verifiedReferrerName != null) {
+                    val safeReferrerName = verifiedReferrerName
+                    if (safeReferrerName != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = stringResource(R.string.valid_referral_from, verifiedReferrerName),
+                            text = stringResource(R.string.valid_referral_from, safeReferrerName),
                             color = Color(0xFF059669).fg(),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -1472,8 +1473,8 @@ private fun LocationSectionCard(
                         QuickLocations.PRESETS.forEach { preset ->
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = Color(0xFFF1F5F9),
-                                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                                color = Color(0xFFF1F5F9).bg(),
+                                border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd()),
                                 modifier = Modifier.clickable {
                                     onAddressChange(preset.address)
                                     onLocationChange(preset.lat, preset.lng)
@@ -1483,7 +1484,7 @@ private fun LocationSectionCard(
                                     text = preset.label,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF334155),
+                                    color = Color(0xFF334155).fg(),
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
                             }
@@ -1517,8 +1518,8 @@ private fun LocationSectionCard(
                 // Verified Location Display with GPS Coordinates
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    color = Color.White.bg(),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0).bd()),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1537,12 +1538,12 @@ private fun LocationSectionCard(
                                 text = address.ifBlank { "GPS Coordinates Verified" },
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF0F172A)
+                                color = Color(0xFF0F172A).fg()
                             )
                             Text(
                                 text = "GPS: %.4f° N, %.4f° E • Hyperlocal jobs within 15 km".format(latitude, longitude),
                                 fontSize = 11.sp,
-                                color = Color(0xFF15803D),
+                                color = Color(0xFF15803D).fg(),
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -1553,7 +1554,7 @@ private fun LocationSectionCard(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "Change",
+                                text = stringResource(R.string.auto_change),
                                 color = StitchNavy.fg(),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -1565,7 +1566,7 @@ private fun LocationSectionCard(
 
             if (showError) {
                 Text(
-                    text = "Please detect your location or select your area so nearby jobs can reach you.",
+                    text = stringResource(R.string.detect_location_nearby_prompt),
                     color = Color(0xFFEF4444),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp)

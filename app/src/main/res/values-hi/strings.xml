@@ -2954,6 +2954,7 @@
     <string name="spin_and_win_banner_title">स्पिन करें और ₹100 तक जीतें</string>
     <string name="watch_video_spin_wheel">वीडियो देखें और पहिया घुमाएं 🎡</string>
     <string name="loading_sponsor_video">प्रायोजक वीडियो लोड हो रहा है...</string>
+    <string name="watch_video_spin_desc">पहिये पर बोनस स्पिन पाने के लिए 15 सेकंड का प्रायोजक वीडियो देखें!</string>
     <string name="maybe_later_done">शायद बाद में / संपन्न</string>
     <string name="accepted_view_booking_details">स्वीकृत • बुकिंग विवरण देखें</string>
     <string name="verify_aadhaar_btn">आधार सत्यापित करें (डिजीलॉकर / ओटीपी) 🛡️</string>
@@ -3046,7 +3047,6 @@
     <string name="wallet_benefit_security_title">रेज़रपे बैंक-ग्रेड सुरक्षा</string>
     <string name="wallet_benefit_security_desc">UPI, कार्ड और नेटबैंकिंग का समर्थन करने वाला 256-बिट SSL सुरक्षित चेकआउट</string>
     <string name="recent_transactions_title">हाल के लेन-देन</string>
-    <string name="no_transactions_yet">अभी तक कोई लेन-देन नहीं</string>
     <string name="no_transactions_desc">आपके वॉलेट टॉप-अप और सेवा बुकिंग भुगतान यहां दिखाई देंगे।</string>
     <string name="wallet_recharge_successful">वॉलेट रीचार्ज सफल! 🎉</string>
     <string name="wallet_recharge_razorpay">वॉलेट रीचार्ज (Razorpay)</string>
@@ -3063,4 +3063,5 @@
     <string name="booking_cancelled_notice">यह बुकिंग रद्द कर दी गई थी।</string>
     <string name="search_for_prefix">खोजें </string>
     <string name="enter_utr_placeholder">12 अंकों का UPI Ref / UTR नंबर दर्ज करें</string>
+    <string name="enter_amount">राशि दर्ज करें</string>
 </resources>

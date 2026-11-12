@@ -2977,6 +2977,7 @@
     <string name="spin_and_win_banner_title">Spin &amp; Win Up to ₹100</string>
     <string name="watch_video_spin_wheel">Watch Video &amp; Spin Wheel 🎡</string>
     <string name="loading_sponsor_video">Loading Sponsor Video...</string>
+    <string name="watch_video_spin_desc">Watch a quick 15-second sponsor video to claim a bonus spin on the wheel!</string>
     <string name="maybe_later_done">Maybe Later / Done</string>
     <string name="accepted_view_booking_details">Accepted • View Booking Details</string>
     <string name="verify_aadhaar_btn">Verify Aadhaar (DigiLocker / OTP) 🛡️</string>
@@ -3069,7 +3070,6 @@
     <string name="wallet_benefit_security_title">Razorpay Bank-Grade Security</string>
     <string name="wallet_benefit_security_desc">Encrypted 256-bit SSL checkout supporting UPI (GPay, PhonePe, Paytm), Cards &amp; NetBanking</string>
     <string name="recent_transactions_title">Recent Transactions</string>
-    <string name="no_transactions_yet">No Transactions Yet</string>
     <string name="no_transactions_desc">Your wallet top-ups and service booking payments will appear here.</string>
     <string name="wallet_recharge_successful">Wallet Recharge Successful! 🎉</string>
     <string name="wallet_recharge_razorpay">Wallet Recharge (Razorpay)</string>
@@ -3086,4 +3086,5 @@
     <string name="booking_cancelled_notice">This booking was cancelled.</string>
     <string name="search_for_prefix">Search for </string>
     <string name="enter_utr_placeholder">Enter 12-digit UPI Ref / UTR number</string>
+    <string name="enter_amount">Enter amount</string>
 </resources>

@@ -403,7 +403,7 @@ fun EmployerSubscriptionScreen(
         Dialog(onDismissRequest = {}) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
                 elevation = CardDefaults.cardElevation(8.dp)
             ) {
                 Row(
@@ -420,7 +420,7 @@ fun EmployerSubscriptionScreen(
                         text = paymentProcessingMessage,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFF0F172A)
+                        color = Color(0xFF0F172A).fg()
                     )
                 }
             }
@@ -433,7 +433,7 @@ fun EmployerSubscriptionScreen(
         AlertDialog(
             onDismissRequest = { successfulSubscription = null },
             shape = RoundedCornerShape(20.dp),
-            containerColor = Color.White,
+            containerColor = Color.White.bg(),
             title = null,
             text = {
                 Column(
@@ -447,7 +447,7 @@ fun EmployerSubscriptionScreen(
                         modifier = Modifier
                             .size(60.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFDCFCE7)),
+                            .background(Color(0xFFDCFCE7).bg()),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -459,36 +459,36 @@ fun EmployerSubscriptionScreen(
                     }
 
                     Text(
-                        text = "Payment Successful! 🎉",
+                        text = stringResource(R.string.payment_successful_title),
                         fontSize = 19.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF0F172A),
+                        color = Color(0xFF0F172A).fg(),
                         fontFamily = MeeshoFontFamily
                     )
 
                     Text(
-                        text = "₹$amount paid successfully via Razorpay",
+                        text = stringResource(R.string.paid_via_razorpay, amount),
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF15803D)
+                        color = Color(0xFF15803D).fg()
                     )
 
                     Text(
-                        text = "Your $planTitle is active immediately! You now have full access to candidate contact unlocks and priority job posts.",
+                        text = stringResource(R.string.plan_activated_desc, planTitle),
                         fontSize = 12.5.sp,
-                        color = Color(0xFF475569),
+                        color = Color(0xFF475569).fg(),
                         textAlign = TextAlign.Center
                     )
 
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFF1F5F9),
+                        color = Color(0xFFF1F5F9).bg(),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Payment ID: $paymentId",
+                            text = stringResource(R.string.payment_id_label, paymentId),
                             fontSize = 11.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(6.dp)
                         )
@@ -512,9 +512,9 @@ fun EmployerSubscriptionScreen(
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A).bg())
                 ) {
-                    Text("🚀 Post Vacancy Now", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.post_vacancy_now), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
@@ -522,7 +522,7 @@ fun EmployerSubscriptionScreen(
                     onClick = { successfulSubscription = null },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("View Active Subscription", color = Color(0xFF475569))
+                    Text(stringResource(R.string.view_active_subscription), color = Color(0xFF475569).fg())
                 }
             }
         )
@@ -714,7 +714,7 @@ private fun CurrentPlanCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF0FDF4))))
+                .background(Brush.verticalGradient(listOf(Color.White.bg(), Color(0xFFF0FDF4).bg())))
                 .padding(20.dp)
         ) {
         Row(
@@ -785,7 +785,7 @@ private fun NoPlanCard(aiStatus: String) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF7F7F7))))
+                .background(Brush.verticalGradient(listOf(Color.White.bg(), Color(0xFFF7F7F7).bg())))
                 .padding(20.dp)
         ) {
             Row(
@@ -1280,7 +1280,7 @@ private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF7F7F7), Color(0xFFF1F5F9))))
+                .background(Brush.verticalGradient(listOf(Color.White.bg(), Color(0xFFF7F7F7).bg(), Color(0xFFF1F5F9).bg())))
                 .padding(20.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1467,7 +1467,7 @@ private fun CreditsEducationSection(context: android.content.Context) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .background(Color.White, RoundedCornerShape(16.dp))
+            .background(Color.White.bg(), RoundedCornerShape(16.dp))
             .border(1.dp, Hairline.bd(), RoundedCornerShape(16.dp))
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1487,7 +1487,7 @@ private fun CreditsEducationSection(context: android.content.Context) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = Color(0xFF0F0F0F),
+                    tint = Color(0xFF0F0F0F).fg(),
                     modifier = Modifier.size(18.dp)
                 )
                 Text(

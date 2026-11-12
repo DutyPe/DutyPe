@@ -95,8 +95,9 @@ fun WorkerAboutScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(AboutBg)
+    val statusBarColor = AboutBg.bg()
+    LaunchedEffect(statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
     }
 
     val context = LocalContext.current

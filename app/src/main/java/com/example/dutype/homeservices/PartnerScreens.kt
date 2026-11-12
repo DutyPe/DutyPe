@@ -1,5 +1,7 @@
 package com.example.dutype.homeservices
+import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 
 import android.Manifest
 import android.content.ClipData
@@ -158,17 +160,17 @@ fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).bd().copy(alpha = 0.7f))
     ) {
         Row(Modifier.padding(horizontal = 18.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF0FDF4)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF0FDF4).bg()), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.Handyman, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Earn more with services", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 15.sp)
+                Text(stringResource(R.string.earn_more_with_services), fontWeight = FontWeight.Bold, color = Color(0xFF0F172A).fg(), fontSize = 15.sp)
                 Spacer(Modifier.height(2.dp))
                 Text(stringResource(R.string.svc_partner_entry_subtitle), color = SvcMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -176,11 +178,23 @@ fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Box(
                 Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0F172A))
+                    .background(Color(0xFF0F172A).bg())
                     .clickable(onClick = onClick)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text("Earn", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                val context = LocalContext.current
+                val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+                val isHindi = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_HINDI
+                Text(
+                    text = when {
+                        isTelugu -> "సంపాదించండి"
+                        isHindi -> "कमाएं"
+                        else -> "Earn"
+                    },
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
             }
         }
     }
@@ -244,8 +258,8 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
             when (p.status) {
                 PartnerStatus.PENDING -> {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFFED7AA)),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                        border = BorderStroke(1.dp, Color(0xFFFED7AA).bd()),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -254,16 +268,16 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFFEF3C7)),
+                                    .background(Color(0xFFFEF3C7).bg()),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Filled.Schedule, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("Application Under Review", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 15.sp)
+                                Text(stringResource(R.string.notif_app_status_shortlisted_title), fontWeight = FontWeight.Bold, color = Color(0xFF0F172A).fg(), fontSize = 15.sp)
                                 Spacer(Modifier.height(4.dp))
-                                Text(stringResource(R.string.svc_partner_pending), color = Color(0xFF64748B), fontSize = 12.5.sp, lineHeight = 17.sp)
+                                Text(stringResource(R.string.svc_partner_pending), color = Color(0xFF64748B).fg(), fontSize = 12.5.sp, lineHeight = 17.sp)
                             }
                         }
                     }
@@ -359,42 +373,42 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                     }
 
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Column(Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
-                                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFDCFCE7)),
+                                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFDCFCE7).bg()),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(Icons.Filled.TrendingUp, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(20.dp))
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text("My Earnings", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    Text("DutyPe Partner Income", color = Color(0xFF64748B), fontSize = 11.5.sp)
+                                    Text(stringResource(R.string.partner_my_earnings), color = Color(0xFF0F172A).fg(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text(stringResource(R.string.partner_income_subtitle), color = Color(0xFF64748B).fg(), fontSize = 11.5.sp)
                                 }
-                                Text("₹$totalEarnings", color = Color(0xFF0F172A), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                                Text("₹$totalEarnings", color = Color(0xFF0F172A).fg(), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
                             }
                             Spacer(Modifier.height(14.dp))
-                            HorizontalDivider(color = Color(0xFFF1F5F9))
+                            HorizontalDivider(color = Color(0xFFF1F5F9).bd())
                             Spacer(Modifier.height(12.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
-                                    Text("Today", color = Color(0xFF64748B), fontSize = 11.5.sp)
+                                    Text(stringResource(R.string.partner_stat_today), color = Color(0xFF64748B).fg(), fontSize = 11.5.sp)
                                     Text("₹$todayEarnings", color = SvcGreen, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                                 Column {
-                                    Text("Last 7 Days", color = Color(0xFF64748B), fontSize = 11.5.sp)
+                                    Text(stringResource(R.string.partner_stat_last_7_days), color = Color(0xFF64748B).fg(), fontSize = 11.5.sp)
                                     Text("₹$weekEarnings", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                                 Column {
-                                    Text("Jobs Done", color = Color(0xFF64748B), fontSize = 11.5.sp)
-                                    Text("${p.jobsCompleted}", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text(stringResource(R.string.partner_stat_jobs_done), color = Color(0xFF64748B).fg(), fontSize = 11.5.sp)
+                                    Text("${p.jobsCompleted}", color = Color(0xFF0F172A).fg(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                             }
                         }
@@ -537,8 +551,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-        border = BorderStroke(1.dp, StitchBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, StitchBorder.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -546,15 +560,15 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFECFDF5))
-                    .border(1.dp, Color(0xFF00B159).copy(alpha = 0.3f), RoundedCornerShape(50))
+                    .background(Color(0xFFECFDF5).bg())
+                    .border(1.dp, Color(0xFF00B159).bd().copy(alpha = 0.3f), RoundedCornerShape(50))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Icon(Icons.Filled.Verified, contentDescription = null, tint = Color(0xFF00B159), modifier = Modifier.size(13.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = stringResource(R.string.partner_apply_badge),
-                    color = Color(0xFF065F46),
+                    color = Color(0xFF065F46).fg(),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.6.sp
@@ -656,14 +670,14 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-        border = BorderStroke(1.dp, StitchBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, StitchBorder.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("1", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = StitchGreen)
@@ -735,10 +749,10 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                                             }
                                         },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (isSelected) Color(0xFFECFDF5) else Color.White,
+                                    color = if (isSelected) Color(0xFFECFDF5).bg() else Color.White.bg(),
                                     border = BorderStroke(
                                         if (isSelected) 1.5.dp else 1.dp,
-                                        if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                                        if (isSelected) Color(0xFF00B159).bd() else Color(0xFFE2E8F0).bd()
                                     )
                                 ) {
                                     Box(
@@ -885,10 +899,10 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                                         }
                                     },
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) Color(0xFFECFDF5) else Color.White,
+                                color = if (isSelected) Color(0xFFECFDF5).bg() else Color.White.bg(),
                                 border = BorderStroke(
                                     if (isSelected) 1.5.dp else 1.dp,
-                                    if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                                    if (isSelected) Color(0xFF00B159).bd() else Color(0xFFE2E8F0).bd()
                                 )
                             ) {
                                 Row(
@@ -934,14 +948,14 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-        border = BorderStroke(1.dp, StitchBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, StitchBorder.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("2", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = StitchGreen)
@@ -1049,14 +1063,14 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-        border = BorderStroke(1.dp, StitchBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, StitchBorder.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("3", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = StitchGreen)
@@ -1298,14 +1312,14 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White),
-        border = BorderStroke(1.dp, StitchBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, StitchBorder.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFFEF2F2)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFFEF2F2).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Filled.Gavel, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
@@ -1322,7 +1336,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     Text(
                         "Zero tolerance for fraud, offline haggling, or misbehavior",
                         fontSize = 11.5.sp,
-                        color = StitchLabel
+                        color = StitchLabel.fg()
                     )
                 }
             }
@@ -1333,11 +1347,11 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     .clickable { showConductRulesSheet = true },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (acceptedConductRules) Color(0xFFECFDF5) else Color.White
+                    containerColor = if (acceptedConductRules) Color(0xFFECFDF5).bg() else Color.White.bg()
                 ),
                 border = BorderStroke(
                     1.dp,
-                    if (acceptedConductRules) Color(0xFF00B159) else StitchBorder
+                    if (acceptedConductRules) Color(0xFF00B159).bd() else StitchBorder.bd()
                 )
             ) {
                 Row(
@@ -1348,7 +1362,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(if (acceptedConductRules) Color(0xFF00B159) else Color(0xFFFEF2F2)),
+                            .background(if (acceptedConductRules) Color(0xFF00B159).bg() else Color(0xFFFEF2F2).bg()),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -2370,7 +2384,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                 shape = RoundedCornerShape(14.dp)
             ) {
                 if (accepting) com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
-                else Text(if (o.mine || o.status == "ASSIGNED") "Accept & Confirm Order" else stringResource(R.string.svc_offer_accept), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                else Text(if (o.mine || o.status == "ASSIGNED") stringResource(R.string.partner_accept_confirm_order) else stringResource(R.string.svc_offer_accept), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
                 onClick = { navController.popBackStack() },
@@ -2562,7 +2576,7 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                     ) {
                         Icon(Icons.Filled.Directions, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Start Journey", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(stringResource(R.string.start_journey), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                     TextButton(onClick = { confirmCancel = true }, enabled = !busy) {
                         Text(stringResource(R.string.svc_job_cancel), color = SvcRed)
@@ -2662,7 +2676,7 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                             }
                         }
                     } else {
-                        Text("This booking was cancelled.", color = SvcRed, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.booking_cancelled_notice), color = SvcRed, fontWeight = FontWeight.Medium)
                     }
                 }
                 else -> {}

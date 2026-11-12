@@ -875,7 +875,7 @@ private fun HiringRoomYellowHero(
                     val activeNearby = ((h / 7) % 9) + 8
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color.White,
+                        color = Color.White.bg(),
                         shadowElevation = 0.dp
                     ) {
                         Row(
@@ -885,16 +885,16 @@ private fun HiringRoomYellowHero(
                         ) {
                             Text(text = "⚡", fontSize = 10.5.sp)
                             Text(
-                                text = "$viewCount workers in Khammam viewed in last 15m",
+                                text = stringResource(R.string.workers_viewed_recent, viewCount, "Khammam"),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF92400E)
+                                color = Color(0xFF92400E).fg()
                             )
                         }
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color.White,
+                        color = Color.White.bg(),
                         shadowElevation = 0.dp
                     ) {
                         Row(
@@ -908,10 +908,10 @@ private fun HiringRoomYellowHero(
                                     .background(Color(0xFF10B981), CircleShape)
                             )
                             Text(
-                                text = "$activeNearby workers active within 2.5 km",
+                                text = stringResource(R.string.workers_active_nearby_radius, activeNearby, "2.5"),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF047857)
+                                color = Color(0xFF047857).fg()
                             )
                         }
                     }
@@ -958,8 +958,8 @@ private fun HiringRoomYellowHero(
                     .padding(horizontal = 16.dp)
                     .clickable { onSubscribeClick() },
                 shape = RoundedCornerShape(14.dp),
-                color = Color.White.copy(alpha = 0.95f),
-                border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                color = Color.White.bg().copy(alpha = 0.95f),
+                border = BorderStroke(1.dp, Color(0xFFFDE68A).bd())
             ) {
                 Row(
                     modifier = Modifier
@@ -976,7 +976,7 @@ private fun HiringRoomYellowHero(
                             modifier = Modifier
                                 .size(30.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFFEF3C7)),
+                                .background(Color(0xFFFEF3C7).bg()),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -1125,10 +1125,10 @@ private fun MarkJobFilledButton(
             .fillMaxWidth()
             .height(50.dp),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.5.dp, Color(0xFF1E293B)),
+        border = BorderStroke(1.5.dp, Color(0xFF1E293B).bd()),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = Color(0xFF1E293B),
-            containerColor = Color.White
+            contentColor = Color(0xFF1E293B).fg(),
+            containerColor = Color.White.bg()
         )
     ) {
         Row(
@@ -1138,15 +1138,15 @@ private fun MarkJobFilledButton(
             Icon(
                 imageVector = Icons.Outlined.CheckCircle,
                 contentDescription = null,
-                tint = Color(0xFF1E293B),
+                tint = Color(0xFF1E293B).fg(),
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isJobFilled) "Reopen job for calls" else "Mark job as filled",
+                text = if (isJobFilled) stringResource(R.string.reopen_job_for_calls) else stringResource(R.string.close_job_when_filled),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
+                color = Color(0xFF1E293B).fg()
             )
         }
     }
@@ -1225,9 +1225,9 @@ private fun MatchedWorkerCardMockup(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9).bd())
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1470,9 +1470,9 @@ private fun AppliedCandidateCardMockup(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9).bd())
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1720,11 +1720,11 @@ private fun AppliedCandidateCardMockup(
                         border = BorderStroke(1.dp, Color(0xFFEF4444)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Color(0xFFEF4444),
-                            containerColor = Color.White
+                            containerColor = Color.White.bg()
                         )
                     ) {
                         Text(
-                            text = "Reject",
+                            text = stringResource(R.string.reject),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -1871,8 +1871,8 @@ private fun EmptyMatchesCard(onRefresh: () -> Unit) {
             .fillMaxWidth()
             .padding(vertical = 16.dp),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        color = Color.White.bg(),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -1882,23 +1882,23 @@ private fun EmptyMatchesCard(onRefresh: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.Groups,
                 contentDescription = null,
-                tint = Color(0xFF94A3B8),
+                tint = Color(0xFF94A3B8).fg(),
                 modifier = Modifier.size(44.dp)
             )
             Text(
-                text = "No worker matches nearby yet",
+                text = stringResource(R.string.no_matches_nearby_yet),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
+                color = Color(0xFF1E293B).fg()
             )
             Text(
-                text = "Workers near your job location will appear here automatically.",
+                text = stringResource(R.string.no_matches_nearby_desc),
                 fontSize = 13.sp,
-                color = Color(0xFF64748B),
+                color = Color(0xFF64748B).fg(),
                 textAlign = TextAlign.Center
             )
             TextButton(onClick = onRefresh) {
-                Text("Refresh Matches", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.refresh_matches), color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1911,8 +1911,8 @@ private fun EmptyAppliedCard(onRefresh: () -> Unit) {
             .fillMaxWidth()
             .padding(vertical = 16.dp),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        color = Color.White.bg(),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -1922,23 +1922,23 @@ private fun EmptyAppliedCard(onRefresh: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.HourglassTop,
                 contentDescription = null,
-                tint = Color(0xFF94A3B8),
+                tint = Color(0xFF94A3B8).fg(),
                 modifier = Modifier.size(44.dp)
             )
             Text(
-                text = "No applicants yet",
+                text = stringResource(R.string.no_applicants_yet),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
+                color = Color(0xFF1E293B).fg()
             )
             Text(
-                text = "When workers apply to this job opening, you'll see them right here.",
+                text = stringResource(R.string.no_applicants_desc),
                 fontSize = 13.sp,
-                color = Color(0xFF64748B),
+                color = Color(0xFF64748B).fg(),
                 textAlign = TextAlign.Center
             )
             TextButton(onClick = onRefresh) {
-                Text("Refresh List", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.refresh_list), color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
             }
         }
     }

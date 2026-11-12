@@ -1672,7 +1672,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
                 colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
                 shape = RoundedCornerShape(27.dp)
             ) {
-                Text("View Plans", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(stringResource(R.string.auto_view_plans), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
             TextButton(
@@ -1681,7 +1681,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
                     c.navController.popBackStack()
                 }
             ) {
-                Text("Maybe Later", color = EmployerColors.TextSecondary)
+                Text(stringResource(R.string.auto_later), color = EmployerColors.TextSecondary)
             }
         }
     }
@@ -2146,10 +2146,10 @@ private fun QuickJobPresetChips(c: PostJobController) {
                         c.description = preset.description
                     },
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) Color(0xFFECFDF5) else Color.White,
+                    color = if (isSelected) Color(0xFFECFDF5).bg() else Color.White.bg(),
                     border = BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                        color = if (isSelected) Color(0xFF00B159).bd() else Color(0xFFE2E8F0).bd()
                     ),
                     shadowElevation = if (isSelected) 2.dp else 0.dp
                 ) {
@@ -2459,11 +2459,11 @@ fun PolishedCard(
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.7f),
+                color = Color.White.bg().copy(alpha = 0.7f),
                 shape = RoundedCornerShape(28.dp)
             ),
         shape = RoundedCornerShape(28.dp),
-        color = Color.White.copy(alpha = 0.93f),
+        color = Color.White.bg().copy(alpha = 0.93f),
         shadowElevation = 10.dp,
         tonalElevation = 0.dp
     ) {
@@ -3262,7 +3262,7 @@ private fun PjWageField(
         Spacer(modifier = Modifier.width(8.dp))
         Box(modifier = Modifier.weight(1f)) {
             if (amount.isEmpty()) {
-                Text("Enter amount", fontSize = 14.sp, color = PjSlate400.fg(), maxLines = 1)
+                Text(stringResource(R.string.enter_amount), fontSize = 14.sp, color = PjSlate400.fg(), maxLines = 1)
             }
             BasicTextField(
                 value = amount,

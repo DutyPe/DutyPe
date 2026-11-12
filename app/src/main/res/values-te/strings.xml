@@ -2979,6 +2979,7 @@
     <string name="spin_and_win_banner_title">స్పిన్ చేయండి - ₹100 వరకు గెలవండి</string>
     <string name="watch_video_spin_wheel">వీడియో చూసి వీల్ తిప్పండి 🎡</string>
     <string name="loading_sponsor_video">స్పాన్సర్ వీడియో లోడ్ అవుతోంది...</string>
+    <string name="watch_video_spin_desc">వీల్‌పై బోనస్ స్పిన్ పొందడానికి 15 సెకన్ల స్పాన్సర్ వీడియోను చూడండి!</string>
     <string name="maybe_later_done">తర్వాత చూద్దాం / పూర్తయింది</string>
     <string name="accepted_view_booking_details">అంగీకరించబడింది • బుకింగ్ వివరాలు చూడండి</string>
     <string name="verify_aadhaar_btn">ఆధార్ ధృవీకరించండి (డిజిలాకర్ / OTP) 🛡️</string>
@@ -3071,7 +3072,6 @@
     <string name="wallet_benefit_security_title">రేజర్‌పే బ్యాంక్-గ్రేడ్ భద్రత</string>
     <string name="wallet_benefit_security_desc">UPI, కార్డులు &amp; నెట్‌బ్యాంకింగ్‌కు మద్దతు ఇచ్చే 256-బిట్ SSL సురక్షిత చెక్అవుట్</string>
     <string name="recent_transactions_title">ఇటీవలి లావాదేవీలు</string>
-    <string name="no_transactions_yet">ఇంకా లావాదేవీలు లేవు</string>
     <string name="no_transactions_desc">మీ వాలెట్ టాప్-అప్‌లు మరియు సర్వీస్ బుకింగ్ చెల్లింపులు ఇక్కడ కనిపిస్తాయి.</string>
     <string name="wallet_recharge_successful">వాలెట్ రీఛార్జ్ విజయవంతమైంది! 🎉</string>
     <string name="wallet_recharge_razorpay">వాలెట్ రీఛార్జ్ (Razorpay)</string>
@@ -3088,4 +3088,5 @@
     <string name="booking_cancelled_notice">ఈ బుకింగ్ రద్దు చేయబడింది.</string>
     <string name="search_for_prefix">శోధించండి </string>
     <string name="enter_utr_placeholder">12 అంకెల UPI Ref / UTR నంబర్‌ను నమోదు చేయండి</string>
+    <string name="enter_amount">మొత్తం నమోదు చేయండి</string>
 </resources>
