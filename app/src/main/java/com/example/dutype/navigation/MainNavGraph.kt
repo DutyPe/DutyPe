@@ -313,7 +313,7 @@ fun MainNavGraph(
                         }
                     }
 
-                    navController.navigate("${Routes.ENHANCED_LOGIN}?role=$resolvedRole") {
+                    navController.safeNavigate("${Routes.ENHANCED_LOGIN}?role=$resolvedRole") {
                         launchSingleTop = true
                     }
                     logPendingNotificationDestinationOpened(source = "cold_start_direct_login")
@@ -330,8 +330,8 @@ fun MainNavGraph(
                 if (navigateTo != null) {
                     try {
                         Timber.i("MainNavGraph - Navigating to specific screen: $navigateTo")
-                        navController.navigate(navigateTo) {
-                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                        navController.safeNavigate(navigateTo) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = false }
                             launchSingleTop = true
                         }
                         logPendingNotificationDestinationOpened(source = "cold_start_navigate_to")
@@ -345,14 +345,14 @@ fun MainNavGraph(
                         try {
                             if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
                                 Timber.i("MainNavGraph - Logged-in user notification: Navigating to EMPLOYER_HOME")
-                                navController.navigate(Routes.EMPLOYER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                navController.safeNavigate(Routes.EMPLOYER_HOME) {
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = false }
                                     launchSingleTop = true
                                 }
                             } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
                                 Timber.i("MainNavGraph - Logged-in user notification: Navigating to WORKER_HOME")
-                                navController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                navController.safeNavigate(Routes.WORKER_HOME) {
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = false }
                                     launchSingleTop = true
                                 }
                             }
@@ -379,14 +379,14 @@ fun MainNavGraph(
                     try {
                         if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
                             Timber.i("MainNavGraph - Legacy notification: Logged-in employer navigating to EMPLOYER_HOME")
-                            navController.navigate(Routes.EMPLOYER_HOME) {
-                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            navController.safeNavigate(Routes.EMPLOYER_HOME) {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = false }
                                 launchSingleTop = true
                             }
                         } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
                             Timber.i("MainNavGraph - Legacy notification: Logged-in worker navigating to WORKER_HOME")
-                            navController.navigate(Routes.WORKER_HOME) {
-                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                            navController.safeNavigate(Routes.WORKER_HOME) {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }

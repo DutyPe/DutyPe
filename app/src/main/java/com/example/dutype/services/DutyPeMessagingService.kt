@@ -179,6 +179,9 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         channelId: String,
         data: Map<String, String>
     ) {
+        // Ensure channels are created before building or showing notification
+        NotificationChannelManager.createNotificationChannels(this)
+
         val notificationId = data["notificationId"]
             ?.takeIf { it.isNotBlank() }
             ?.hashCode()

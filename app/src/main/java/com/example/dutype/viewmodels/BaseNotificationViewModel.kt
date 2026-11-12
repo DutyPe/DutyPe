@@ -152,8 +152,8 @@ abstract class BaseNotificationViewModel(
 
                         // Also include local broadcast notifications on the first page
                         val localBroadcasts = if (!append) {
-                            val local = com.example.dutype.notifications.LocalNotificationStore.getNotifications(context, roleLabel)
-                            local.filterNot { it.id.startsWith("guest_") }.map { data ->
+                            val local = com.example.dutype.notifications.LocalNotificationStore.getStoredBroadcastNotifications(context, roleLabel)
+                            local.map { data ->
                                 Notification(
                                     id = data.id,
                                     userId = data.recipientId,
@@ -168,9 +168,9 @@ abstract class BaseNotificationViewModel(
                         } else emptyList()
 
                         val merged = if (append) {
-                            (_uiState.value.notifications + converted).distinctBy { it.id }
+                            (_uiState.value.notifications + converted).distinctBy { it.id }.sortedByDescending { it.createdAt }
                         } else {
-                            (localBroadcasts + converted).distinctBy { it.id }
+                            (localBroadcasts + converted).distinctBy { it.id }.sortedByDescending { it.createdAt }
                         }
 
                         val unreadCount = merged.count { !it.isRead }
@@ -190,21 +190,67 @@ abstract class BaseNotificationViewModel(
                         )
                     },
                     onFailure = { error ->
-                        Timber.e(error, "$roleLabel NotificationVM - Error loading notifications")
+                        Timber.e(error, "$roleLabel NotificationVM - Error loading remote notifications, falling back to local broadcasts")
+                        val local = com.example.dutype.notifications.LocalNotificationStore.getStoredBroadcastNotifications(context, roleLabel)
+                        val fallbackList = local.map { data ->
+                            Notification(
+                                id = data.id,
+                                userId = data.recipientId,
+                                title = data.title,
+                                message = data.message,
+                                type = convertNotificationType(data.type),
+                                isRead = data.isRead,
+                                createdAt = data.createdAt,
+                                actionData = data.data
+                            )
+                        }.sortedByDescending { it.createdAt }
+
+                        val unreadCount = fallbackList.count { !it.isRead }
                         _uiState.value = _uiState.value.copy(
+                            notifications = fallbackList,
+                            filteredNotifications = fallbackList,
                             isLoading = false,
                             isLoadingMore = false,
-                            error = "Failed to load notifications: ${error.message}"
+                            hasMore = false,
+                            unreadCount = unreadCount,
+                            stats = NotificationStats(
+                                totalNotifications = fallbackList.size,
+                                unreadCount = unreadCount
+                            ),
+                            error = if (fallbackList.isEmpty()) "Failed to load notifications: ${error.message}" else null
                         )
                     }
                 )
             }
         } catch (e: Exception) {
             Timber.e(e, "$roleLabel NotificationVM - Exception loading notifications")
+            val local = com.example.dutype.notifications.LocalNotificationStore.getStoredBroadcastNotifications(context, roleLabel)
+            val fallbackList = local.map { data ->
+                Notification(
+                    id = data.id,
+                    userId = data.recipientId,
+                    title = data.title,
+                    message = data.message,
+                    type = convertNotificationType(data.type),
+                    isRead = data.isRead,
+                    createdAt = data.createdAt,
+                    actionData = data.data
+                )
+            }.sortedByDescending { it.createdAt }
+
+            val unreadCount = fallbackList.count { !it.isRead }
             _uiState.value = _uiState.value.copy(
+                notifications = fallbackList,
+                filteredNotifications = fallbackList,
                 isLoading = false,
                 isLoadingMore = false,
-                error = "Failed to load notifications: ${e.message}"
+                hasMore = false,
+                unreadCount = unreadCount,
+                stats = NotificationStats(
+                    totalNotifications = fallbackList.size,
+                    unreadCount = unreadCount
+                ),
+                error = if (fallbackList.isEmpty()) "Failed to load notifications: ${e.message}" else null
             )
         } finally {
             isRequestInFlight = false

@@ -64,6 +64,26 @@ object LocalNotificationStore {
         return roleFiltered
     }
 
+    /**
+     * Retrieve ONLY real stored push notifications received on this device (excluding guest demo cards).
+     * Used for logged-in users to merge with server-side notifications.
+     */
+    @Synchronized
+    fun getStoredBroadcastNotifications(context: Context, targetRole: String? = null): List<NotificationData> {
+        val stored = getNotificationsInternal(context)
+        val normalizedRole = targetRole?.uppercase().orEmpty()
+
+        val filtered = if (normalizedRole.isNotBlank()) {
+            stored.filter { notif ->
+                notif.targetRole.isBlank() || notif.targetRole.equals(normalizedRole, ignoreCase = true)
+            }
+        } else {
+            stored
+        }
+
+        return filtered.filterNot { it.id.startsWith("guest_") }
+    }
+
     fun getDefaultGuestNotifications(context: Context, role: String): List<NotificationData> {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_GUEST_DISMISSED_DEFAULTS, false)) {

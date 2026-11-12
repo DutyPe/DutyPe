@@ -126,6 +126,10 @@
 
 
 
+        <!-- Firebase Cloud Messaging Defaults (Android 8+ Channel & Icon configuration) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_priority" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
@@ -206,7 +210,7 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-        
+
         <!-- FileProvider for camera capture -->
         <provider
             android:name="androidx.core.content.FileProvider"

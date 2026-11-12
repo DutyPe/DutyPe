@@ -53,7 +53,7 @@ const presetDefaults: Record<NotificationPreset, Pick<NotificationFormState, "ti
   GENERAL: {
     title: "DutyPe update",
     message: "Here is a general update from the DutyPe admin team.",
-    sendPush: false,
+    sendPush: true,
     deepLink: "dutype://notifications"
   }
 };

@@ -113,8 +113,14 @@
 # -----------------------------------------------------------------------------
 # Google Protobuf & Jetpack DataStore Protobuf (Prevents AbstractMethodError in Firestore and DataStore)
 # -----------------------------------------------------------------------------
+-keep class androidx.datastore.** { *; }
+-keep interface androidx.datastore.** { *; }
+-keepclassmembers class androidx.datastore.** { *; }
+-dontwarn androidx.datastore.**
+
 -keep class androidx.datastore.preferences.protobuf.** { *; }
 -keep interface androidx.datastore.preferences.protobuf.** { *; }
+-keepclassmembers class androidx.datastore.preferences.protobuf.** { *; }
 -dontwarn androidx.datastore.preferences.protobuf.**
 
 # Keep Protobuf GeneratedMessageLite and its dynamically invoked methods
@@ -130,6 +136,7 @@
 
 -keep class com.google.protobuf.** { *; }
 -keep interface com.google.protobuf.** { *; }
+-keepclassmembers class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
 -keep class com.google.protobuf.GeneratedMessageLite {

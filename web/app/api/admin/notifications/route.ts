@@ -111,8 +111,33 @@ export async function POST(request: NextRequest) {
     if (fcmTokens.length) {
       await getFirebaseAdminMessaging().sendEachForMulticast({
         tokens: fcmTokens,
-        data: { title, body: message, type: "GENERAL", channel: "high_priority", ...(deepLink ? { deepLink } : {}) },
-        android: { priority: "high" }
+        notification: { title, body: message },
+        data: {
+          title,
+          body: message,
+          message: message,
+          type: "GENERAL",
+          channel: "high_priority",
+          channel_id: "high_priority",
+          priority: "high",
+          ...(deepLink ? { deepLink } : {})
+        },
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "high_priority",
+            title,
+            body: message,
+            icon: "ic_notification",
+            color: "#3B82F6",
+            sound: "default",
+            clickAction: "OPEN_ACTIVITY",
+            priority: "high",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+            visibility: "public"
+          }
+        }
       });
     }
     return NextResponse.json({ ok: true, recipientCount: recipientIds.length, pushed: fcmTokens.length });

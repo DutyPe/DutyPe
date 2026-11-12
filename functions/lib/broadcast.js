@@ -52,19 +52,29 @@ exports.sendBroadcastNotification = functions
         ? notification.translations
         : null;
     try {
+        const targetRole = notification.targetRole || (topic === TOPIC_WORKERS ? "WORKER" : topic === TOPIC_EMPLOYERS ? "EMPLOYER" : "");
         const sendToOne = async (sendTopic, sendTitle, sendMessage) => {
             const topicMessage = {
                 topic: sendTopic,
-                data: Object.assign(Object.assign({ notificationId: notificationId, title: sendTitle, message: sendMessage, body: sendMessage, type: type }, (typeof notification.deepLink === "string" && notification.deepLink ? { deepLink: notification.deepLink } : {})), { click_action: "FLUTTER_NOTIFICATION_CLICK" }),
+                notification: {
+                    title: sendTitle,
+                    body: sendMessage,
+                },
+                data: Object.assign(Object.assign({ notificationId: notificationId, title: sendTitle, message: sendMessage, body: sendMessage, type: type, targetRole: targetRole, channel: "high_priority", channel_id: "high_priority", priority: "high" }, (typeof notification.deepLink === "string" && notification.deepLink ? { deepLink: notification.deepLink } : {})), { click_action: "FLUTTER_NOTIFICATION_CLICK" }),
                 android: {
                     priority: "high",
                     notification: {
+                        channelId: "high_priority",
                         title: sendTitle,
                         body: sendMessage,
                         icon: "ic_notification",
                         color: "#3B82F6",
                         sound: "default",
                         clickAction: "OPEN_ACTIVITY",
+                        priority: "high",
+                        defaultSound: true,
+                        defaultVibrateTimings: true,
+                        visibility: "public",
                     },
                 },
             };
