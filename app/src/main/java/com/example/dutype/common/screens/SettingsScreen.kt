@@ -113,9 +113,7 @@ private fun findActivity(context: Context): Activity? {
 
 private fun applyLanguageChange(context: Context, code: String) {
     if (LocaleHelper.getLanguage(context) == code) return
-    LocaleHelper.saveLanguage(context, code)
-    LocaleHelper.setLocale(context.applicationContext, code)
-    LocaleHelper.setLocale(context, code)
+    LocaleHelper.applyLanguage(context, code)
     val activity = findActivity(context)
     if (activity != null) {
         val intent = Intent(activity, MainActivity::class.java).apply {
@@ -761,19 +759,10 @@ private fun SettingsAirbnbFooter(appVersion: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "DutyPe v$appVersion",
-            style = TextStyle(
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Normal,
-                color = AirbnbSubtitleColor.fg()
-            )
-        )
-        Text(
-            text = stringResource(R.string.about_made_in_bharat),
+            text = "v$appVersion",
             style = TextStyle(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Normal,

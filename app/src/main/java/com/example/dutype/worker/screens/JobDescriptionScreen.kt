@@ -179,7 +179,8 @@ fun JobDescriptionScreen(
     val applicationStatuses by smartApplicationViewModel.applicationStatuses.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    LaunchedEffect(Unit) { onStatusBarColorChange(Color.White) }
+    val statusBarColor = WorkerColors.StatusBarColor
+    LaunchedEffect(statusBarColor) { onStatusBarColorChange(statusBarColor) }
 
     var job by remember { mutableStateOf<JobListing?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -482,7 +483,7 @@ fun JobDescriptionScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "Share",
+                                    text = stringResource(R.string.share),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = WorkerColors.TextPrimary
@@ -1287,7 +1288,7 @@ private fun JobDetailsContent(
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Text(
-                            text = "SALARY / PAY",
+                            text = stringResource(R.string.job_desc_stat_salary),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF64748B).fg(),
@@ -1310,7 +1311,7 @@ private fun JobDetailsContent(
 
                     // Key Job Highlights
                     Text(
-                        text = "Job Details",
+                        text = stringResource(R.string.job_details),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = WorkerColors.TextPrimary,
@@ -1776,7 +1777,7 @@ fun ContactEmployerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF1A2233) else Color.White,
+        containerColor = WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -1793,20 +1794,20 @@ fun ContactEmployerBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Contact Employer Directly",
+                        text = stringResource(R.string.contact_employer_directly),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = WorkerColors.TextPrimary
                     )
                     Text(
-                        text = "Zero agent cut · Direct hiring connection",
+                        text = stringResource(R.string.zero_agent_cut_desc),
                         fontSize = 12.5.sp,
-                        color = Color(0xFF10B981),
+                        color = Color(0xFF10B981).fg(),
                         fontWeight = FontWeight.Medium
                     )
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = WorkerColors.TextSecondary)
                 }
             }
 
@@ -1816,8 +1817,8 @@ fun ContactEmployerBottomSheet(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFFF7F7F7),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                color = Color(0xFFF7F7F7).bg(),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
             ) {
                 Row(
                     modifier = Modifier.padding(14.dp),
@@ -1828,22 +1829,22 @@ fun ContactEmployerBottomSheet(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
+                            .background(Color(0xFFE0F2FE).bg()),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Business, contentDescription = null, tint = Color(0xFF0284C7))
+                        Icon(Icons.Default.Business, contentDescription = null, tint = Color(0xFF0284C7).fg())
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = job.companyName.ifBlank { "Direct Hiring Employer" },
+                            text = job.companyName.ifBlank { stringResource(R.string.direct_hiring_employer) },
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = Color(0xFF0F172A)
+                            color = WorkerColors.TextPrimary
                         )
                         Text(
                             text = "${job.title} · ${job.area.ifBlank { "Khammam" }}",
                             fontSize = 12.5.sp,
-                            color = Color(0xFF64748B)
+                            color = WorkerColors.TextSecondary
                         )
                     }
                 }
@@ -1855,8 +1856,8 @@ fun ContactEmployerBottomSheet(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFFECFDF5),
-                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                color = Color(0xFFECFDF5).bg(),
+                border = BorderStroke(1.dp, Color(0xFFA7F3D0).bd())
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -1865,18 +1866,18 @@ fun ContactEmployerBottomSheet(
                 ) {
                     Column {
                         Text(
-                            text = "Employer Verified Number",
+                            text = stringResource(R.string.employer_verified_number),
                             fontSize = 11.5.sp,
-                            color = Color(0xFF047857),
+                            color = Color(0xFF047857).fg(),
                             fontWeight = FontWeight.Medium
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         if (isLoading) {
                             Text(
-                                text = "Connecting...",
+                                text = stringResource(R.string.connecting),
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF065F46)
+                                color = Color(0xFF065F46).fg()
                             )
                         } else {
                             val displayPhone = phone?.takeIf { it.isNotBlank() } ?: "+91 94401 23456"
@@ -1884,20 +1885,20 @@ fun ContactEmployerBottomSheet(
                                 text = displayPhone,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF065F46),
+                                color = Color(0xFF065F46).fg(),
                                 letterSpacing = 0.5.sp
                             )
                         }
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFD1FAE5)
+                        color = Color(0xFFD1FAE5).bg()
                     ) {
                         Text(
-                            text = "100% Genuine",
+                            text = stringResource(R.string.genuine_verified_badge),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF065F46),
+                            color = Color(0xFF065F46).fg(),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -1928,7 +1929,7 @@ fun ContactEmployerBottomSheet(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "Chat on WhatsApp with Owner",
+                        text = stringResource(R.string.chat_on_whatsapp_owner),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = Color.White
@@ -1948,20 +1949,20 @@ fun ContactEmployerBottomSheet(
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, Color(0xFF0F172A))
+                border = BorderStroke(1.5.dp, WorkerColors.BorderFocused)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(
                         imageVector = Icons.Default.Phone,
                         contentDescription = "Direct Call",
-                        tint = Color(0xFF0F172A),
+                        tint = WorkerColors.TextPrimary,
                         modifier = Modifier.size(19.dp)
                     )
                     Text(
-                        text = "Direct Call Employer",
+                        text = stringResource(R.string.direct_call_employer),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = Color(0xFF0F172A)
+                        color = WorkerColors.TextPrimary
                     )
                 }
             }

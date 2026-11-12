@@ -95,8 +95,9 @@ fun EmployerHistoryScreen(
     var showDeleteUrgentConfirm by remember { mutableStateOf(false) }
     var urgentRequestToDelete by remember { mutableStateOf<InstantRequest?>(null) }
 
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+    val statusBar = EmployerColors.StatusBarColor
+    LaunchedEffect(statusBar) {
+        onStatusBarColorChange(statusBar)
         try {
             employerJobViewModel.loadMyJobs()
             instantHelpViewModel.loadEmployerUrgentNeeds()

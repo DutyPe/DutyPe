@@ -31,8 +31,9 @@ fun EmployerAboutScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+    val statusBar = com.example.dutype.ui.theme.EmployerColors.StatusBarColor
+    LaunchedEffect(statusBar) {
+        onStatusBarColorChange(statusBar)
     }
 
     val appVersion = LocalContext.current.appVersionName()

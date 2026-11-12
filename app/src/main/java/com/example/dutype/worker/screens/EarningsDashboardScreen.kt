@@ -429,7 +429,7 @@ private fun TransactionCard(
                 maxLines = 1,
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(pillBg)
+                    .background(pillBg.bg())
                     .padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }

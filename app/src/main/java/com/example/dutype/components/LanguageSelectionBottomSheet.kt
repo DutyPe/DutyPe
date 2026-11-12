@@ -61,6 +61,15 @@ private val languages = listOf(
     )
 )
 
+private fun findActivity(context: android.content.Context): Activity? {
+    var current: android.content.Context? = context
+    while (current is android.content.ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LanguageSelectionBottomSheet(
@@ -115,13 +124,11 @@ fun LanguageSelectionBottomSheet(
                         onClick = {
                             if (selectedLanguage != item.code) {
                                 selectedLanguage = item.code
-                                LocaleHelper.saveLanguage(context, item.code)
-                                LocaleHelper.setLocale(context.applicationContext, item.code)
-                                LocaleHelper.setLocale(context, item.code)
+                                LocaleHelper.applyLanguage(context, item.code)
 
                                 onDismiss()
 
-                                val activity = context as? Activity
+                                val activity = findActivity(context)
                                 if (activity != null) {
                                     val intent = Intent(activity, MainActivity::class.java).apply {
                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)

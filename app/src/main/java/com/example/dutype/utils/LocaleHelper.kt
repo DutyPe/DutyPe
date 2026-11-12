@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -168,10 +170,28 @@ object LocaleHelper {
     }
     
     /**
-     * Update the locale for an existing context
+     * Update the locale for an existing context and apply it system-wide
      */
     fun updateLocale(context: Context, language: String): Context {
+        return applyLanguage(context, language)
+    }
+
+    /**
+     * Apply language change app-wide:
+     * 1. Saves language to DE and CE storage
+     * 2. Sets AndroidX / Android 13+ per-app language via AppCompatDelegate
+     * 3. Updates resources configuration for immediate UI effect
+     * 4. Syncs with Firestore and updates FCM topic subscriptions
+     */
+    fun applyLanguage(context: Context, language: String): Context {
         saveLanguage(context, language)
+
+        runCatching {
+            val appLocale = LocaleListCompat.forLanguageTags(language)
+            AppCompatDelegate.setApplicationLocales(appLocale)
+        }
+
+        setLocale(context.applicationContext, language)
         return setLocale(context, language)
     }
 

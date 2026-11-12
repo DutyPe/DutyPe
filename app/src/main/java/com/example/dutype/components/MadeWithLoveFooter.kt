@@ -170,7 +170,7 @@ fun MadeWithLoveFooter(
             Icon(
                 imageVector = Icons.Filled.Favorite,
                 contentDescription = "DutyPe Blue Heart",
-                tint = Color(0xFFEF4444),
+                tint = Color(0xFF2563EB),
                 modifier = Modifier.size(31.dp)
             )
         }

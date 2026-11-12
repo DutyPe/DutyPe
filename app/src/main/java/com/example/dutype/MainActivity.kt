@@ -194,6 +194,16 @@ class MainActivity : ComponentActivity() {
         launchIntent?.let(::setIntent)
         cancelTappedSystemNotification(launchIntent)
 
+        // Ensure AndroidX / system per-app locale matches saved language preference
+        val currentAppLang = LocaleHelper.getLanguage(this)
+        if (androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags() != currentAppLang) {
+            runCatching {
+                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
+                    androidx.core.os.LocaleListCompat.forLanguageTags(currentAppLang)
+                )
+            }
+        }
+
         // Initialize Timber for logging (if not already initialized in Application class)
         // PERF: only in debuggable builds; a DebugTree in release logs every Timber call to logcat.
         if (Timber.treeCount == 0 && isDebuggableBuild()) {

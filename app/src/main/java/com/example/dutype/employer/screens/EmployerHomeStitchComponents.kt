@@ -1426,13 +1426,18 @@ fun LocalWorkersSocialProofCard(
     modifier: Modifier = Modifier
 ) {
     val locationLabel = cityName.trim().takeIf { it.isNotBlank() } ?: "Khammam, TS"
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val currentLang = com.example.dutype.utils.LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onHireClick),
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        color = Color.White.bg(),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
         shadowElevation = 1.dp
     ) {
         Column(
@@ -1440,53 +1445,28 @@ fun LocalWorkersSocialProofCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header: Live dot + Title + Location badge
+            // Header: Live dot + Title
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF10B981))
-                    )
-                    Text(
-                        text = "Verified Local Hiring",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A).fg()
-                    )
-                }
-
-                // Required location badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFEFF6FF).bg())
-                        .border(0.8.dp, Color(0xFFBFDBFE).bd(), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = "Location",
-                        tint = Color(0xFF2563EB),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = locationLabel,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E40AF).fg()
-                    )
-                }
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981))
+                )
+                Text(
+                    text = when {
+                        isTelugu -> "ధృవీకరించబడిన స్థానిక నియామకాలు"
+                        isHindi -> "सत्यापित स्थानीय भर्ती"
+                        else -> "Verified Local Hiring"
+                    },
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A).fg()
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1512,7 +1492,11 @@ fun LocalWorkersSocialProofCard(
                         color = Color(0xFF047857)
                     )
                     Text(
-                        text = "Workers Near You",
+                        text = when {
+                            isTelugu -> "మీ సమీపంలోని వర్కర్లు"
+                            isHindi -> "आपके नजदीकी कर्मचारी"
+                            else -> "Workers Near You"
+                        },
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF065F46).fg()
@@ -1535,7 +1519,11 @@ fun LocalWorkersSocialProofCard(
                         color = Color(0xFF1D4ED8)
                     )
                     Text(
-                        text = "Employers Hired Staff",
+                        text = when {
+                            isTelugu -> "సిబ్బందిని నియమించిన యజమానులు"
+                            isHindi -> "कर्मचारियों को नियुक्त किया"
+                            else -> "Employers Hired Staff"
+                        },
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF1E40AF).fg()
@@ -1546,7 +1534,11 @@ fun LocalWorkersSocialProofCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "In $locationLabel, over 100+ employers hired staff through DutyPe. Over 1000+ phone-verified workers are available across helpers, cooks, drivers, cleaners & delivery roles.",
+                text = when {
+                    isTelugu -> "$locationLabel లో, DutyPe ద్వారా 100+ కంటే ఎక్కువ యజమానులు సిబ్బందిని నియమించుకున్నారు. హెల్పర్స్, కుక్స్, డ్రైవర్లు, క్లీనర్స్ మరియు డెలివరీ విభాగాల్లో 1000+ కంటే ఎక్కువ ధృవీకరించబడిన వర్కర్లు అందుబాటులో ఉన్నారు."
+                    isHindi -> "$locationLabel में, DutyPe के माध्यम से 100+ से अधिक नियोक्ताओं ने कर्मचारियों को नियुक्त किया है। हेल्पर्स, रसोइये, ड्राइवर, क्लीनर और डिलीवरी भूमिकाओं में 1000+ से अधिक फोन-सत्यापित कर्मचारी उपलब्ध हैं।"
+                    else -> "In $locationLabel, over 100+ employers hired staff through DutyPe. Over 1000+ phone-verified workers are available across helpers, cooks, drivers, cleaners & delivery roles."
+                },
                 fontSize = 12.sp,
                 color = Color(0xFF475569).fg(),
                 lineHeight = 16.5.sp
@@ -1571,7 +1563,11 @@ fun LocalWorkersSocialProofCard(
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = "Direct Contact",
+                        text = when {
+                            isTelugu -> "నేరుగా సంప్రదించండి"
+                            isHindi -> "सीधा संपर्क"
+                            else -> "Direct Contact"
+                        },
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF334155).fg()
@@ -1589,7 +1585,11 @@ fun LocalWorkersSocialProofCard(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "Hire within 10 Mins",
+                        text = when {
+                            isTelugu -> "10 నిమిషాల్లో నియమించండి"
+                            isHindi -> "10 मिनट में नियुक्त करें"
+                            else -> "Hire within 10 Mins"
+                        },
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF334155).fg()
@@ -1607,7 +1607,11 @@ fun LocalWorkersSocialProofCard(
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = "Zero Commission",
+                        text = when {
+                            isTelugu -> "జీరో కమిషన్"
+                            isHindi -> "जीरो कमीशन"
+                            else -> "Zero Commission"
+                        },
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF334155).fg()
@@ -1628,8 +1632,8 @@ fun LocalWorkersSocialProofCard(
                         .weight(1f)
                         .height(42.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A))
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd()),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A).fg())
                 ) {
                     Icon(
                         imageVector = Icons.Default.FlashOn,
@@ -1639,7 +1643,11 @@ fun LocalWorkersSocialProofCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Urgent",
+                        text = when {
+                            isTelugu -> "అత్యవసరం"
+                            isHindi -> "तत्काल"
+                            else -> "Urgent"
+                        },
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1654,7 +1662,11 @@ fun LocalWorkersSocialProofCard(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
                 ) {
                     Text(
-                        text = "Post Vacancy (₹49)",
+                        text = when {
+                            isTelugu -> "ఖాళీ పోస్ట్ చేయండి"
+                            isHindi -> "रिक्ति पोस्ट करें"
+                            else -> "Post Vacancy"
+                        },
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -1682,6 +1694,10 @@ fun EmployerWhatsAppHireHotlineCard(
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val currentLang = com.example.dutype.utils.LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI
+
     Surface(
         onClick = {
             val message = "Hi DutyPe team, I want to post a job vacancy for my business. Please post it for me."
@@ -1695,8 +1711,8 @@ fun EmployerWhatsAppHireHotlineCard(
             }
         },
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFFF0FDF4),
-        border = BorderStroke(1.2.dp, Color(0xFF86EFAC)),
+        color = Color(0xFFF0FDF4).bg(),
+        border = BorderStroke(1.2.dp, Color(0xFF86EFAC).bd()),
         shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth()
     ) {
@@ -1715,10 +1731,10 @@ fun EmployerWhatsAppHireHotlineCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                    painter = androidx.compose.ui.res.painterResource(id = com.dutype.app.R.drawable.ic_whatsapp),
                     contentDescription = "WhatsApp",
                     tint = Color.White,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -1730,18 +1746,22 @@ fun EmployerWhatsAppHireHotlineCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Post via WhatsApp Hotline",
+                        text = when {
+                            isTelugu -> "WhatsApp ద్వారా పోస్ట్ చేయండి"
+                            isHindi -> "WhatsApp द्वारा पोस्ट करें"
+                            else -> "Post via WhatsApp Hotline"
+                        },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF065F46)
+                        color = Color(0xFF065F46).fg()
                     )
                     Box(
                         modifier = Modifier
-                            .background(Color(0xFFDCFCE7), RoundedCornerShape(6.dp))
+                            .background(Color(0xFFDCFCE7).bg(), RoundedCornerShape(6.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "FREE • 2 MIN",
+                            text = "2 MIN",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF16A34A)
@@ -1750,9 +1770,13 @@ fun EmployerWhatsAppHireHotlineCard(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Don't want to type? Tap here to send your requirement on WhatsApp to +91 8019151847 — DutyPe team will post it for you in 2 minutes for free.",
+                    text = when {
+                        isTelugu -> "టైప్ చేయడం ఇష్టం లేదా? మీ అవసరాన్ని +91 8019151847 కు WhatsApp లో పంపండి — DutyPe బృందం 2 నిమిషాల్లో ఉచితంగా పోస్ట్ చేస్తుంది."
+                        isHindi -> "टाइप नहीं करना चाहते? अपनी आवश्यकता WhatsApp पर +91 8019151847 पर भेजें — DutyPe टीम आपके लिए 2 मिनट में मुफ्त में पोस्ट करेगी।"
+                        else -> "Don't want to type? Tap here to send your requirement on WhatsApp to +91 8019151847 — DutyPe team will post it for you in 2 minutes for free."
+                    },
                     fontSize = 11.5.sp,
-                    color = Color(0xFF047857),
+                    color = Color(0xFF047857).fg(),
                     lineHeight = 15.5.sp
                 )
             }
@@ -1782,6 +1806,11 @@ fun EmployerTrialCountdownCard(
     onUpgradeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val currentLang = com.example.dutype.utils.LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1802,8 +1831,7 @@ fun EmployerTrialCountdownCard(
             // Top Badge Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
@@ -1815,7 +1843,11 @@ fun EmployerTrialCountdownCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "🎉 100% FREE FOR ALL EMPLOYERS",
+                            text = when {
+                                isTelugu -> "🎉 యజమానులందరికీ 100% ఉచితం"
+                                isHindi -> "🎉 सभी नियोक्ताओं के लिए 100% मुफ्त"
+                                else -> "🎉 100% FREE FOR ALL EMPLOYERS"
+                            },
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -1823,37 +1855,31 @@ fun EmployerTrialCountdownCard(
                         )
                     }
                 }
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFDCFCE7),
-                    modifier = Modifier.padding(bottom = 4.dp)
-                ) {
-                    Text(
-                        text = "Unlimited Posts",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF166534),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "Post Unlimited Jobs for Free",
+                text = when {
+                    isTelugu -> "అపరిమిత ఉద్యోగాలను ఉచితంగా పోస్ట్ చేయండి"
+                    isHindi -> "असीमित नौकरियां मुफ्त में पोस्ट करें"
+                    else -> "Post Unlimited Jobs for Free"
+                },
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF065F46)
+                color = Color(0xFF065F46).fg()
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Zero posting charges, zero hidden fees. Post as many vacancies as you need and connect with verified local candidates instantly.",
+                text = when {
+                    isTelugu -> "జీరో ఛార్జీలు, ఎలాంటి దాచిన రుసుములు లేవు. మీకు కావలసినన్ని ఖాళీలను పోస్ట్ చేయండి మరియు స్థానిక అభ్యర్థులతో వెంటనే కనెక్ట్ అవ్వండి."
+                    isHindi -> "जीरो पोस्टिंग शुल्क, कोई छुपा शुल्क नहीं। जितनी चाहें उतनी रिक्तियां पोस्ट करें और तुरंत स्थानीय उम्मीदवारों से जुड़ें।"
+                    else -> "Zero posting charges, zero hidden fees. Post as many vacancies as you need and connect with verified local candidates instantly."
+                },
                 fontSize = 12.5.sp,
-                color = Color(0xFF047857),
+                color = Color(0xFF047857).fg(),
                 lineHeight = 17.sp
             )
 
@@ -1868,7 +1894,11 @@ fun EmployerTrialCountdownCard(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669))
             ) {
                 Text(
-                    text = "Post Unlimited Jobs Free",
+                    text = when {
+                        isTelugu -> "ఉచితంగా పోస్ట్ చేయండి"
+                        isHindi -> "मुफ्त नौकरी पोस्ट करें"
+                        else -> "Post Unlimited Jobs Free"
+                    },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White

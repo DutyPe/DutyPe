@@ -91,8 +91,8 @@ private fun StitchTextField(
     helperText: String? = null,
     errorMessage: String? = null,
     readOnly: Boolean = false,
-    backgroundColor: Color = Color.White,
-    valueColor: Color = StitchFieldValue,
+    backgroundColor: Color = Color.White.bg(),
+    valueColor: Color = StitchFieldValue.fg(),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
     leadingIcon: (@Composable () -> Unit)? = null,
@@ -103,7 +103,7 @@ private fun StitchTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .background(backgroundColor, RoundedCornerShape(14.dp))
+                .background(backgroundColor.bg(), RoundedCornerShape(14.dp))
                 .border(
                     width = 1.dp,
                     color = if (errorMessage != null) Color(0xFFEF4444) else StitchBorder.bd(),
@@ -122,7 +122,7 @@ private fun StitchTextField(
                         text = placeholder,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Normal,
-                        color = Color(0xFF94A3B8)
+                        color = Color(0xFF94A3B8).fg()
                     )
                 }
                 BasicTextField(
@@ -655,10 +655,10 @@ fun MandatoryWorkerProfileSetupScreen(
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         Text(
-                            text = "Step 1 of 2",
+                            text = stringResource(R.string.step_1_of_2),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             modifier = Modifier.padding(end = 12.dp)
                         )
                     }
@@ -682,7 +682,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 .weight(1f)
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp))
-                                .background(Color(0xFFE2E8F0))
+                                .background(Color(0xFFE2E8F0).bd())
                         )
                     }
                 }
@@ -701,7 +701,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = Color(0xFF0F172A)
+                            tint = Color(0xFF0F172A).fg()
                         )
                     }
                 }
@@ -710,7 +710,7 @@ fun MandatoryWorkerProfileSetupScreen(
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = Color.White.bg(),
                 shadowElevation = 8.dp
             ) {
                 Column(
@@ -740,7 +740,7 @@ fun MandatoryWorkerProfileSetupScreen(
                             )
                         ) {
                             Text(
-                                text = "Continue to Next Step →",
+                                text = stringResource(R.string.continue_to_next_step),
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
@@ -786,7 +786,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 )
                             } else {
                                 Text(
-                                    text = "Continue",
+                                    text = stringResource(R.string.continue_text),
                                     color = Color.White,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
@@ -800,10 +800,10 @@ fun MandatoryWorkerProfileSetupScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Skip for now",
+                                text = stringResource(R.string.skip_for_now),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF00B159)
+                                color = Color(0xFF00B159).fg()
                             )
                         }
                     }
@@ -842,9 +842,9 @@ fun MandatoryWorkerProfileSetupScreen(
                     Text(text = annotatedTitle, lineHeight = 34.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Basic profile details & your skills",
+                        text = stringResource(R.string.basic_profile_skills_sub),
                         fontSize = 13.sp,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B).fg()
                     )
                 }
 
@@ -862,8 +862,8 @@ fun MandatoryWorkerProfileSetupScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
-                            .background(Color(0xFFF7F7F7), RoundedCornerShape(14.dp))
-                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF7F7F7).bg(), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(14.dp))
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -872,26 +872,26 @@ fun MandatoryWorkerProfileSetupScreen(
                             text = "+91 $contactPhone",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B).fg()
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .background(Color(0xFFECFDF5), RoundedCornerShape(6.dp))
+                                .background(Color(0xFFECFDF5).bg(), RoundedCornerShape(6.dp))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 Icons.Default.Lock,
                                 contentDescription = "Verified",
-                                tint = Color(0xFF10B981),
+                                tint = Color(0xFF10B981).fg(),
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Verified",
+                                text = stringResource(R.string.verified_label),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF10B981)
+                                color = Color(0xFF10B981).fg()
                             )
                         }
                     }
@@ -900,10 +900,10 @@ fun MandatoryWorkerProfileSetupScreen(
                 // 3. Gender Pills
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "GENDER *",
+                        text = stringResource(R.string.gender_required),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = StitchLabel,
+                        color = StitchLabel.fg(),
                         letterSpacing = 0.5.sp
                     )
                     Row(
@@ -912,21 +912,26 @@ fun MandatoryWorkerProfileSetupScreen(
                     ) {
                         GENDER_OPTIONS.forEach { gender ->
                             val isSelected = selectedGender.equals(gender, ignoreCase = true)
+                            val genderLabel = when (gender.lowercase()) {
+                                "male" -> stringResource(R.string.gender_male)
+                                "female" -> stringResource(R.string.gender_female)
+                                else -> gender
+                            }
                             Surface(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp)
                                     .clickable { selectedGender = gender },
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) Color(0xFF0F172A) else Color.White,
-                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE2E8F0)) else null
+                                color = if (isSelected) Color(0xFF0F172A).bg() else Color.White.bg(),
+                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE2E8F0).bd()) else null
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = gender,
+                                        text = genderLabel,
                                         fontSize = 14.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.White else Color(0xFF334155)
+                                        color = if (isSelected) Color.White else Color(0xFF334155).fg()
                                     )
                                 }
                             }
@@ -937,15 +942,15 @@ fun MandatoryWorkerProfileSetupScreen(
                 // 4. Primary Skills Selectable Chips
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "SELECT YOUR SKILLS *",
+                        text = stringResource(R.string.select_your_skills_required),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = StitchLabel,
+                        color = StitchLabel.fg(),
                         letterSpacing = 0.5.sp
                     )
                     if (showValidationErrors && !isSkillsValid) {
                         Text(
-                            text = "Please select at least 1 skill",
+                            text = stringResource(R.string.please_select_at_least_1_skill),
                             color = Color(0xFFEF4444),
                             fontSize = 12.sp
                         )
@@ -968,10 +973,10 @@ fun MandatoryWorkerProfileSetupScreen(
                 // 5. Experience Selector Pills
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "WORK EXPERIENCE *",
+                        text = stringResource(R.string.work_experience_required),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = StitchLabel,
+                        color = StitchLabel.fg(),
                         letterSpacing = 0.5.sp
                     )
                     Row(
@@ -986,15 +991,15 @@ fun MandatoryWorkerProfileSetupScreen(
                                     .height(44.dp)
                                     .clickable { selectedExperienceIndex = index },
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) Color(0xFF00A859) else Color.White,
-                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE2E8F0)) else null
+                                color = if (isSelected) Color(0xFF00A859) else Color.White.bg(),
+                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE2E8F0).bd()) else null
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = label,
                                         fontSize = 11.5.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.White else Color(0xFF334155),
+                                        color = if (isSelected) Color.White else Color(0xFF334155).fg(),
                                         textAlign = TextAlign.Center,
                                         maxLines = 1
                                     )
@@ -1095,7 +1100,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         ) {
                             Icon(Icons.Filled.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Verify Aadhaar (DigiLocker / OTP) 🛡️", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
+                            Text(stringResource(R.string.verify_aadhaar_btn), fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
                         }
                     }
                 }
@@ -1145,19 +1150,19 @@ fun MandatoryWorkerProfileSetupScreen(
                     )
 
                     Text(
-                        text = "Enter referral code",
+                        text = stringResource(R.string.enter_referral_code),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827),
+                        color = Color(0xFF111827).fg(),
                         textAlign = TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "It's optional, you can skip this",
+                        text = stringResource(R.string.referral_code_optional),
                         fontSize = 14.sp,
-                        color = Color(0xFF94A3B8),
+                        color = Color(0xFF94A3B8).fg(),
                         textAlign = TextAlign.Center
                     )
 
@@ -1171,9 +1176,9 @@ fun MandatoryWorkerProfileSetupScreen(
                         },
                         placeholder = {
                             Text(
-                                text = "Enter referral code (e.g. DUTY1234)",
+                                text = stringResource(R.string.enter_referral_code_hint),
                                 fontSize = 15.sp,
-                                color = Color(0xFF94A3B8)
+                                color = Color(0xFF94A3B8).fg()
                             )
                         },
                         singleLine = true,
@@ -1196,7 +1201,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFF00B159),
-                            unfocusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFFCBD5E1),
+                            unfocusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFFCBD5E1).bd(),
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                             errorBorderColor = Color(0xFFEF4444)
@@ -1207,8 +1212,8 @@ fun MandatoryWorkerProfileSetupScreen(
                     if (verifiedReferrerName != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "✓ Valid referral from $verifiedReferrerName",
-                            color = Color(0xFF059669),
+                            text = stringResource(R.string.valid_referral_from, verifiedReferrerName),
+                            color = Color(0xFF059669).fg(),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center
@@ -1266,10 +1271,10 @@ private fun OptInTradeChips(
                             .height(38.dp)
                             .clickable { onToggle(trade) },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) Color(0xFFECFDF5) else Color.White,
+                        color = if (isSelected) Color(0xFFECFDF5).bg() else Color.White.bg(),
                         border = BorderStroke(
                             1.dp,
-                            if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                            if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0).bd()
                         )
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -1277,7 +1282,7 @@ private fun OptInTradeChips(
                                 text = trade,
                                 fontSize = 11.5.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color(0xFF065F46) else Color(0xFF334155),
+                                color = if (isSelected) Color(0xFF065F46).fg() else Color(0xFF334155).fg(),
                                 textAlign = TextAlign.Center,
                                 maxLines = 1
                             )
@@ -1312,12 +1317,12 @@ private fun LocationSectionCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isCoordsValid) Color(0xFFF0FDF4) else Color.White
+            containerColor = if (isCoordsValid) Color(0xFFF0FDF4).bg() else Color.White.bg()
         ),
         border = BorderStroke(
             width = if (isCoordsValid) 1.5.dp else 1.dp,
             color = if (showError) Color(0xFFEF4444)
-                    else if (isCoordsValid) Color(0xFF86EFAC)
+                    else if (isCoordsValid) Color(0xFF86EFAC).bd()
                     else StitchBorder.bd()
         )
     ) {
@@ -1364,7 +1369,7 @@ private fun LocationSectionCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Detecting...",
+                            text = stringResource(R.string.worker_setup_detecting),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = StitchBlue.fg()
@@ -1391,8 +1396,8 @@ private fun LocationSectionCard(
                 // Info Banner explaining why location is required
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFEFF6FF),
-                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    color = Color(0xFFEFF6FF).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE).bd()),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1402,14 +1407,14 @@ private fun LocationSectionCard(
                         Icon(
                             Icons.Default.NearMe,
                             contentDescription = null,
-                            tint = Color(0xFF2563EB),
+                            tint = Color(0xFF2563EB).fg(),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "DutyPe connects you to local jobs and service bookings in your area. Allow GPS or tap a quick area below.",
                             fontSize = 12.sp,
-                            color = Color(0xFF1E40AF),
+                            color = Color(0xFF1E40AF).fg(),
                             lineHeight = 16.sp
                         )
                     }
@@ -1432,7 +1437,7 @@ private fun LocationSectionCard(
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Detecting GPS Location...", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.worker_setup_detecting_location), color = Color.White, fontWeight = FontWeight.Bold)
                     } else {
                         Icon(
                             Icons.Default.MyLocation,
@@ -1442,7 +1447,7 @@ private fun LocationSectionCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "📍 Detect My Current Location (GPS)",
+                            text = stringResource(R.string.detect_location_gps_btn),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.5.sp
@@ -1453,10 +1458,10 @@ private fun LocationSectionCard(
                 // Quick Select Area in Telangana
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "Or quick select your area in Telangana:",
+                        text = stringResource(R.string.quick_select_area_telangana),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B).fg()
                     )
                     Row(
                         modifier = Modifier

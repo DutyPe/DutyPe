@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.components.cascadeEnter
 import com.example.dutype.components.bouncyClickable
 
@@ -297,11 +298,16 @@ fun PlaySpinGameEmptyCard(
     onPlayClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val currentLang = com.example.dutype.utils.LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI
+
     Surface(
         onClick = onPlayClick,
         shape = RoundedCornerShape(20.dp),
-        color = Color(0xFFFFFBEB),
-        border = BorderStroke(1.2.dp, Color(0xFFFDE68A)),
+        color = Color(0xFFFFFBEB).bg(),
+        border = BorderStroke(1.2.dp, Color(0xFFFDE68A).bd()),
         shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth()
     ) {
@@ -316,7 +322,7 @@ fun PlaySpinGameEmptyCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFFEF3C7)),
+                    .background(Color(0xFFFEF3C7).bg()),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = "🎡", fontSize = 26.sp)
@@ -328,10 +334,14 @@ fun PlaySpinGameEmptyCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Play Spin & Win Cash!",
+                        text = when {
+                            isTelugu -> "స్పిన్ & విన్ ఆడండి, నగదు గెలుచుకోండి!"
+                            isHindi -> "स्पिन और विन खेलें, नकद जीतें!"
+                            else -> "Play Spin & Win Cash!"
+                        },
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF92400E)
+                        color = Color(0xFF92400E).fg()
                     )
                     Box(
                         modifier = Modifier
@@ -339,7 +349,11 @@ fun PlaySpinGameEmptyCard(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "FREE",
+                            text = when {
+                                isTelugu -> "ఉచితం"
+                                isHindi -> "मुफ्त"
+                                else -> "FREE"
+                            },
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White
@@ -348,9 +362,13 @@ fun PlaySpinGameEmptyCard(
                 }
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = "While jobs load in your area, try your luck! Win real cash & bonus coins up to ₹100 every day.",
+                    text = when {
+                        isTelugu -> "మీ ప్రాంతంలో ఉద్యోగాలు లోడ్ అయ్యే వరకు, మీ అదృష్టాన్ని ప్రయత్నించండి! ప్రతిరోజూ ₹100 వరకు నగదు & బోనస్ నాణేలను గెలుచుకోండి."
+                        isHindi -> "जब तक आपके क्षेत्र में नौकरियां लोड होती हैं, अपनी किस्मत आजमाएं! हर दिन ₹100 तक वास्तविक नकद और बोनस सिक्के जीतें।"
+                        else -> "While jobs load in your area, try your luck! Win real cash & bonus coins up to ₹100 every day."
+                    },
                     fontSize = 12.sp,
-                    color = Color(0xFFB45309),
+                    color = Color(0xFFB45309).fg(),
                     lineHeight = 16.sp
                 )
             }
@@ -362,7 +380,11 @@ fun PlaySpinGameEmptyCard(
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "Spin 🎡",
+                    text = when {
+                        isTelugu -> "స్పిన్ 🎡"
+                        isHindi -> "स्पिन 🎡"
+                        else -> "Spin 🎡"
+                    },
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -410,6 +432,9 @@ fun EmptyJobsState(
     val placeDisplayName = if (place.isNotBlank()) place else "your area"
 
     val context = LocalContext.current
+    val currentLang = LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == LocaleHelper.LANGUAGE_HINDI
 
     Column(
         modifier = modifier
@@ -431,7 +456,11 @@ fun EmptyJobsState(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "WE ARE",
+                    text = when {
+                        isTelugu -> "మేము త్వరలో"
+                        isHindi -> "हम जल्द ही"
+                        else -> "WE ARE"
+                    },
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
@@ -444,7 +473,11 @@ fun EmptyJobsState(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "COMING SOON",
+                    text = when {
+                        isTelugu -> "వస్తున్నాము"
+                        isHindi -> "आ रहे हैं"
+                        else -> "COMING SOON"
+                    },
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Black,
                         fontSize = 26.sp,
@@ -457,7 +490,11 @@ fun EmptyJobsState(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "We're currently live in select areas and expanding quickly. Get notified when we are near you!",
+                    text = when {
+                        isTelugu -> "మేము ప్రస్తుతం కొన్ని ప్రాంతాల్లో అందుబాటులో ఉన్నాము మరియు వేగంగా విస్తరిస్తున్నాము. మేము మీ సమీపంలోకి వచ్చినప్పుడు నోటిఫికేషన్ పొందండి!"
+                        isHindi -> "हम वर्तमान में चुनिंदा क्षेत्रों में लाइव हैं और तेजी से विस्तार कर रहे हैं। जब हम आपके पास आएं तो सूचित करें!"
+                        else -> "We're currently live in select areas and expanding quickly. Get notified when we are near you!"
+                    },
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 14.sp,
                         color = Color(0xFF64748B).fg(),
@@ -506,7 +543,11 @@ fun EmptyJobsState(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Notify me!",
+                            text = when {
+                                isTelugu -> "నాకు తెలియజేయండి!"
+                                isHindi -> "मुझे सूचित करें!"
+                                else -> "Notify me!"
+                            },
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
@@ -520,7 +561,11 @@ fun EmptyJobsState(
 
                 // "Change location" Link
                 Text(
-                    text = "Change location",
+                    text = when {
+                        isTelugu -> "స్థానాన్ని మార్చండి"
+                        isHindi -> "स्थान बदलें"
+                        else -> "Change location"
+                    },
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
@@ -963,12 +1008,20 @@ fun HomeSectionsContent(
                     if (highlightedJobs.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(18.dp))
                         Box(modifier = Modifier.cascadeEnter(index = 4)) {
+                            val context = LocalContext.current
+                            val currentLang = LocaleHelper.getLanguage(context)
+                            val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU
+                            val isHindi = currentLang == LocaleHelper.LANGUAGE_HINDI
                             SkillMatchedJobsSection(
                                 jobs = highlightedJobs,
                                 onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
                                 savedJobsViewModel = savedJobsViewModel,
                                 onNavigateToJob = onNavigateToJob,
-                                sectionTitle = "Jobs Matching Your Skills"
+                                sectionTitle = when {
+                                    isTelugu -> "మీ నైపుణ్యాలకు సరిపోయే ఉద్యోగాలు"
+                                    isHindi -> "आपके कौशल से मेल खाती नौकरियां"
+                                    else -> "Jobs Matching Your Skills"
+                                }
                             )
                         }
                     }
@@ -984,13 +1037,17 @@ fun HomeSectionsContent(
         if (hasLocationPermission && !showEmptyJobsState && availableJobs.isNotEmpty()) {
             item(key = "worker_home_earning_potential") {
                 val districtName = currentCity.ifBlank { "Khammam" }
+                val context = LocalContext.current
+                val currentLang = LocaleHelper.getLanguage(context)
+                val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU
+                val isHindi = currentLang == LocaleHelper.LANGUAGE_HINDI
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = Color.White,
-                border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f)),
+                color = Color.White.bg(),
+                border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).bd().copy(alpha = 0.7f)),
                 shadowElevation = 1.dp
             ) {
                 Column(
@@ -1014,7 +1071,11 @@ fun HomeSectionsContent(
                                     .background(Color(0xFFFF5722))
                             )
                             Text(
-                                text = "Today's Earning Potential in $districtName",
+                                text = when {
+                                    isTelugu -> "$districtName లో నేటి సంపాదన అవకాశం"
+                                    isHindi -> "$districtName में आज की कमाई की संभावना"
+                                    else -> "Today's Earning Potential in $districtName"
+                                },
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A).fg()
@@ -1026,7 +1087,11 @@ fun HomeSectionsContent(
                             border = BorderStroke(0.5.dp, Color(0xFFFFEDD5).bd())
                         ) {
                             Text(
-                                text = "High Demand",
+                                text = when {
+                                    isTelugu -> "అధిక డిమాండ్"
+                                    isHindi -> "अधिक मांग"
+                                    else -> "High Demand"
+                                },
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFEA580C).fg(),
@@ -1051,7 +1116,11 @@ fun HomeSectionsContent(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Estimated daily wage from active jobs & instant hiring",
+                                text = when {
+                                    isTelugu -> "యాక్టివ్ ఉద్యోగాలు & తక్షణ నియామకాల నుండి అంచనా వేసిన రోజువారీ వేతనం"
+                                    isHindi -> "सक्रिय नौकरियों और तत्काल भर्ती से अनुमानित दैनिक वेतन"
+                                    else -> "Estimated daily wage from active jobs & instant hiring"
+                                },
                                 fontSize = 11.5.sp,
                                 color = Color(0xFF64748B).fg()
                             )
@@ -1115,6 +1184,11 @@ private fun SkippedRequestsSection(
     onCall: (InstantRequest) -> Unit
 ) {
     if (requests.isEmpty()) return
+    val context = LocalContext.current
+    val currentLang = LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == LocaleHelper.LANGUAGE_HINDI
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1128,14 +1202,22 @@ private fun SkippedRequestsSection(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Skipped & Available Requests (Silent)",
+                    text = when {
+                        isTelugu -> "దాటవేయబడిన & అందుబాటులో ఉన్న అభ్యర్థనలు"
+                        isHindi -> "छोड़े गए और उपलब्ध अनुरोध"
+                        else -> "Skipped & Available Requests (Silent)"
+                    },
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = WorkerColors.TextPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
-                    text = "Requests you skipped earlier. You can still accept or call anytime.",
+                    text = when {
+                        isTelugu -> "మీరు గతంలో దాటవేసిన అభ్యర్థనలు. మీరు ఇప్పటికీ ఎప్పుడైనా ఆమోదించవచ్చు లేదా కాల్ చేయవచ్చు."
+                        isHindi -> "वे अनुरोध जिन्हें आपने पहले छोड़ दिया था। आप अभी भी कभी भी स्वीकार या कॉल कर सकते हैं।"
+                        else -> "Requests you skipped earlier. You can still accept or call anytime."
+                    },
                     style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1144,14 +1226,18 @@ private fun SkippedRequestsSection(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFFF1F5F9))
+                    .background(Color(0xFFF1F5F9).bg())
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = "${requests.size} Available",
+                    text = when {
+                        isTelugu -> "${requests.size} అందుబాటులో ఉన్నాయి"
+                        isHindi -> "${requests.size} उपलब्ध"
+                        else -> "${requests.size} Available"
+                    },
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B).fg()
                 )
             }
         }
@@ -1239,6 +1325,11 @@ private fun ServiceBookingCard(
     onApply: () -> Unit,
     onIgnore: () -> Unit
 ) {
+    val context = LocalContext.current
+    val currentLang = LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == LocaleHelper.LANGUAGE_HINDI
+
     val responseStatus = request.workerResponseStatus.trim().lowercase()
     val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
     val cleanTitle = request.title.removePrefix("Home Service:").removePrefix("Home Service :").trim()
@@ -1249,9 +1340,9 @@ private fun ServiceBookingCard(
             .fillMaxWidth()
             .clickable(onClick = onApply),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).copy(alpha = 0.7f))
+        border = BorderStroke(0.8.dp, Color(0xFFE2E8F0).bd().copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1267,7 +1358,7 @@ private fun ServiceBookingCard(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFEFF6FF)),
+                        .background(Color(0xFFEFF6FF).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1287,12 +1378,12 @@ private fun ServiceBookingCard(
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = null,
-                                tint = Color(0xFF64748B),
+                                tint = Color(0xFF64748B).fg(),
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
                                 text = "%.1f km away".format(request.distanceKm),
-                                color = Color(0xFF64748B),
+                                color = Color(0xFF64748B).fg(),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -1302,7 +1393,7 @@ private fun ServiceBookingCard(
                     Text(
                         text = cleanTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            color = Color(0xFF0F172A),
+                            color = Color(0xFF0F172A).fg(),
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp
                         ),
@@ -1319,7 +1410,7 @@ private fun ServiceBookingCard(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
-                            tint = Color(0xFF94A3B8),
+                            tint = Color(0xFF94A3B8).fg(),
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -1335,12 +1426,12 @@ private fun ServiceBookingCard(
                     Icon(
                         imageVector = Icons.Outlined.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = Color(0xFF64748B).fg(),
                         modifier = Modifier.size(15.dp)
                     )
                     Text(
                         text = request.addressText,
-                        color = Color(0xFF475569),
+                        color = Color(0xFF475569).fg(),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
@@ -1354,8 +1445,8 @@ private fun ServiceBookingCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFF0FDF4))
-                    .border(1.dp, Color(0xFFDCFCE7), RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF0FDF4).bg())
+                    .border(1.dp, Color(0xFFDCFCE7).bd(), RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1363,8 +1454,12 @@ private fun ServiceBookingCard(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(15.dp))
                     Text(
-                        text = "Partner Earning",
-                        color = Color(0xFF166534),
+                        text = when {
+                            isTelugu -> "భాగస్వామి సంపాదన"
+                            isHindi -> "पार्टनर कमाई"
+                            else -> "Partner Earning"
+                        },
+                        color = Color(0xFF166534).fg(),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -1391,7 +1486,16 @@ private fun ServiceBookingCard(
                     } else {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Accepted • View Booking Details", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            text = when {
+                                isTelugu -> "ఆమోదించబడింది • వివరాలు చూడండి"
+                                isHindi -> "स्वीकृत • विवरण देखें"
+                                else -> "Accepted • View Booking Details"
+                            },
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
                     }
                 }
             } else {
@@ -1405,10 +1509,18 @@ private fun ServiceBookingCard(
                         enabled = !isUpdating,
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF64748B))
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd()),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF64748B).fg())
                     ) {
-                        Text("Skip", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(
+                            text = when {
+                                isTelugu -> "దాటవేయి"
+                                isHindi -> "छोड़ें"
+                                else -> "Skip"
+                            },
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
                     }
                     Button(
                         onClick = onApply,
@@ -1421,7 +1533,11 @@ private fun ServiceBookingCard(
                             com.example.dutype.components.ButtonThreeDotsLoader()
                         } else {
                             Text(
-                                text = if (payout > 0) "Accept Order • ₹$payout" else "Accept Order",
+                                text = when {
+                                    isTelugu -> if (payout > 0) "ఆర్డర్ స్వీకరించండి • ₹$payout" else "ఆర్డర్ స్వీకరించండి"
+                                    isHindi -> if (payout > 0) "ऑर्डर स्वीकारें • ₹$payout" else "ऑर्डर स्वीकारें"
+                                    else -> if (payout > 0) "Accept Order • ₹$payout" else "Accept Order"
+                                },
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp

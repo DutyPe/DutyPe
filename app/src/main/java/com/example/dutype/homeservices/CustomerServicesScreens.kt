@@ -852,8 +852,8 @@ internal fun ServiceScopeCard(
                 modifier = Modifier
                     .size(86.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+                    .background(Color.White.bg())
+                    .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (imageRes != null) {
@@ -1815,7 +1815,7 @@ private fun NewAndNoteworthySection(
                                 .fillMaxWidth()
                                 .height(92.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
+                                .background(Color.White.bg())
                                 .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -2096,7 +2096,7 @@ fun CategoryServicesScreen(
                                 modifier = Modifier
                                     .size(76.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.White)
+                                    .background(Color.White.bg())
                                     .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -7254,7 +7254,7 @@ private fun StartOtpSecureCard(code: String) {
                             modifier = Modifier
                                 .size(width = 52.dp, height = 58.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
+                                .background(Color.White.bg())
                                 .border(1.5.dp, Color(0xFF86EFAC), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -8529,8 +8529,8 @@ private fun PaymentPendingCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color.White)
-                        .border(1.dp, Color(0xFFFDE047), RoundedCornerShape(10.dp))
+                        .background(Color.White.bg())
+                        .border(1.dp, Color(0xFFFDE047).bd(), RoundedCornerShape(10.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -8817,14 +8817,14 @@ fun ServicesAreaTeaserCard(
                                 modifier = Modifier
                                     .size(38.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color.White)
-                                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp)),
+                                    .background(Color.White.bg())
+                                    .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(10.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     icon,
                                     contentDescription = null,
-                                    tint = Color(0xFF0F172A),
+                                    tint = Color(0xFF0F172A).fg(),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -8994,7 +8994,7 @@ fun HomeServicesShowcase(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White)
+                            .background(Color.White.bg())
                             .border(1.5.dp, Color(0xFF10B981), RoundedCornerShape(8.dp))
                             .clickable { onBookService(s.id) }
                             .padding(vertical = 6.dp),
@@ -9217,6 +9217,8 @@ fun ServicesCustomerProfileTab(
 ) {
     val context = LocalContext.current
     val lang = LocaleHelper.getLanguage(context)
+    val isTelugu = lang == "te"
+    val isHindi = lang == "hi"
     val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
     val userLocation by viewModel.userLocation.collectAsState()
@@ -9224,7 +9226,11 @@ fun ServicesCustomerProfileTab(
     val prefs = context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE)
     val savedName = prefs.getString("cust_name", "")?.takeIf { it.isNotBlank() }
         ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-        ?: if (lang == "te") "డ్యూటీపే కస్టమర్" else "DutyPe Customer"
+        ?: when {
+            isTelugu -> "డ్యూటీపే కస్టమర్"
+            isHindi -> "ड्यूटीपे ग्राहक"
+            else -> "DutyPe Customer"
+        }
     val userPhone = currentUser?.phoneNumber ?: prefs.getString("cust_phone", "") ?: "—"
 
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
@@ -9249,15 +9255,23 @@ fun ServicesCustomerProfileTab(
         ) {
             Column {
                 Text(
-                    text = if (lang == "te") "ప్రొఫైల్" else "Profile",
-                    color = Color(0xFF0F172A),
+                    text = when {
+                        isTelugu -> "ప్రొఫైల్"
+                        isHindi -> "प्रोफ़ाइल"
+                        else -> "Profile"
+                    },
+                    color = Color(0xFF0F172A).fg(),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.5).sp
                 )
                 Text(
-                    text = if (lang == "te") "డ్యూటీపే హోమ్ సర్వీసెస్ ఖాతా" else "DutyPe Home Services Account",
-                    color = Color(0xFF64748B),
+                    text = when {
+                        isTelugu -> "డ్యూటీపే హోమ్ సర్వీసెస్ ఖాతా"
+                        isHindi -> "ड्यूटीपे होम सर्विसेज खाता"
+                        else -> "DutyPe Home Services Account"
+                    },
+                    color = Color(0xFF64748B).fg(),
                     fontSize = 12.5.sp
                 )
             }
@@ -9266,8 +9280,8 @@ fun ServicesCustomerProfileTab(
         // Customer Hero Profile Card (Google / Airbnb aesthetic)
         Surface(
             shape = cardRadius,
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             shadowElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -9278,8 +9292,8 @@ fun ServicesCustomerProfileTab(
                 // Circular Avatar
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFEFF6FF),
-                    border = BorderStroke(2.dp, Color(0xFF93C5FD)),
+                    color = Color(0xFFEFF6FF).bg(),
+                    border = BorderStroke(2.dp, Color(0xFF93C5FD).bd()),
                     modifier = Modifier.size(58.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -9297,22 +9311,26 @@ fun ServicesCustomerProfileTab(
                         text = savedName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color(0xFF0F172A)
+                        color = Color(0xFF0F172A).fg()
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = userPhone,
                         fontSize = 13.sp,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B).fg()
                     )
                     Spacer(Modifier.height(4.dp))
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = Color(0xFFECFDF5),
-                        border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                        color = Color(0xFFECFDF5).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFA7F3D0).bd())
                     ) {
                         Text(
-                            text = "✓ Verified Customer",
+                            text = when {
+                                isTelugu -> "✓ ధృవీకరించబడిన కస్టమర్"
+                                isHindi -> "✓ सत्यापित ग्राहक"
+                                else -> "✓ Verified Customer"
+                            },
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF059669),
@@ -9326,7 +9344,7 @@ fun ServicesCustomerProfileTab(
         // DutyPe Micro-Wallet Card
         Surface(
             shape = cardRadius,
-            color = Color(0xFF0F172A),
+            color = Color(0xFF0F172A).bg(),
             shadowElevation = 3.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -9347,7 +9365,11 @@ fun ServicesCustomerProfileTab(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = if (lang == "te") "డ్యూటీపే వాలెట్" else "DutyPe Micro-Wallet",
+                            text = when {
+                                isTelugu -> "డ్యూటీపే వాలెట్"
+                                isHindi -> "ड्यूटीपे वॉलेट"
+                                else -> "DutyPe Micro-Wallet"
+                            },
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = Color.White
@@ -9359,7 +9381,16 @@ fun ServicesCustomerProfileTab(
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
-                        Text("+ Top Up", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = when {
+                                isTelugu -> "+ టాప్ అప్"
+                                isHindi -> "+ टॉप अप"
+                                else -> "+ Top Up"
+                            },
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -9371,9 +9402,13 @@ fun ServicesCustomerProfileTab(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = if (lang == "te") "సర్వీస్ బుకింగ్స్ కోసం సిద్ధంగా ఉంది · 100% మనీబ్యాక్ రక్షణ" else "Ready for service bookings · 100% money-back guarantee",
+                    text = when {
+                        isTelugu -> "సర్వీస్ బుకింగ్స్ కోసం సిద్ధంగా ఉంది · 100% మనీబ్యాక్ రక్షణ"
+                        isHindi -> "सेवा बुकिंग के लिए तैयार · 100% मनी-बैक गारंटी"
+                        else -> "Ready for service bookings · 100% money-back guarantee"
+                    },
                     fontSize = 11.5.sp,
-                    color = Color(0xFF94A3B8)
+                    color = Color(0xFF94A3B8).fg()
                 )
             }
         }
@@ -9381,8 +9416,8 @@ fun ServicesCustomerProfileTab(
         // Section 1: Services & Saved Location
         Surface(
             shape = cardRadius,
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column {
@@ -9390,9 +9425,17 @@ fun ServicesCustomerProfileTab(
                     icon = Icons.Default.LocationOn,
                     iconTint = Color(0xFFEA580C),
                     iconBg = Color(0xFFFFF7ED),
-                    title = if (lang == "te") "సర్వీస్ డెలివరీ చిరునామా" else "Service Delivery Address",
+                    title = when {
+                        isTelugu -> "సర్వీస్ డెలివరీ చిరునామా"
+                        isHindi -> "सेवा वितरण पता"
+                        else -> "Service Delivery Address"
+                    },
                     subtitle = userLocation?.area?.ifBlank { "Wyra Road, Khammam" } ?: "Wyra Road, Khammam",
-                    trailingText = if (lang == "te") "మార్చండి" else "Change",
+                    trailingText = when {
+                        isTelugu -> "మార్చండి"
+                        isHindi -> "बदलें"
+                        else -> "Change"
+                    },
                     onClick = onLocationClick
                 )
             }
@@ -9401,8 +9444,8 @@ fun ServicesCustomerProfileTab(
         // Section 2: Quick Role Switcher
         Surface(
             shape = cardRadius,
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column {
@@ -9410,19 +9453,35 @@ fun ServicesCustomerProfileTab(
                     icon = Icons.Default.Engineering,
                     iconTint = Color(0xFF059669),
                     iconBg = Color(0xFFECFDF5),
-                    title = if (lang == "te") "వర్కర్ మోడ్ (రోజువారీ పనులు)" else "Worker Mode (Daily Wage Jobs)",
-                    subtitle = if (lang == "te") "రోజువారీ సంపాదన & తక్షణ చెల్లింపులు" else "Explore local jobs & instant spot payouts",
+                    title = when {
+                        isTelugu -> "వర్కర్ మోడ్ (రోజువారీ పనులు)"
+                        isHindi -> "वर्कर मोड (दैनिक मजदूरी नौकरियां)"
+                        else -> "Worker Mode (Daily Wage Jobs)"
+                    },
+                    subtitle = when {
+                        isTelugu -> "రోజువారీ సంపాదన & తక్షణ చెల్లింపులు"
+                        isHindi -> "स्थानीय नौकरियां और तत्काल भुगतान देखें"
+                        else -> "Explore local jobs & instant spot payouts"
+                    },
                     badgeText = "Switch",
                     badgeColor = Color(0xFF059669),
                     onClick = { navController.navigate(Routes.WORKER_HOME) }
                 )
-                HorizontalDivider(color = Color(0xFFF1F5F9))
+                HorizontalDivider(color = Color(0xFFF1F5F9).bd())
                 ServicesProfileRowItem(
                     icon = Icons.Default.Business,
                     iconTint = Color(0xFF2563EB),
                     iconBg = Color(0xFFEFF6FF),
-                    title = if (lang == "te") "ఎంప్లాయర్ మోడ్ (సిబ్బందిని నియమించండి)" else "Employer Mode (Hire Staff)",
-                    subtitle = if (lang == "te") "5 నిమిషాల్లో స్థానిక వర్కర్లను నియమించండి" else "Post staff jobs & hire workers in 5 mins",
+                    title = when {
+                        isTelugu -> "ఎంప్లాయర్ మోడ్ (సిబ్బందిని నియమించండి)"
+                        isHindi -> "नियोक्ता मोड (कर्मचारी नियुक्त करें)"
+                        else -> "Employer Mode (Hire Staff)"
+                    },
+                    subtitle = when {
+                        isTelugu -> "5 నిమిషాల్లో స్థానిక వర్కర్లను నియమించండి"
+                        isHindi -> "5 मिनट में स्थानीय कर्मचारियों को नियुक्त करें"
+                        else -> "Post staff jobs & hire workers in 5 mins"
+                    },
                     badgeText = "Switch",
                     badgeColor = Color(0xFF2563EB),
                     onClick = { navController.navigate(Routes.EMPLOYER_HOME) }
@@ -9433,8 +9492,8 @@ fun ServicesCustomerProfileTab(
         // Section 3: WhatsApp Support & Community
         Surface(
             shape = cardRadius,
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column {
@@ -9442,7 +9501,11 @@ fun ServicesCustomerProfileTab(
                     icon = Icons.AutoMirrored.Filled.Chat,
                     iconTint = Color(0xFF16A34A),
                     iconBg = Color(0xFFF0FDF4),
-                    title = if (lang == "te") "కస్టమర్ వాట్సాప్ సపోర్ట్" else "Customer WhatsApp Support",
+                    title = when {
+                        isTelugu -> "కస్టమర్ వాట్సాప్ సపోర్ట్"
+                        isHindi -> "ग्राहक व्हाट्सएप सहायता"
+                        else -> "Customer WhatsApp Support"
+                    },
                     subtitle = "+91 8019151847 · 24/7 instant chat",
                     badgeText = "Chat ↗",
                     badgeColor = Color(0xFF16A34A),
@@ -9456,7 +9519,7 @@ fun ServicesCustomerProfileTab(
                         }
                     }
                 )
-                HorizontalDivider(color = Color(0xFFF1F5F9))
+                HorizontalDivider(color = Color(0xFFF1F5F9).bd())
                 com.example.dutype.components.ProfileFollowUsRow()
             }
         }
@@ -9464,8 +9527,8 @@ fun ServicesCustomerProfileTab(
         // Section 4: Preferences & Logout
         Surface(
             shape = cardRadius,
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column {
@@ -9473,22 +9536,38 @@ fun ServicesCustomerProfileTab(
                     icon = Icons.Default.Translate,
                     iconTint = Color(0xFF6366F1),
                     iconBg = Color(0xFFEEF2FF),
-                    title = if (lang == "te") "భాష ఎంపిక" else "Language Preference",
+                    title = when {
+                        isTelugu -> "భాష ఎంపిక"
+                        isHindi -> "भाषा प्राथमिकता"
+                        else -> "Language Preference"
+                    },
                     subtitle = when (lang) {
                         "te" -> "తెలుగు (Telugu)"
                         "hi" -> "हिंदी (Hindi)"
                         else -> "English"
                     },
-                    trailingText = if (lang == "te") "మార్చండి" else "Change",
+                    trailingText = when {
+                        isTelugu -> "మార్చండి"
+                        isHindi -> "बदलें"
+                        else -> "Change"
+                    },
                     onClick = { showLanguageBottomSheet = true }
                 )
-                HorizontalDivider(color = Color(0xFFF1F5F9))
+                HorizontalDivider(color = Color(0xFFF1F5F9).bd())
                 ServicesProfileRowItem(
                     icon = Icons.AutoMirrored.Outlined.ExitToApp,
                     iconTint = Color(0xFFEF4444),
                     iconBg = Color(0xFFFEF2F2),
-                    title = if (lang == "te") "లాగ్ అవుట్" else "Log Out",
-                    subtitle = if (lang == "te") "మీ ఖాతా నుండి సురక్షితంగా నిష్క్రమించండి" else "Sign out of your account safely",
+                    title = when {
+                        isTelugu -> "లాగ్ అవుట్"
+                        isHindi -> "लॉग आउट"
+                        else -> "Log Out"
+                    },
+                    subtitle = when {
+                        isTelugu -> "మీ ఖాతా నుండి సురక్షితంగా నిష్క్రమించండి"
+                        isHindi -> "सुरक्षित रूप से अपने खाते से साइन आउट करें"
+                        else -> "Sign out of your account safely"
+                    },
                     onClick = { showLogoutDialog = true }
                 )
             }
@@ -9508,14 +9587,22 @@ fun ServicesCustomerProfileTab(
             onDismissRequest = { showLogoutDialog = false },
             title = {
                 Text(
-                    text = if (lang == "te") "లాగ్ అవుట్ చేయాలా?" else "Log out of DutyPe?",
+                    text = when {
+                        isTelugu -> "లాగ్ అవుట్ చేయాలా?"
+                        isHindi -> "लॉग आउट करें?"
+                        else -> "Log out of DutyPe?"
+                    },
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
             },
             text = {
                 Text(
-                    text = if (lang == "te") "మీరు నిజంగా నిష్క్రమించాలనుకుంటున్నారా?" else "Are you sure you want to log out of your account?",
+                    text = when {
+                        isTelugu -> "మీరు నిజంగా నిష్క్రమించాలనుకుంటున్నారా?"
+                        isHindi -> "क्या आप निश्चित रूप से अपने खाते से लॉग आउट करना चाहते हैं?"
+                        else -> "Are you sure you want to log out of your account?"
+                    },
                     fontSize = 14.sp
                 )
             },
@@ -9530,7 +9617,11 @@ fun ServicesCustomerProfileTab(
                     }
                 ) {
                     Text(
-                        text = if (lang == "te") "లాగ్ అవుట్" else "Log Out",
+                        text = when {
+                            isTelugu -> "లాగ్ అవుట్"
+                            isHindi -> "लॉग आउट"
+                            else -> "Log Out"
+                        },
                         color = Color(0xFFEF4444),
                         fontWeight = FontWeight.Bold
                     )
@@ -9538,7 +9629,13 @@ fun ServicesCustomerProfileTab(
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text(if (lang == "te") "రద్దు చేయండి" else "Cancel")
+                    Text(
+                        when {
+                            isTelugu -> "రద్దు చేయండి"
+                            isHindi -> "रद्द करें"
+                            else -> "Cancel"
+                        }
+                    )
                 }
             }
         )
@@ -9566,7 +9663,7 @@ private fun ServicesProfileRowItem(
     ) {
         Surface(
             shape = RoundedCornerShape(10.dp),
-            color = iconBg,
+            color = iconBg.bg(),
             modifier = Modifier.size(38.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -9585,7 +9682,7 @@ private fun ServicesProfileRowItem(
                     text = title,
                     fontSize = 14.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF0F172A)
+                    color = Color(0xFF0F172A).fg()
                 )
                 if (badgeText != null) {
                     Spacer(Modifier.width(8.dp))
@@ -9608,7 +9705,7 @@ private fun ServicesProfileRowItem(
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B).fg()
                 )
             }
         }
@@ -9617,14 +9714,14 @@ private fun ServicesProfileRowItem(
                 text = trailingText,
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF64748B),
+                color = Color(0xFF64748B).fg(),
                 modifier = Modifier.padding(end = 4.dp)
             )
         }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = Color(0xFF94A3B8),
+            tint = Color(0xFF94A3B8).fg(),
             modifier = Modifier.size(18.dp)
         )
     }

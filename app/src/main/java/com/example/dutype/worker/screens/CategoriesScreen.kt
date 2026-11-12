@@ -75,8 +75,9 @@ fun CategoriesScreen(
     var initialLoadDone by remember { mutableStateOf(false) }
     
     // Load initial jobs when screen opens
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+    val statusBarColor = WorkerColors.StatusBarColor
+    LaunchedEffect(statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
         
         // 🚀 FAST LOADING: Use cached location, load jobs immediately
         val savedLocation = viewModel.locationPreferences.getSavedLocationIfFresh()

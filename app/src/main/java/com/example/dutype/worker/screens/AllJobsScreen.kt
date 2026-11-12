@@ -219,8 +219,9 @@ private fun JobsScreenEffects(
     voiceQuery: String?,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    LaunchedEffect(initialFilter) {
-        onStatusBarColorChange(Color.White)
+    val statusBarColor = WorkerColors.StatusBarColor
+    LaunchedEffect(initialFilter, statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
         viewModel.applyRouteFilter(initialFilter)
 
         val savedLocation = viewModel.locationPreferences.getSavedLocationIfFresh()
@@ -1221,9 +1222,16 @@ private fun JobFilterBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(sortOptions) { option ->
+                    val optionLabel = when (option) {
+                        JobFilters.SORT_RELEVANCE -> stringResource(R.string.sort_relevance)
+                        JobFilters.SORT_DISTANCE -> stringResource(R.string.sort_distance)
+                        JobFilters.SORT_NEWEST -> stringResource(R.string.sort_newest)
+                        JobFilters.SORT_PAY_HIGH -> stringResource(R.string.sort_pay_high)
+                        else -> option
+                    }
                     FilterChip(
                         onClick = { sortBy = option },
-                        label = { Text(option, fontSize = 13.sp) },
+                        label = { Text(optionLabel, fontSize = 13.sp) },
                         selected = sortBy == option,
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = WorkerColors.Primary,

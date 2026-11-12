@@ -93,8 +93,9 @@ fun EmployerReferEarnScreen(
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
 
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+    val statusBar = EmployerColors.StatusBarColor
+    LaunchedEffect(statusBar) {
+        onStatusBarColorChange(statusBar)
 
         val localProfileComplete = runCatching {
             profileCompletionViewModel.isProfileComplete(UserRole.EMPLOYER)
@@ -647,11 +648,11 @@ private fun EmployerStatsCard(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Free Posts Earned", style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                    Text(stringResource(R.string.free_posts_earned), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text("${successfulReferrals / 2} Posts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Primary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Active Free Posts", style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                    Text(stringResource(R.string.active_free_posts), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text("$freePostsAvailable Free Posts", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Success))
                 }
             }
@@ -756,7 +757,7 @@ private fun EmployerCreditsUsageCard(
                     colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("⚡ Post Job", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("⚡ ${stringResource(R.string.post_job)}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
 
                 OutlinedButton(
@@ -765,7 +766,7 @@ private fun EmployerCreditsUsageCard(
                     border = BorderStroke(1.dp, EmployerColors.Primary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("🛠️ Services", color = EmployerColors.Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("🛠️ ${stringResource(R.string.bottom_nav_services)}", color = EmployerColors.Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             }
         }

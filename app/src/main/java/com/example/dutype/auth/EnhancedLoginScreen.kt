@@ -55,6 +55,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
 import com.dutype.app.R
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -175,7 +178,9 @@ private fun OtpLoginScreen(
 
     val selectedCountryCode = "+91"
     val context = LocalContext.current
-    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+    val currentLang = LocaleHelper.getLanguage(context)
+    val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU
+    val isHindi = currentLang == LocaleHelper.LANGUAGE_HINDI
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
     val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
@@ -535,7 +540,7 @@ private fun OtpLoginScreen(
                     .fillMaxWidth()
                     .weight(if (isKeyboardOpen) 1.5f else 1f),
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                color = Color.White,
+                color = Color.White.bg(),
                 shadowElevation = 24.dp
             ) {
                 Column(
@@ -550,10 +555,14 @@ private fun OtpLoginScreen(
                     if (!otpState.otpSent) {
                         // Title "Log in or sign up" (Clean typography)
                         Text(
-                            text = if (isTelugu) "లాగిన్ లేదా సైన్ అప్" else "Log in or sign up",
+                            text = when {
+                                isTelugu -> "లాగిన్ లేదా సైన్ అప్"
+                                isHindi -> "लॉग इन या साइन अप"
+                                else -> "Log in or sign up"
+                            },
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A),
+                            color = Color(0xFF0F172A).fg(),
                             textAlign = TextAlign.Center
                         )
 
@@ -565,10 +574,10 @@ private fun OtpLoginScreen(
                                 .fillMaxWidth()
                                 .height(52.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
+                                .background(Color.White.bg())
                                 .border(
                                     width = 1.dp,
-                                    color = if (phoneHasFocus) Color(0xFF0F172A) else Color(0xFFD1D5DB),
+                                    color = if (phoneHasFocus) Color(0xFF0F172A).fg() else Color(0xFFD1D5DB).bd(),
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable {
@@ -586,7 +595,7 @@ private fun OtpLoginScreen(
                                     text = "+91  ",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF0F172A)
+                                    color = Color(0xFF0F172A).fg()
                                 )
                                 BasicTextField(
                                     value = phoneNumber,
@@ -601,9 +610,9 @@ private fun OtpLoginScreen(
                                     textStyle = TextStyle(
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Normal,
-                                        color = Color(0xFF0F172A)
+                                        color = Color(0xFF0F172A).fg()
                                     ),
-                                    cursorBrush = SolidColor(Color(0xFF0F172A)),
+                                    cursorBrush = SolidColor(Color(0xFF0F172A).fg()),
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Number,
                                         imeAction = ImeAction.Done
@@ -615,9 +624,13 @@ private fun OtpLoginScreen(
                                     decorationBox = { innerTextField ->
                                         if (phoneNumber.isEmpty()) {
                                             Text(
-                                                text = if (isTelugu) "మొబైల్ నంబర్" else "Phone number",
+                                                text = when {
+                                                    isTelugu -> "మొబైల్ నంబర్"
+                                                    isHindi -> "मोबाइल नंबर"
+                                                    else -> "Phone number"
+                                                },
                                                 fontSize = 16.sp,
-                                                color = Color(0xFF94A3B8)
+                                                color = Color(0xFF94A3B8).fg()
                                             )
                                         }
                                         innerTextField()
@@ -633,10 +646,18 @@ private fun OtpLoginScreen(
                             onClick = {
                                 val trimmed = phoneNumber.trim()
                                 if (trimmed.isEmpty()) {
-                                    val msg = if (isTelugu) "దయచేసి ఫోన్ నంబర్ నమోదు చేయండి" else "Please enter phone number"
+                                    val msg = when {
+                                        isTelugu -> "దయచేసి ఫోన్ నంబర్ నమోదు చేయండి"
+                                        isHindi -> "कृपया फ़ोन नंबर दर्ज करें"
+                                        else -> "Please enter phone number"
+                                    }
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 } else if (trimmed.length < 10 || !ValidationUtils.isValidIndianPhoneNumber(trimmed)) {
-                                    val msg = if (isTelugu) "దయచేసి సరైన 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి" else "Please enter a valid 10-digit mobile number"
+                                    val msg = when {
+                                        isTelugu -> "దయచేసి సరైన 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి"
+                                        isHindi -> "कृपया एक मान्य 10-अंकीय मोबाइल नंबर दर्ज करें"
+                                        else -> "Please enter a valid 10-digit mobile number"
+                                    }
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 } else {
                                     focusManager.clearFocus(force = true)
@@ -666,7 +687,11 @@ private fun OtpLoginScreen(
                                 com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
                             } else {
                                 Text(
-                                    text = if (isTelugu) "కొనసాగించండి" else "Continue",
+                                    text = when {
+                                        isTelugu -> "కొనసాగించండి"
+                                        isHindi -> "आगे बढ़ें"
+                                        else -> "Continue"
+                                    },
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.White
@@ -681,14 +706,18 @@ private fun OtpLoginScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0).bd(), thickness = 0.8.dp)
                             Text(
-                                text = if (isTelugu) "లేదా" else "or",
+                                text = when {
+                                    isTelugu -> "లేదా"
+                                    isHindi -> "या"
+                                    else -> "or"
+                                },
                                 modifier = Modifier.padding(horizontal = 14.dp),
                                 fontSize = 12.sp,
-                                color = Color(0xFF64748B)
+                                color = Color(0xFF64748B).fg()
                             )
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0).bd(), thickness = 0.8.dp)
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -764,23 +793,35 @@ private fun OtpLoginScreen(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = if (isTelugu) "కొనసాగడం ద్వారా మీరు మా " else "By continuing, you agree to our ",
+                                text = when {
+                                    isTelugu -> "కొనసాగడం ద్వారా మీరు మా "
+                                    isHindi -> "जारी रखकर, आप हमारी "
+                                    else -> "By continuing, you agree to our "
+                                },
                                 fontSize = 11.5.sp,
-                                color = Color(0xFF94A3B8)
+                                color = Color(0xFF94A3B8).fg()
                             )
                             Text(
-                                text = if (isTelugu) "నిబంధనలు" else "Terms of Service",
+                                text = when {
+                                    isTelugu -> "నిబంధనలు"
+                                    isHindi -> "सेवा की शर्तें"
+                                    else -> "Terms of Service"
+                                },
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF64748B),
+                                color = Color(0xFF64748B).fg(),
                                 modifier = Modifier.clickable { navController.navigate(Routes.TERMS_OF_SERVICE) }
                             )
-                            Text(text = " • ", fontSize = 11.5.sp, color = Color(0xFF94A3B8))
+                            Text(text = " • ", fontSize = 11.5.sp, color = Color(0xFF94A3B8).fg())
                             Text(
-                                text = if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy",
+                                text = when {
+                                    isTelugu -> "గోప్యతా విధానం"
+                                    isHindi -> "गोपनीयता नीति"
+                                    else -> "Privacy Policy"
+                                },
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF64748B),
+                                color = Color(0xFF64748B).fg(),
                                 modifier = Modifier.clickable { navController.navigate(Routes.PRIVACY_POLICY) }
                             )
                         }
@@ -801,24 +842,32 @@ private fun OtpLoginScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
-                                    tint = Color(0xFF0F172A)
+                                    tint = Color(0xFF0F172A).fg()
                                 )
                             }
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isTelugu) "OTP ధృవీకరించండి" else "Verify OTP",
+                                text = when {
+                                    isTelugu -> "OTP ధృవీకరించండి"
+                                    isHindi -> "OTP सत्यापित करें"
+                                    else -> "Verify OTP"
+                                },
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = Color(0xFF0F172A).fg()
                             )
                         }
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = if (isTelugu) "+91 $phoneNumber కు పంపిన 6 అంకెల కోడ్‌ను నమోదు చేయండి" else "Enter the 6-digit code sent to +91 $phoneNumber",
+                            text = when {
+                                isTelugu -> "+91 $phoneNumber కు పంపిన 6 అంకెల కోడ్‌ను నమోదు చేయండి"
+                                isHindi -> "+91 $phoneNumber पर भेजा गया 6-अंकीय कोड दर्ज करें"
+                                else -> "Enter the 6-digit code sent to +91 $phoneNumber"
+                            },
                             fontSize = 13.5.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -848,9 +897,13 @@ private fun OtpLoginScreen(
                                 CircularProgressIndicator(color = Color(0xFF2563EB), modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isTelugu) "OTP ఆటో రీడింగ్ $resendCooldown సెకన్లు" else "Auto reading OTP $resendCooldown secs",
+                                    text = when {
+                                        isTelugu -> "OTP ఆటో రీడింగ్ $resendCooldown సెకన్లు"
+                                        isHindi -> "OTP स्वतः पढ़ा जा रहा है ($resendCooldown सेकंड)"
+                                        else -> "Auto reading OTP $resendCooldown secs"
+                                    },
                                     fontSize = 13.sp,
-                                    color = Color(0xFF64748B)
+                                    color = Color(0xFF64748B).fg()
                                 )
                             }
                         } else {
@@ -860,7 +913,11 @@ private fun OtpLoginScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = if (isTelugu) "మళ్లీ OTP పంపండి" else "Resend OTP",
+                                    text = when {
+                                        isTelugu -> "మళ్లీ OTP పంపండి"
+                                        isHindi -> "OTP पुनः भेजें"
+                                        else -> "Resend OTP"
+                                    },
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF2563EB),
@@ -909,7 +966,11 @@ private fun OtpLoginScreen(
                                 com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
                             } else {
                                 Text(
-                                    text = if (isTelugu) "ధృవీకరించండి" else "Verify & Continue",
+                                    text = when {
+                                        isTelugu -> "ధృవీకరించండి"
+                                        isHindi -> "सत्यापित करें"
+                                        else -> "Verify & Continue"
+                                    },
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -975,10 +1036,10 @@ private fun OtpSixDigitInputRow(
                         .clip(RoundedCornerShape(10.dp))
                         .border(
                             width = if (isActive) 1.5.dp else 1.dp,
-                            color = if (isActive) Color(0xFF0F172A) else Color(0xFFCBD5E1),
+                            color = if (isActive) Color(0xFF0F172A).fg() else Color(0xFFCBD5E1).bd(),
                             shape = RoundedCornerShape(10.dp)
                         )
-                        .background(Color.White),
+                        .background(Color.White.bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     if (digit.isNotEmpty()) {
@@ -986,7 +1047,7 @@ private fun OtpSixDigitInputRow(
                             text = digit,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = Color(0xFF0F172A).fg()
                         )
                     } else if (isCurrentBox) {
                         // Animated blinking cursor positioned properly inside the active OTP box
@@ -994,7 +1055,7 @@ private fun OtpSixDigitInputRow(
                             modifier = Modifier
                                 .width(2.dp)
                                 .height(24.dp)
-                                .background(Color(0xFF0F172A).copy(alpha = cursorAlpha))
+                                .background(Color(0xFF0F172A).fg().copy(alpha = cursorAlpha))
                         )
                     }
                 }
