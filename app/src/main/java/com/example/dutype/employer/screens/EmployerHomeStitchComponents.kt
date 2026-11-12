@@ -1782,55 +1782,15 @@ fun EmployerTrialCountdownCard(
     onUpgradeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (hasActiveSubscription) return
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val now = System.currentTimeMillis()
-
-    // For guest users, provide a persistent 48-hour guest countdown from first open
-    val effectiveTrialExpiresAt = remember(trialExpiresAt, isGuest) {
-        if (isGuest) {
-            val prefs = context.getSharedPreferences("employer_guest_prefs", android.content.Context.MODE_PRIVATE)
-            var guestExp = prefs.getLong("guest_trial_expires_at", 0L)
-            if (guestExp <= 0L) {
-                guestExp = System.currentTimeMillis() + 48 * 3600 * 1000L
-                prefs.edit().putLong("guest_trial_expires_at", guestExp).apply()
-            }
-            guestExp
-        } else if (trialExpiresAt > 0L) {
-            trialExpiresAt
-        } else {
-            System.currentTimeMillis() + 48 * 3600 * 1000L
-        }
-    }
-
-    var remainingMillis by remember(effectiveTrialExpiresAt) {
-        mutableLongStateOf((effectiveTrialExpiresAt - now).coerceAtLeast(0L))
-    }
-
-    LaunchedEffect(effectiveTrialExpiresAt) {
-        while (remainingMillis > 0L) {
-            delay(1000L)
-            remainingMillis = (effectiveTrialExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L)
-        }
-    }
-
-    // Guest users never see expired trial; they see the active trial & ticking countdown to onboard
-    val isExpired = if (isGuest) false else (remainingMillis <= 0L || freeJobPostsUsed >= 1)
-    val totalSeconds = (remainingMillis / 1000L).coerceAtLeast(0L)
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isExpired) Color(0xFFF7F7F7).bg() else Color(0xFFFFFBEB).bg()
+            containerColor = Color(0xFFF0FDF4).bg()
         ),
         border = BorderStroke(
             1.5.dp,
-            if (isExpired) Color(0xFFCBD5E1).bd() else Color(0xFFF59E0B).bd()
+            Color(0xFF86EFAC).bd()
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -1847,7 +1807,7 @@ fun EmployerTrialCountdownCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = if (isExpired) Color(0xFF64748B) else Color(0xFFD97706),
+                    color = Color(0xFF059669),
                     modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     Row(
@@ -1855,7 +1815,7 @@ fun EmployerTrialCountdownCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = if (isExpired) "🔒 TRIAL EXPIRED" else "⚡ 48-HOUR FREE TRIAL",
+                            text = "🎉 100% FREE FOR ALL EMPLOYERS",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -1864,124 +1824,55 @@ fun EmployerTrialCountdownCard(
                     }
                 }
 
-                if (!isExpired) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFDCFCE7),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
                     Text(
-                        text = if (freeJobPostsUsed == 0) "1 Free Job Left" else "Job Live",
+                        text = "Unlimited Posts",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF92400E)
+                        color = Color(0xFF166534),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Main Urgency Content
-            if (!isExpired) {
+            Text(
+                text = "Post Unlimited Jobs for Free",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF065F46)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Zero posting charges, zero hidden fees. Post as many vacancies as you need and connect with verified local candidates instantly.",
+                fontSize = 12.5.sp,
+                color = Color(0xFF047857),
+                lineHeight = 17.sp
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Button(
+                onClick = onPostJobClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669))
+            ) {
                 Text(
-                    text = if (freeJobPostsUsed == 0)
-                        "Your Free Trial Ends In:"
-                    else
-                        "Your Free Trial Job Expires In:",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF78350F)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Timer Digits Blocks
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TimerDigitBox(value = String.format(java.util.Locale.US, "%02d", hours), label = "HRS")
-                    Text(":", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
-                    TimerDigitBox(value = String.format(java.util.Locale.US, "%02d", minutes), label = "MIN")
-                    Text(":", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
-                    TimerDigitBox(value = String.format(java.util.Locale.US, "%02d", seconds), label = "SEC", isPulsing = true)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = if (freeJobPostsUsed == 0)
-                        "Post 1 free job now before the timer expires. Zero upfront charges."
-                    else
-                        "Upgrade to Single Job (₹49) to keep your job active and unlock unlimited candidate contacts.",
-                    fontSize = 12.sp,
-                    color = Color(0xFF92400E),
-                    lineHeight = 16.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    if (freeJobPostsUsed == 0) {
-                        Button(
-                            onClick = onPostJobClick,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
-                        ) {
-                            Text("Post Free Job", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
-                    Button(
-                        onClick = onUpgradeClick,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
-                    ) {
-                        Text(
-                            text = "Upgrade (₹49)",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
-            } else {
-                // Expired State
-                Text(
-                    text = "Your 48-Hour Free Trial Has Ended",
+                    text = "Post Unlimited Jobs Free",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = Color.White
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Subscribe to Single Job Plan (₹49) or Launch Pass (₹199) to post new vacancies and contact candidates.",
-                    fontSize = 12.sp,
-                    color = Color(0xFF64748B),
-                    lineHeight = 16.sp
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onUpgradeClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
-                ) {
-                    Text("Unlock Plans (from ₹49)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
             }
         }
     }

@@ -100,25 +100,9 @@ exports.postInstantRequest = (0, secure_callable_1.onCallSecured)({}, async (raw
         const credits = (0, input_1.obj)(sub[S.CREDITS]);
         const freeUsed = Number(employer.get(schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED) || 0);
         let paid;
-        if (freeUsed < FREE_URGENT_POSTS) {
-            paid = "free";
-            tx.update(employerRef, schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
-        }
-        else if ((0, referral_posts_1.referralPostsLeft)(employer.data(), nowMs) > 0) {
-            paid = "referral";
-            (0, referral_posts_1.useReferralPost)(tx, employerRef);
-        }
-        else if (active && Number(credits[S.CREDITS_INSTANT] || 0) > 0) {
-            paid = "instant";
-            tx.update(employerRef, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`, FieldValue.increment(-1));
-        }
-        else if (active && Number(credits[S.CREDITS_NORMAL] || 0) > 0) {
-            paid = "normal";
-            tx.update(employerRef, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));
-        }
-        else {
-            (0, input_1.fail)("resource-exhausted", "You have used your 3 free urgent posts. Buy a plan to post more.");
-        }
+        // DutyPe 100% Free Campaign: Unlimited free urgent/instant hiring for all employers!
+        paid = "free";
+        tx.update(employerRef, schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
         tx.create(ref, Object.assign(Object.assign({ [schema_1.InstantRequests.EMPLOYER_ID]: uid, [schema_1.InstantRequests.TITLE]: title, [schema_1.InstantRequests.CATEGORY]: category, [schema_1.InstantRequests.WORKERS_NEEDED]: workersNeeded, [schema_1.InstantRequests.PAY_PER_PERSON]: payPerPerson, [schema_1.InstantRequests.DURATION_TEXT]: durationText }, (scheduledAtMs ? { [schema_1.InstantRequests.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAtMs) } : {})), { [schema_1.InstantRequests.AREA]: area, [schema_1.InstantRequests.ADDRESS_TEXT]: addressText, [schema_1.InstantRequests.LAT]: lat, [schema_1.InstantRequests.LNG]: lng, [schema_1.InstantRequests.GEOHASH]: (0, geo_1.encodeGeohash)(lat, lng), [schema_1.InstantRequests.CELL]: (0, geo_1.encodeGeohash)(lat, lng, 5), [schema_1.InstantRequests.RADIUS_KM]: radiusKm, [schema_1.InstantRequests.CONTACT_NUMBER]: contactNumber, [schema_1.InstantRequests.STATUS]: ST.OPEN, [schema_1.InstantRequests.SELECTED_WORKER_IDS]: [], [schema_1.InstantRequests.RESPONSE_COUNT]: 0, [schema_1.InstantRequests.CREATED_AT]: Timestamp.fromMillis(nowMs), [schema_1.InstantRequests.EXPIRES_AT]: Timestamp.fromMillis(expiresAtMs) }));
         tx.set(chargeRef(id), {
             [schema_1.Idempotency.RESULT]: paid,

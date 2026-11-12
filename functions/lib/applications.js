@@ -205,7 +205,6 @@ exports.setApplicationStatus = (0, secure_callable_1.onCallSecured)({}, async (r
  * worker profile; every reveal is recorded in employer_profiles/{uid}/unlocks/{workerId}.
  */
 exports.getWorkerContact = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
-    var _a, _b, _c;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const workerId = (0, input_1.str)(data, "workerId", { max: 128, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -240,22 +239,8 @@ exports.getWorkerContact = (0, secure_callable_1.onCallSecured)({}, async (raw, 
         .collection(schema_1.EmployerProfiles.Unlocks.COLLECTION).doc(workerId);
     const existingUnlock = await unlockRef.get();
     if (!existingUnlock.exists) {
-        const empDoc = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get();
-        const S = schema_1.EmployerProfiles.Subscription;
-        const sub = (empDoc.get(schema_1.EmployerProfiles.SUBSCRIPTION) || {});
-        const subStatus = String(sub[S.STATUS] || "NONE");
-        const planId = String(sub[S.PLAN_ID] || "");
-        const credits = (sub[S.CREDITS] || {});
-        const instantCredits = Number(credits[S.CREDITS_INSTANT] || 0);
-        const expiresAt = (_c = (_b = (_a = sub[S.EXPIRES_AT]) === null || _a === void 0 ? void 0 : _a.toMillis) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : Number(sub[S.EXPIRES_AT] || 0);
-        const isSubActive = subStatus === "ACTIVE" && (expiresAt === 0 || expiresAt > Date.now());
-        const hasUnlocks = isSubActive && instantCredits > 0;
-        if (!hasUnlocks) {
-            (0, input_1.fail)("failed-precondition", "No contact unlocks remaining. Please upgrade your subscription plan.");
-        }
-        await empDoc.ref.update({
-            [`${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`]: FieldValue.increment(-1),
-        });
+        // DutyPe 100% Free Campaign: Contact unlock is 100% free for all employers!
+        // No contact deductions or subscription plan required.
         await unlockRef.set({
             [schema_1.EmployerProfiles.Unlocks.JOB_ID]: jobId,
             [schema_1.EmployerProfiles.Unlocks.CREATED_AT]: Timestamp.now(),

@@ -876,12 +876,9 @@ private class PostJobController(
         val isTrialExpired = profile?.isTrialExpired == true
         val hasFreePosts = freeUsed < 1 && !isTrialExpired
 
-        // First 1 job posting is 100% free for employers. Subscription or credits only required once free jobs are exhausted.
-        if (!hasFreePosts && grantedFreeJobs <= 0 && normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
-            Timber.w("CREDIT CHECK: All 1 free job posts used ($freeUsed/1). Subscription required (grantedFree=$grantedFreeJobs, normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
-            showNoCreditsDialog = true
-            return
-        }
+        // DutyPe 100% Free Campaign: Unlimited free job postings for all employers!
+        // No subscription paywall or credit blocking is enforced.
+        Timber.d("DUTYPE FREE CAMPAIGN: Employer posting job with unlimited free tier")
 
         ensureCompanyName(uid, displayName)
 
@@ -1748,36 +1745,34 @@ private fun PostJobSinglePageForm(
             .navigationBarsPadding()
             .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 112.dp)
     ) {
-        if (freeRemaining > 0) {
-            Box(modifier = Modifier.cascadeEnter(index = 0)) {
-                Surface(
-                    color = Color(0xFFECFDF5).bg(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 14.dp)
+        Box(modifier = Modifier.cascadeEnter(index = 0)) {
+            Surface(
+                color = Color(0xFFECFDF5).bg(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                    Text(
+                        text = "🎉",
+                        fontSize = 18.sp
+                    )
+                    Column {
                         Text(
-                            text = "🎁",
-                            fontSize = 18.sp
+                            text = "100% Free Job Posting",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF065F46)
                         )
-                        Column {
-                            Text(
-                                text = "Free Job Posting ($freeRemaining of 1 remaining)",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFF065F46)
-                            )
-                            Text(
-                                text = "Your first job posting on DutyPe is 100% free.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF047857)
-                            )
-                        }
+                        Text(
+                            text = "Post unlimited jobs on DutyPe completely free of charge!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF047857)
+                        )
                     }
                 }
             }

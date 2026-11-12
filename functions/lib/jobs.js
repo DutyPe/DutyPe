@@ -147,57 +147,12 @@ async function getJobPostingConfigDoc() {
  * granted free jobs; dynamic global policy (first 3 free jobs); otherwise requires subscription.
  */
 function chargeForPost(tx, employer, quota, nowMs, config) {
-    const S = schema_1.EmployerProfiles.Subscription;
-    const sub = (0, input_1.obj)(employer.data[schema_1.EmployerProfiles.SUBSCRIPTION]);
-    const expiresAt = sub[S.EXPIRES_AT] instanceof Timestamp ? sub[S.EXPIRES_AT].toMillis() : 0;
-    const active = sub[S.STATUS] === "ACTIVE" && (expiresAt === 0 || expiresAt > nowMs);
-    const normalCredits = Number((0, input_1.obj)(sub[S.CREDITS])[S.CREDITS_NORMAL] || 0);
-    if (active && normalCredits > 0) {
-        tx.update(employer.ref, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));
-        return "credit";
-    }
-    if ((0, referral_posts_1.referralPostsLeft)(employer.data, nowMs) > 0) {
-        (0, referral_posts_1.useReferralPost)(tx, employer.ref);
-        return "referral";
-    }
-    // 1. User-specific free job grant by admin
-    const grantedFree = Number(employer.data["grantedFreeJobPosts"] || 0);
-    if (grantedFree > 0) {
-        tx.update(employer.ref, {
-            grantedFreeJobPosts: FieldValue.increment(-1),
-            [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
-        });
-        return "free";
-    }
-    // 2. First 1 job posting free trial for employers (strict 48-hour limit)
-    const freeUsed = Number(employer.data[schema_1.EmployerProfiles.FREE_JOB_POSTS_USED] || 0);
-    const maxFreeJobs = (config && config.freeJobPostingEnabled !== false && config.freeJobsCount > 0)
-        ? config.freeJobsCount
-        : 1; // Strict limit: 1 free trial job post!
-    const employerCreatedAt = employer.data[schema_1.EmployerProfiles.CREATED_AT] instanceof Timestamp
-        ? employer.data[schema_1.EmployerProfiles.CREATED_AT].toMillis()
-        : Number(employer.data[schema_1.EmployerProfiles.CREATED_AT] || 0);
-    const trialExpiresAt = employer.data[schema_1.EmployerProfiles.TRIAL_EXPIRES_AT] instanceof Timestamp
-        ? employer.data[schema_1.EmployerProfiles.TRIAL_EXPIRES_AT].toMillis()
-        : Number(employer.data[schema_1.EmployerProfiles.TRIAL_EXPIRES_AT] || 0);
-    const effectiveTrialDeadline = trialExpiresAt || (employerCreatedAt > 0 ? employerCreatedAt + TRIAL_JOB_LIFETIME_MS : 0);
-    const eligible = !config ||
-        config.appliesTo === "ALL_USERS" ||
-        (config.appliesTo === "NEW_USERS" && employerCreatedAt >= (config.effectiveFrom || 0)) ||
-        config.appliesTo === undefined;
-    if (eligible && freeUsed < maxFreeJobs) {
-        if (effectiveTrialDeadline > 0 && nowMs > effectiveTrialDeadline) {
-            (0, input_1.fail)("resource-exhausted", "Your 48-hour free trial has expired. Please subscribe to an Employer Plan (from ₹49) to post jobs & contact workers.");
-        }
-        tx.update(employer.ref, {
-            [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
-            [schema_1.EmployerProfiles.TRIAL_EXPIRES_AT]: Timestamp.fromMillis(nowMs + TRIAL_JOB_LIFETIME_MS),
-            [schema_1.EmployerProfiles.TRIAL_STARTED_AT]: Timestamp.fromMillis(nowMs),
-        });
-        return "free";
-    }
-    // 3. Otherwise, stop free job posting completely - subscription required
-    (0, input_1.fail)("resource-exhausted", "Your free trial has ended. Please subscribe to an Employer Plan (from ₹49) to post jobs & contact workers.");
+    // DutyPe 100% Free Campaign: Unlimited free job postings for all employers!
+    // No subscription required, zero charges. Track usage count for analytics.
+    tx.update(employer.ref, {
+        [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+    });
+    return "free";
 }
 /** The employer's posts since midnight IST — for the duplicate check. */
 async function postsToday(uid, nowMs) {
@@ -282,7 +237,7 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
         }
         if (Object.keys(profileFill).length)
             tx.update(employer.ref, profileFill);
-        tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: businessName || companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + (charge === "free" ? TRIAL_JOB_LIFETIME_MS : JOB_LIFETIME_MS)) })));
+        tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: businessName || companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS) })));
         tx.create(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId), Object.assign(Object.assign({}, input.details), { [schema_1.JobDetails.EMPLOYER_ID]: uid }));
         tx.create(contactRef(jobId), {
             [schema_1.JobContacts.EMPLOYER_ID]: uid,
@@ -361,7 +316,7 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
         const charge = chargeForPost(tx, employer, quota, nowMs, config);
         tx.update(ref, {
             [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN,
-            [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + (charge === "free" ? TRIAL_JOB_LIFETIME_MS : JOB_LIFETIME_MS)),
+            [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS),
         });
         return { jobId, charge };
     });

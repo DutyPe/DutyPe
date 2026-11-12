@@ -108,21 +108,9 @@ export const postInstantRequest = onCallSecured({}, async (raw: unknown, context
     let paid: Charge;
 
 
-    if (freeUsed < FREE_URGENT_POSTS) {
-      paid = "free";
-      tx.update(employerRef, EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
-    } else if (referralPostsLeft(employer.data(), nowMs) > 0) {
-      paid = "referral";
-      useReferralPost(tx, employerRef);
-    } else if (active && Number(credits[S.CREDITS_INSTANT] || 0) > 0) {
-      paid = "instant";
-      tx.update(employerRef, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`, FieldValue.increment(-1));
-    } else if (active && Number(credits[S.CREDITS_NORMAL] || 0) > 0) {
-      paid = "normal";
-      tx.update(employerRef, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));
-    } else {
-      fail("resource-exhausted", "You have used your 3 free urgent posts. Buy a plan to post more.");
-    }
+    // DutyPe 100% Free Campaign: Unlimited free urgent/instant hiring for all employers!
+    paid = "free";
+    tx.update(employerRef, EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
 
     tx.create(ref, {
       [InstantRequests.EMPLOYER_ID]: uid,

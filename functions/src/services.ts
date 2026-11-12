@@ -70,8 +70,8 @@ export const PartnerStatus = { PENDING: "PENDING", APPROVED: "APPROVED", REJECTE
 
 export const TEST_DEV_PHONES = new Set(["9390693988", "+919390693988", "8019151847", "+918019151847"]);
 
-/** Offer waves, km from the customer. After the last wave the widest one repeats. */
-export const SERVICE_WAVES_KM = [3, 6, 10, 15, 25] as const;
+/** Offer waves, km from the customer. Strictly restricted to nearest partners (within 5-10 km). */
+export const SERVICE_WAVES_KM = [5, 10] as const;
 export const SERVICE_WAVE_INTERVAL_MS = 90 * 1000;
 const REPEAT_WAVE_MS = 5 * 60 * 1000;
 /** "Now" bookings give up after this long without a partner. */
@@ -203,10 +203,10 @@ function partnerFeeOf(config: ServicesConfig, jobsCompleted: number, b: Firebase
     Number(b[BK.DISCOUNT] || 0), Number(b[BK.COMMISSION_PCT] || 0));
 }
 
-/** Per-partner credit need for [b] (depends on whether it would be their free first job). */
+/** Per-partner credit need for [b] (DutyPe Free Growth Campaign: zero credits needed). */
 async function creditsNeededFor(b: admin.firestore.DocumentData): Promise<(jobsCompleted: number) => number> {
-  const config = await loadConfig();
-  return (jobs) => requiredCredits(b, partnerFeeOf(config, jobs, b));
+  // DutyPe 100% Free Campaign: Partners require 0 prepaid credits to accept jobs
+  return () => 0;
 }
 
 /** Paise a partner must hold to accept (before extras). */
@@ -299,7 +299,7 @@ async function sendOffer(partnerId: string, bookingId: string, b: admin.firestor
   }
 }
 
-/** Online approved partners for [category] between fromKm (exclusive) and toKm of the point. */
+/** Online approved partners for [category] between fromKm (exclusive) and toKm of the point (Strictly capped at 10km). */
 export async function partnersInRing(
   category: string, lat: number, lng: number, fromKm: number, toKm: number, excluded: string[], needPaise: number | ((jobsCompleted: number) => number), nowMs: number,
 ): Promise<Array<{ id: string; km: number }>> {
@@ -310,6 +310,8 @@ export async function partnersInRing(
     .limit(500)
     .get();
   const out: Array<{ id: string; km: number }> = [];
+  const MAX_SERVICE_RADIUS_KM = 10.0; // Strictly restricted to nearest 5-10km partners only
+
   for (const d of snap.docs) {
     if (excluded.includes(d.id)) continue;
     if (d.get(SP.ACTIVE_BOOKING_ID)) continue;
@@ -319,10 +321,10 @@ export async function partnersInRing(
     const pLat = Number(d.get(SP.LAT));
     const pLng = Number(d.get(SP.LNG));
     if (!Number.isFinite(pLat) || !Number.isFinite(pLng) || !pLat || !pLng) continue;
-    // Only dispatch to partners within Khammam service operational area (within 25 km)
-    const distFromCenter = distanceKm(17.2473, 80.1514, pLat, pLng);
-    if (distFromCenter > 25.0) continue;
+    
+    // Strict proximity check: only dispatch to partners within 5-10 km of the customer booking location
     const km = distanceKm(lat, lng, pLat, pLng);
+    if (km > MAX_SERVICE_RADIUS_KM) continue;
     if (km > fromKm && km <= toKm) out.push({ id: d.id, km });
   }
   return out;
@@ -513,9 +515,9 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     }
   }
 
-  // Platform fee policy: 1st booking or VIP granted is FREE of platform fee only for standard prices; custom price always pays platform fee!
-  const isFreePlatformFee = !hasCustomPrice && (hasVipFreeBooking || firstBooking || (who.planMember && config.planMembersFeeFree) || config.firstBookingFeeFree);
-  const effectiveBookingFee = isFreePlatformFee ? 0 : (q.bookingFee > 0 ? q.bookingFee : (config.bookingFee || 19));
+  // DutyPe 100% Free Campaign: Completely free booking for all customers (zero platform fee)
+  const isFreePlatformFee = true;
+  const effectiveBookingFee = 0;
 
   // Ensure customer has a closed-loop micro-wallet
   await ensureWallet(uid);
@@ -1417,18 +1419,18 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
       return { result: "closed" as const };
     }
 
-    // Strict geographic verification: partner must be within 25 km of the doorstep in Khammam
+    // Strict geographic verification: partner must be within 10 km of the doorstep
     const bLat = Number(d[BK.LAT] || 0) || 17.2473;
     const bLng = Number(d[BK.LNG] || 0) || 80.1514;
     const pLat = Number(p.get(SP.LAT) || 0) || Number(p.get("lat") || 0);
     const pLng = Number(p.get(SP.LNG) || 0) || Number(p.get("lng") || 0);
     if (!isTestPartner && !isDirectAssignment) {
       if (!pLat || !pLng) {
-        fail("failed-precondition", "Current GPS location required to accept doorstep bookings in Khammam");
+        fail("failed-precondition", "Current GPS location required to accept doorstep bookings");
       }
       const distKm = distanceKm(bLat, bLng, pLat, pLng);
-      if (distKm > 25.0) {
-        fail("failed-precondition", `You are ${Math.round(distKm)} km away. Doorstep service jobs can only be accepted by verified partners within 25 km of Khammam.`);
+      if (distKm > 10.0) {
+        fail("failed-precondition", `You are ${Math.round(distKm)} km away. Doorstep service jobs can only be accepted by verified partners within 10 km.`);
       }
     }
 
@@ -1571,9 +1573,10 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
       const price = Number(d[BK.PRICE] || 0);
       const fee = Number(d[BK.BOOKING_FEE] || 0);
       const discount = Number(d[BK.DISCOUNT] || 0);
-      const take = takePaise(price, extras, fee, discount, feeOf(d, config.partnerFee), Number(d[BK.COMMISSION_PCT] || 0));
+      // DutyPe 100% Free Campaign: Zero commission and zero platform fee taken from partners
+      const take = 0;
       const total = Math.max(0, price - discount) + extras;
-      const balance = Number(p.get(SP.CREDITS_PAISE) || 0) - take;
+      const balance = Number(p.get(SP.CREDITS_PAISE) || 0);
       tx.update(ref, {
         [BK.STATUS]: BS.COMPLETED,
         [BK.EXTRAS]: extras,

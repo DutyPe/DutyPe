@@ -269,26 +269,8 @@ export const getWorkerContact = onCallSecured({}, async (raw: unknown, context) 
   const existingUnlock = await unlockRef.get();
 
   if (!existingUnlock.exists) {
-    const empDoc = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
-    const S = EmployerProfiles.Subscription;
-    const sub = (empDoc.get(EmployerProfiles.SUBSCRIPTION) || {}) as Record<string, unknown>;
-    const subStatus = String(sub[S.STATUS] || "NONE");
-    const planId = String(sub[S.PLAN_ID] || "");
-    const credits = (sub[S.CREDITS] || {}) as Record<string, unknown>;
-    const instantCredits = Number(credits[S.CREDITS_INSTANT] || 0);
-    const expiresAt = (sub[S.EXPIRES_AT] as admin.firestore.Timestamp)?.toMillis?.() ?? Number(sub[S.EXPIRES_AT] || 0);
-
-    const isSubActive = subStatus === "ACTIVE" && (expiresAt === 0 || expiresAt > Date.now());
-    const hasUnlocks = isSubActive && instantCredits > 0;
-
-    if (!hasUnlocks) {
-      fail("failed-precondition", "No contact unlocks remaining. Please upgrade your subscription plan.");
-    }
-
-    await empDoc.ref.update({
-        [`${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`]: FieldValue.increment(-1),
-      });
-
+    // DutyPe 100% Free Campaign: Contact unlock is 100% free for all employers!
+    // No contact deductions or subscription plan required.
     await unlockRef.set({
       [EmployerProfiles.Unlocks.JOB_ID]: jobId,
       [EmployerProfiles.Unlocks.CREATED_AT]: Timestamp.now(),

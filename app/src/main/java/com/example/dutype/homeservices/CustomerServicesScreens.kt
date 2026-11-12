@@ -4875,15 +4875,11 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             val isLowBal = !isFirstFree && walletBal < reqFee
 
                             Text(
-                                text = when {
-                                    isFirstFree -> "🎁 1st Booking Fee Waived (Free) • Pay after service"
-                                    isLowBal -> "⚠️ DutyPe Wallet: ₹$walletBal (Low) • Min deposit ₹50"
-                                    else -> "⚡ DutyPe Wallet: ₹$walletBal (₹$reqFee fee auto-debited)"
-                                },
-                                color = if (isLowBal) Color(0xFFD97706) else SvcMuted.fg(),
+                                text = "🎁 100% Free Booking • Pay technician after service only",
+                                color = Color(0xFF15803D),
                                 fontSize = 11.sp,
                                 maxLines = 1,
-                                fontWeight = if (isLowBal) FontWeight.SemiBold else FontWeight.Normal
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                         Button(
@@ -5709,12 +5705,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 val isFirstFree = (q?.firstBooking == true) || (q?.discountLabel?.contains("first", ignoreCase = true) == true)
 
                 PriceLine("Service Price", service.price)
-                if (isFirstFree) {
-                    PriceLine("Platform Fee (1st Booking Free 🎉)", platformFee, struck = true)
-                    PriceLine("Platform Fee Due Now", 0)
-                } else {
-                    PriceLine("Platform Fee (DutyPe Fee)", platformFee)
-                }
+                PriceLine("Platform Fee (100% Free 🎉)", 0)
                 if (discount > 0 && !isFirstFree) DiscountLine(q?.discountLabel.orEmpty().ifBlank { "Discount Applied" }, discount)
                 HorizontalDivider(color = SvcLine.bg())
                 PriceLine(stringResource(R.string.svc_price_total), total, bold = true)
