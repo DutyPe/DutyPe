@@ -178,9 +178,13 @@ exports.setApplicationStatus = (0, secure_callable_1.onCallSecured)({}, async (r
         tx.update(ref, Object.assign(Object.assign({ [schema_1.Applications.STATUS]: next, [schema_1.Applications.UPDATED_AT]: now }, (next === S.HIRED ? { [schema_1.Applications.HIRED_AT]: now } : {})), (next === S.COMPLETED ? { [schema_1.Applications.COMPLETED_AT]: now } : {})));
         if (next === S.HIRED) {
             tx.update(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid), { [schema_1.EmployerProfiles.TOTAL_HIRES]: FieldValue.increment(1) });
+            tx.set(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(workerId), { totalHires: FieldValue.increment(1), timesHired: FieldValue.increment(1) }, { merge: true });
+            tx.set(db.collection("users").doc(workerId), { totalHires: FieldValue.increment(1) }, { merge: true });
         }
         if (next === S.COMPLETED) {
             tx.set(db.collection(schema_1.WorkerCards.COLLECTION).doc(workerId), { [schema_1.WorkerCards.JOBS_COMPLETED]: FieldValue.increment(1) }, { merge: true });
+            tx.set(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(workerId), { [schema_1.WorkerProfiles.JOBS_COMPLETED]: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
+            tx.set(db.collection("users").doc(workerId), { jobsCompleted: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
         }
         return { workerId, jobId };
     });

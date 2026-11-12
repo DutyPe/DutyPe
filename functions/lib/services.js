@@ -1463,6 +1463,9 @@ exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
                         [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
                         [SP.UPDATED_AT]: now,
                     });
+                    tx.set(db.collection(schema_1.WorkerCards.COLLECTION).doc(uid), { [schema_1.WorkerCards.JOBS_COMPLETED]: FieldValue.increment(1) }, { merge: true });
+                    tx.set(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid), { [schema_1.WorkerProfiles.JOBS_COMPLETED]: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
+                    tx.set(db.collection("users").doc(uid), { jobsCompleted: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
                     tx.create(partnerRef.collection(schema_1.PartnerLedger.SUBCOLLECTION).doc(), {
                         [schema_1.PartnerLedger.AMOUNT_PAISE]: -take,
                         [schema_1.PartnerLedger.BALANCE_PAISE]: balance,

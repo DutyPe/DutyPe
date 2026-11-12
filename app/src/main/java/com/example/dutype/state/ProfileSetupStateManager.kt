@@ -248,6 +248,29 @@ class ProfileSetupStateManager @Inject constructor(
     }
 
     /**
+     * Mark profile as incomplete for the given role
+     */
+    suspend fun markProfileIncomplete(role: UserRole) {
+        val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        val userSpecificWorkerKey = currentUid?.let { booleanPreferencesKey("worker_profile_complete_$it") }
+        val userSpecificEmployerKey = currentUid?.let { booleanPreferencesKey("employer_profile_complete_$it") }
+
+        context.dataStore.edit { preferences ->
+            when (role) {
+                UserRole.WORKER -> {
+                    preferences[WORKER_PROFILE_COMPLETE] = false
+                    if (userSpecificWorkerKey != null) preferences[userSpecificWorkerKey] = false
+                }
+                UserRole.EMPLOYER -> {
+                    preferences[EMPLOYER_PROFILE_COMPLETE] = false
+                    if (userSpecificEmployerKey != null) preferences[userSpecificEmployerKey] = false
+                }
+                else -> { /* Do nothing */ }
+            }
+        }
+    }
+
+    /**
      * Clear all user session and cached profile completion flags on logout
      */
     suspend fun clearSession() {

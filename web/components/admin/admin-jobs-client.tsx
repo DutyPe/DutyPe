@@ -25,6 +25,7 @@ type JobRow = {
   category?: string;
   shift?: string;
   createdAt?: { _seconds?: number; seconds?: number } | string | number | null;
+  expiresAt?: { _seconds?: number; seconds?: number } | string | number | null;
 };
 
 function renderLocation(job: JobRow): string {
@@ -161,7 +162,7 @@ export function AdminJobsClient() {
   async function loadJobs() {
     try {
       setLoading(true);
-      const response = await adminApiFetch("/api/admin/jobs", {
+      const response = await adminApiFetch("/api/admin/jobs?all=true", {
         cache: "no-store"
       });
 
@@ -175,12 +176,17 @@ export function AdminJobsClient() {
       }
 
       const rows = payload.jobs ?? [];
+      const now = Date.now();
 
       setJobs(
         rows.map((item) => {
           const data = item as Omit<JobRow, "id"> & { id: string };
           const { id, ...rest } = data;
-          const normalizedStatus = typeof data.status === "string" ? data.status : (data.isActive ? "open" : "closed");
+          const expiresMillis = getEpochMillis(data.expiresAt);
+          const isDateExpired = expiresMillis > 0 && expiresMillis < now;
+          const rawStatus = typeof data.status === "string" ? data.status.toLowerCase() : "";
+          const isExpired = rawStatus === "expired" || isDateExpired;
+          const normalizedStatus = isExpired ? "expired" : (rawStatus || (data.isActive ? "open" : "closed"));
           return {
             id,
             ...rest,
@@ -334,7 +340,10 @@ export function AdminJobsClient() {
     }
   }
 
-  const openCount = jobs.filter((job) => job.isActive).length;
+  const openCount = jobs.filter((job) => job.status === "open" && job.isActive).length;
+  const expiredCount = jobs.filter((job) => job.status === "expired").length;
+  const closedCount = jobs.filter((job) => job.status === "closed" || (!job.isActive && job.status !== "expired")).length;
+
   const filteredJobs = jobs.filter((job) => {
     const search = searchTerm.toLowerCase();
     const normalizedStatus = String(job.status ?? (job.isActive ? "open" : "closed")).toLowerCase();
@@ -342,7 +351,8 @@ export function AdminJobsClient() {
       !searchTerm ||
       (job.title ?? "").toLowerCase().includes(search) ||
       (job.companyName ?? "").toLowerCase().includes(search) ||
-      renderLocation(job).toLowerCase().includes(search);
+      renderLocation(job).toLowerCase().includes(search) ||
+      job.id.toLowerCase().includes(search);
     const matchesStatus = statusFilter === "ALL" || normalizedStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
@@ -613,18 +623,22 @@ export function AdminJobsClient() {
         </div>
       </div>
 
-      <div className="admin-stats-grid small">
+      <div className="admin-stats-grid small" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
         <div className="admin-stat-card compact">
           <strong>{jobs.length}</strong>
-          <span>Total jobs</span>
+          <span>Total Jobs in DB</span>
         </div>
-        <div className="admin-stat-card compact">
-          <strong>{openCount}</strong>
-          <span>Open</span>
+        <div className="admin-stat-card compact" style={{ borderLeft: "3px solid #16a34a" }}>
+          <strong style={{ color: "#16a34a" }}>{openCount}</strong>
+          <span>Active / Open</span>
         </div>
-        <div className="admin-stat-card compact">
-          <strong>{jobs.length - openCount}</strong>
-          <span>Closed</span>
+        <div className="admin-stat-card compact" style={{ borderLeft: "3px solid #f59e0b" }}>
+          <strong style={{ color: "#d97706" }}>{expiredCount}</strong>
+          <span>Expired</span>
+        </div>
+        <div className="admin-stat-card compact" style={{ borderLeft: "3px solid #ef4444" }}>
+          <strong style={{ color: "#dc2626" }}>{closedCount}</strong>
+          <span>Closed / Inactive</span>
         </div>
       </div>
 
@@ -632,7 +646,7 @@ export function AdminJobsClient() {
         <input
           type="text"
           className="admin-search"
-          placeholder="Search jobs by title, company, or location..."
+          placeholder="Search jobs by title, company, location, or ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -641,20 +655,19 @@ export function AdminJobsClient() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
-          <option value="ALL">All statuses</option>
-          <option value="open">Open</option>
-          <option value="closed">Closed</option>
-          <option value="expired">Expired</option>
-          <option value="deleted">Deleted</option>
+          <option value="ALL">All statuses ({jobs.length})</option>
+          <option value="open">Active / Open ({openCount})</option>
+          <option value="expired">Expired ({expiredCount})</option>
+          <option value="closed">Closed / Inactive ({closedCount})</option>
         </select>
         <span className="admin-count">{filteredJobs.length} jobs</span>
         <button 
           className="button small"
           onClick={handleActivateExpiredJobs}
           disabled={activatingExpired}
-          style={{ marginLeft: 'auto' }}
+          style={{ marginLeft: 'auto', background: "#f59e0b", color: "#fff", border: "none" }}
         >
-          {activatingExpired ? "Activating..." : "Activate Expired Jobs"}
+          {activatingExpired ? "Activating..." : "⚡ Re-Activate Expired Jobs (+30d)"}
         </button>
       </div>
 
@@ -688,13 +701,31 @@ export function AdminJobsClient() {
                     <td>{job.vacancies ?? 0}</td>
                     <td>{formatDateLocal(job.createdAt)}</td>
                     <td>
-                      <button
-                        className={`status-pill clickable ${job.isActive ? "success" : "danger"}`}
-                        onClick={() => handleToggleActive(job.id, !!job.isActive)}
-                        title="Click to toggle"
-                      >
-                        {job.isActive ? "Active" : "Inactive"}
-                      </button>
+                      {job.status === "expired" ? (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            background: "#fef3c7",
+                            color: "#b45309",
+                            border: "1px solid #fde68a",
+                            padding: "3px 8px",
+                            borderRadius: "12px",
+                            fontSize: "11px",
+                            fontWeight: 700
+                          }}
+                          title="Job listing is expired (7+ days)"
+                        >
+                          Expired
+                        </span>
+                      ) : (
+                        <button
+                          className={`status-pill clickable ${job.isActive ? "success" : "danger"}`}
+                          onClick={() => handleToggleActive(job.id, !!job.isActive)}
+                          title="Click to toggle status"
+                        >
+                          {job.isActive ? "Active" : "Closed"}
+                        </button>
+                      )}
                     </td>
                     <td>
                       <div className="admin-table-actions">

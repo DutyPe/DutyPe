@@ -190,6 +190,119 @@ export function AdminPostJobClient() {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const aiFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [aiExtracting, setAiExtracting] = useState(false);
+  const [aiExtractedAlert, setAiExtractedAlert] = useState<string | null>(null);
+  const [aiApiKeyOverride, setAiApiKeyOverride] = useState("");
+  const [showAiKeyField, setShowAiKeyField] = useState(false);
+
+  async function runAiExtraction(file: File) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file (PNG, JPG, or WEBP).");
+      return;
+    }
+    setError(null);
+    setAiExtractedAlert(null);
+    setAiExtracting(true);
+
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Data = await base64Promise;
+
+      const response = await adminApiFetch("/api/admin/jobs/ai-extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: base64Data,
+          mimeType: file.type,
+          apiKeyOverride: aiApiKeyOverride.trim() || undefined
+        })
+      });
+
+      const res = await response.json();
+      if (!response.ok || !res.ok) {
+        throw new Error(res.error || "Failed to extract job details from image.");
+      }
+
+      const d = res.extracted;
+      if (!d) throw new Error("No data returned by AI model.");
+
+      // Auto-fill all fields
+      setForm((prev) => ({
+        ...prev,
+        title: d.title || prev.title,
+        companyName: d.companyName || prev.companyName,
+        vacancies: String(d.vacancies || prev.vacancies || 1),
+        salary: String(d.salary || prev.salary || ""),
+        salaryType: d.salaryType || prev.salaryType,
+        contactNumber: d.contactNumber || prev.contactNumber,
+        addressText: d.addressText || prev.addressText,
+        description: d.description || prev.description,
+        jobType: d.category && JOB_CATEGORIES.some((c) => c.value === d.category) ? d.category : prev.jobType,
+        shiftTiming: d.shiftTiming || prev.shiftTiming,
+        gender: d.gender || prev.gender,
+        workType: d.workType || prev.workType,
+        experienceRequired: d.experienceRequired || prev.experienceRequired,
+        educationRequired: d.educationRequired || prev.educationRequired
+      }));
+
+      if (d.category) {
+        setJobTypeManuallySet(true);
+      }
+
+      // Also set the poster as job photo preview so admin can attach it
+      handleImageFileSelect(file);
+
+      // Trigger automatic geocoding for extracted address
+      if (d.addressText && typeof d.addressText === "string") {
+        void searchIndianLocations(d.addressText.trim(), { limit: 1 })
+          .then((results) => {
+            if (results && results.length > 0) {
+              setForm((prev) => ({
+                ...prev,
+                latitude: results[0].latitude,
+                longitude: results[0].longitude
+              }));
+            }
+          })
+          .catch(() => {});
+      }
+
+      setAiExtractedAlert(
+        `✨ Extracted "${d.title || "Job"}" for "${d.companyName || "Employer"}" successfully! All fields below have been pre-filled. Please review and click Publish.`
+      );
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : "Failed to analyze image with AI.");
+    } finally {
+      setAiExtracting(false);
+      if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+    }
+  }
+
+  // Support Ctrl+V paste anywhere on the post-job screen
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            void runAiExtraction(file);
+            break;
+          }
+        }
+      }
+    }
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [aiApiKeyOverride]);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -484,6 +597,133 @@ export function AdminPostJobClient() {
   return (
     <form className="admin-post-form" onSubmit={handleSubmit}>
       {error && <div className="admin-error">{error}</div>}
+
+      {/* ─── AI Image Analysis & Job Extractor ─── */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #eff6ff 100%)",
+          border: "1.5px solid #86efac",
+          borderRadius: 14,
+          padding: 20,
+          marginBottom: 20,
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 26 }}>📸</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#065f46" }}>
+                AI Job Extractor: Upload or Paste Poster / Flyer
+              </h3>
+              <p style={{ margin: 0, fontSize: 12, color: "#047857" }}>
+                Upload any paper poster, banner, pamphlet photo, or press <strong>Ctrl+V</strong> anywhere to paste an image. Gemini AI automatically extracts Title, Company, Vacancies, Salary, Phone, Telugu/English Description & Location!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAiKeyField(!showAiKeyField)}
+            style={{
+              background: "transparent",
+              border: "1px dashed #059669",
+              borderRadius: 6,
+              padding: "4px 8px",
+              fontSize: 11,
+              color: "#065f46",
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            {showAiKeyField ? "Hide Custom API Key" : "Custom AI Studio Key (Optional)"}
+          </button>
+        </div>
+
+        {showAiKeyField && (
+          <div style={{ marginBottom: 14, background: "#ffffff", padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+              Google AI Studio API Key Override (Default uses system GEMINI_API_KEY):
+            </label>
+            <input
+              type="password"
+              placeholder="Paste custom AI Studio API key (optional)"
+              value={aiApiKeyOverride}
+              onChange={(e) => setAiApiKeyOverride(e.target.value)}
+              style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #94a3b8", fontSize: 12 }}
+            />
+          </div>
+        )}
+
+        <div
+          onClick={() => {
+            if (!aiExtracting) aiFileInputRef.current?.click();
+          }}
+          style={{
+            border: "2px dashed #34d399",
+            borderRadius: 10,
+            padding: "20px 16px",
+            textAlign: "center",
+            background: "#ffffff",
+            cursor: aiExtracting ? "wait" : "pointer",
+            transition: "all 0.2s"
+          }}
+        >
+          <input
+            type="file"
+            ref={aiFileInputRef}
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void runAiExtraction(file);
+            }}
+          />
+          {aiExtracting ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 24 }}>⚡</div>
+              <strong style={{ fontSize: 14, color: "#065f46" }}>Gemini AI is analyzing job poster & extracting details...</strong>
+              <span style={{ fontSize: 12, color: "#64748b" }}>Reading text, extracting contact phone, salary, vacancies & coordinates</span>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 28, marginBottom: 4 }}>✨ 📋</div>
+              <strong style={{ fontSize: 14, color: "#0f172a", display: "block" }}>
+                Click to Upload Poster Photo or Press Ctrl + V to Paste
+              </strong>
+              <span style={{ fontSize: 12, color: "#64748b" }}>
+                Supports Telugu & English flyers, WhatsApp ads, visiting cards, paper vacancy notices
+              </span>
+            </div>
+          )}
+        </div>
+
+        {aiExtractedAlert && (
+          <div
+            style={{
+              marginTop: 12,
+              background: "#dcfce7",
+              border: "1px solid #86efac",
+              borderRadius: 8,
+              padding: "10px 14px",
+              color: "#166534",
+              fontSize: 13,
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}
+          >
+            <span>{aiExtractedAlert}</span>
+            <button
+              type="button"
+              onClick={() => setAiExtractedAlert(null)}
+              style={{ background: "transparent", border: "none", color: "#166534", cursor: "pointer", fontWeight: 700 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="admin-form-section">
         <h3>1. Basics</h3>

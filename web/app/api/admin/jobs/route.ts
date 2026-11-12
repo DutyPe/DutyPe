@@ -43,23 +43,38 @@ function toJson(id: string, card: Record<string, unknown>, details: Record<strin
   };
 }
 
-/** Newest jobs, one page (≤ 100) with their details; ?status= filters, ?after= pages. */
+/** Newest jobs; if ?all=true or limit > 100, streams full catalog for admin dashboard. */
 async function getUncached(request: NextRequest) {
   try {
     const db = getFirebaseAdminDb();
     const params = new URL(request.url).searchParams;
     const status = params.get("status");
-    let query = db.collection(Jobs.COLLECTION).orderBy(Jobs.CREATED_AT, "desc");
-    if (status && STATUSES.includes(status)) query = db.collection(Jobs.COLLECTION).where(Jobs.STATUS, "==", status).orderBy(Jobs.CREATED_AT, "desc");
+    const isAll = params.get("all") === "true";
+    const limitNum = isAll ? 5000 : Math.min(Math.max(1, Number(params.get("limit")) || 100), 5000);
+
+    let query: FirebaseFirestore.Query = db.collection(Jobs.COLLECTION).orderBy(Jobs.CREATED_AT, "desc");
+    if (status && STATUSES.includes(status)) {
+      query = db.collection(Jobs.COLLECTION).where(Jobs.STATUS, "==", status).orderBy(Jobs.CREATED_AT, "desc");
+    }
     const after = params.get("after");
     if (after) {
       const cursor = await db.collection(Jobs.COLLECTION).doc(after).get();
       if (cursor.exists) query = query.startAfter(cursor);
     }
-    const snap = await query.limit(100).get();
-    const details = snap.empty ? [] : await db.getAll(...snap.docs.map((d) => db.collection(JobDetails.COLLECTION).doc(d.id)));
+    const snap = await query.limit(limitNum).get();
+
+    // If small page (<= 100), fetch extended details. If loading full catalog, card documents contain all table fields
+    let details: Array<FirebaseFirestore.DocumentSnapshot | undefined> = [];
+    if (snap.size <= 100 && snap.size > 0) {
+      details = await db.getAll(...snap.docs.map((d) => db.collection(JobDetails.COLLECTION).doc(d.id)));
+    }
+
     const jobs = snap.docs.map((d, i) => toJson(d.id, d.data(), details[i]?.data()));
-    return NextResponse.json({ jobs, nextCursor: snap.size === 100 ? snap.docs.at(-1)!.id : null });
+    return NextResponse.json({
+      jobs,
+      totalLoaded: snap.size,
+      nextCursor: snap.size === limitNum ? snap.docs.at(-1)!.id : null
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to load jobs." }, { status: 500 });
   }

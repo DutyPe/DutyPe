@@ -40,6 +40,7 @@ exports.WorkerProfiles = {
     /** (server) the urgent need this worker accepted and has not finished — one at a time. */
     ACTIVE_URGENT_ID: "activeUrgentId",
     BLOCKED: "blocked",
+    JOBS_COMPLETED: "jobsCompleted",
     CREATED_AT: "createdAt",
     UPDATED_AT: "updatedAt",
 };

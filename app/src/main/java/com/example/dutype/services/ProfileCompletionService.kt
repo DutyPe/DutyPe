@@ -147,6 +147,33 @@ class ProfileCompletionService @Inject constructor(
         addPlace(update, WorkerProfiles.ADDRESS, WorkerProfiles.AREA, WorkerProfiles.LAT, WorkerProfiles.LNG, WorkerProfiles.GEOHASH)
         update[WorkerProfiles.UPDATED_AT] = Timestamp.now()
         workerRef(uid).set(update, SetOptions.merge()).await()
+
+        // Authoritative sync to central users collection
+        val userSync = mutableMapOf<String, Any?>("updatedAt" to Timestamp.now())
+        (update[WorkerProfiles.NAME] as? String)?.let {
+            userSync["name"] = it
+            userSync["fullName"] = it
+        }
+        (update[WorkerProfiles.ADDRESS] as? String)?.let { userSync["address"] = it }
+        (update[WorkerProfiles.AREA] as? String)?.let {
+            userSync["area"] = it
+            userSync["city"] = it
+        }
+        val latVal = (update[WorkerProfiles.LAT] as? Number)?.toDouble()
+        val lngVal = (update[WorkerProfiles.LNG] as? Number)?.toDouble()
+        if (latVal != null && lngVal != null && (latVal != 0.0 || lngVal != 0.0)) {
+            userSync["lat"] = latVal
+            userSync["lng"] = lngVal
+            userSync["hasLocation"] = true
+        }
+        (update[WorkerProfiles.GEOHASH] as? String)?.let { userSync["geohash"] = it }
+        (update[WorkerProfiles.SKILLS] as? List<*>)?.let { userSync["skills"] = it }
+
+        if (userSync.size > 1) {
+            runCatching {
+                firestore.collection("users").document(uid).set(userSync, SetOptions.merge()).await()
+            }.onFailure { Timber.w(it, "saveWorker: failed to sync users doc") }
+        }
         Unit
     }.onFailure { Timber.e(it, "saveWorker failed") }
 
@@ -161,6 +188,35 @@ class ProfileCompletionService @Inject constructor(
         addPlace(update, EmployerProfiles.ADDRESS, EmployerProfiles.AREA, EmployerProfiles.LAT, EmployerProfiles.LNG, EmployerProfiles.GEOHASH)
         update[EmployerProfiles.UPDATED_AT] = Timestamp.now()
         employerRef(uid).set(update, SetOptions.merge()).await()
+
+        // Authoritative sync to central users collection
+        val userSync = mutableMapOf<String, Any?>("updatedAt" to Timestamp.now())
+        val empName = (update[EmployerProfiles.OWNER_NAME] as? String)
+            ?: (update[EmployerProfiles.BUSINESS_NAME] as? String)
+        if (!empName.isNullOrBlank()) {
+            userSync["name"] = empName
+            userSync["fullName"] = empName
+        }
+        (update[EmployerProfiles.BUSINESS_NAME] as? String)?.let { userSync["businessName"] = it }
+        (update[EmployerProfiles.ADDRESS] as? String)?.let { userSync["address"] = it }
+        (update[EmployerProfiles.AREA] as? String)?.let {
+            userSync["area"] = it
+            userSync["city"] = it
+        }
+        val latVal = (update[EmployerProfiles.LAT] as? Number)?.toDouble()
+        val lngVal = (update[EmployerProfiles.LNG] as? Number)?.toDouble()
+        if (latVal != null && lngVal != null && (latVal != 0.0 || lngVal != 0.0)) {
+            userSync["lat"] = latVal
+            userSync["lng"] = lngVal
+            userSync["hasLocation"] = true
+        }
+        (update[EmployerProfiles.GEOHASH] as? String)?.let { userSync["geohash"] = it }
+
+        if (userSync.size > 1) {
+            runCatching {
+                firestore.collection("users").document(uid).set(userSync, SetOptions.merge()).await()
+            }.onFailure { Timber.w(it, "saveEmployer: failed to sync users doc") }
+        }
         Unit
     }.onFailure { Timber.e(it, "saveEmployer failed") }
 

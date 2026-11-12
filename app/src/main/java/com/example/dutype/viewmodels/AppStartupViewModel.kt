@@ -101,43 +101,37 @@ class AppStartupViewModel @Inject constructor(
                     }.onFailure { Timber.w(it, "role claim refresh failed") }
                 }
 
-                // 3. Fast Path: Check DataStore
-                if (dataStoreRole != null && profileSetupStateManager.isProfileComplete(dataStoreRole)) {
-                    val dest = if (dataStoreRole == UserRole.WORKER) Routes.WORKER_HOME else Routes.EMPLOYER_HOME
-                    Timber.d("🚀 AppStartupViewModel -> Fast Path: $dest")
-                    updateDestination(dest)
-                    return@launch
-                }
-
-                // 4. Slow Path: the role is a custom claim on the ID token (no read); phoneRoles
-                // is read only for accounts whose token predates the claim.
-                val claimRole = try {
-                    withTimeoutOrNull(2000L) { currentUser.getIdToken(false).await().claims["role"] as? String }
-                } catch (e: Exception) {
-                    Timber.w(e, "🚀 AppStartupViewModel - token read failed")
-                    null
-                }
-                val firestoreRoleStr = claimRole ?: try {
-                    val phone = currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
-                    if (phone.isBlank()) null else withTimeoutOrNull(2000L) {
-                        firestore.collection(PhoneRoles.COLLECTION).document(phone).get().await().getString(PhoneRoles.ROLE)
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "🚀 AppStartupViewModel - Error reading phoneRoles doc")
-                    null
-                }
-
-                var userRole: UserRole? = null
-                if (firestoreRoleStr != null) {
-                    userRole = runCatching { UserRole.valueOf(firestoreRoleStr.uppercase()) }.getOrNull()
-                    if (userRole != null) {
-                        runCatching { profileSetupStateManager.saveUserRole(userRole) }
-                    }
-                }
+                // 3. Resolve Role
+                var userRole = dataStoreRole
                 if (userRole == null) {
-                    userRole = profileSetupStateManager.getUserRole()
+                    val claimRole = try {
+                        withTimeoutOrNull(2000L) { currentUser.getIdToken(false).await().claims["role"] as? String }
+                    } catch (e: Exception) {
+                        Timber.w(e, "🚀 AppStartupViewModel - token read failed")
+                        null
+                    }
+                    val firestoreRoleStr = claimRole ?: try {
+                        val phone = currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
+                        if (phone.isBlank()) null else withTimeoutOrNull(2000L) {
+                            firestore.collection(PhoneRoles.COLLECTION).document(phone).get().await().getString(PhoneRoles.ROLE)
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "🚀 AppStartupViewModel - Error reading phoneRoles doc")
+                        null
+                    }
+
+                    if (firestoreRoleStr != null) {
+                        userRole = runCatching { UserRole.valueOf(firestoreRoleStr.uppercase()) }.getOrNull()
+                        if (userRole != null) {
+                            runCatching { profileSetupStateManager.saveUserRole(userRole) }
+                        }
+                    }
+                    if (userRole == null) {
+                        userRole = profileSetupStateManager.getUserRole()
+                    }
                 }
 
+                // 4. Verify Profile Completeness: Ensure users who dropped off mid-way are taken to PROFILE_SETUP
                 val targetDestination = if (userRole != null) {
                     val check = runCatching {
                         profileCompletionService.isProfileComplete(currentUser.uid, userRole.name)
@@ -153,6 +147,10 @@ class AppStartupViewModel @Inject constructor(
                         runCatching {
                             profileSetupStateManager.markProfileComplete(userRole)
                             profileSetupStateManager.markProfileSetupAsShown(userRole)
+                        }
+                    } else {
+                        runCatching {
+                            profileSetupStateManager.markProfileIncomplete(userRole)
                         }
                     }
 

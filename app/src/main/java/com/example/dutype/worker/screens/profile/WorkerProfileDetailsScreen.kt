@@ -70,6 +70,7 @@ fun WorkerProfileDetailsScreen(
 
     // Form state
     var fullName by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("") }
@@ -146,6 +147,7 @@ fun WorkerProfileDetailsScreen(
         phoneNumber = personalInfo.phone
         dateOfBirth = personalInfo.dateOfBirth
         gender = personalInfo.gender
+        address = personalInfo.address
 
         // Load profile data from Firebase (including profile image)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -162,6 +164,7 @@ fun WorkerProfileDetailsScreen(
                             experience = if (saved.skills.isEmpty()) "" else saved.experienceYears.toString()
                             skills = saved.skills.joinToString(", ") { JobCategory.fromKey(it).displayName }
                             profileImageUrl = saved.photoUrl.ifBlank { null }
+                            address = saved.address.ifBlank { address }
                         }
                     }
                     .onFailure { Timber.e(it, "Error loading worker profile data") }
@@ -351,7 +354,9 @@ fun WorkerProfileDetailsScreen(
                                 dateOfBirth = dateOfBirth,
                                 onDateOfBirthChange = { dateOfBirth = it },
                                 gender = gender,
-                                onGenderChange = { gender = it }
+                                onGenderChange = { gender = it },
+                                address = address,
+                                onAddressChange = { address = it }
                             )
                         } else {
                             ProfileInfoCard(
@@ -360,7 +365,8 @@ fun WorkerProfileDetailsScreen(
                                     stringResource(R.string.full_name) to fullName,
                                     stringResource(R.string.phone_number) to phoneNumber,
                                     stringResource(R.string.date_of_birth) to dateOfBirth,
-                                    stringResource(R.string.gender) to gender
+                                    stringResource(R.string.gender) to gender,
+                                    stringResource(R.string.address) to address
                                 )
                             )
                         }
@@ -429,6 +435,11 @@ fun WorkerProfileDetailsScreen(
                                         put(WorkerProfiles.NAME, fullName.trim())
                                         put(WorkerProfiles.DATE_OF_BIRTH, dateOfBirth)
                                         put(WorkerProfiles.GENDER, gender)
+                                        put(WorkerProfiles.ADDRESS, address.trim())
+                                        if (address.isNotBlank()) {
+                                            val area = address.split(",").firstOrNull()?.trim() ?: address.take(40)
+                                            put(WorkerProfiles.AREA, area)
+                                        }
                                         if (skillKeys.isNotEmpty()) put(WorkerProfiles.SKILLS, skillKeys)
                                         experience.filter { it.isDigit() }.take(2).toIntOrNull()
                                             ?.let { put(WorkerProfiles.EXPERIENCE_YEARS, it) }
@@ -673,7 +684,9 @@ private fun EditablePersonalInfoCard(
     dateOfBirth: String,
     onDateOfBirthChange: (String) -> Unit,
     gender: String,
-    onGenderChange: (String) -> Unit
+    onGenderChange: (String) -> Unit,
+    address: String,
+    onAddressChange: (String) -> Unit
 ) {
     fun formatDob(raw: String): String {
         val digits = raw.filter { it.isDigit() }.take(8)
@@ -770,6 +783,13 @@ private fun EditablePersonalInfoCard(
                 value = gender,
                 onValueChange = onGenderChange,
                 placeholder = stringResource(R.string.enter_gender)
+            )
+
+            ProfileTextField(
+                label = stringResource(R.string.address),
+                value = address,
+                onValueChange = onAddressChange,
+                placeholder = stringResource(R.string.search_or_enter_address_w)
             )
         }
     }

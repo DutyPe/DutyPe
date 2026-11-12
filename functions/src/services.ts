@@ -43,7 +43,7 @@ import {
 } from "./lib/service-catalog";
 import {
   AppConfig, CouponUses, EmployerProfiles, PartnerLedger, PartnerTopups, ServiceBookingSecrets, ServiceBookings, ServicePartners,
-  UserTokens, Values, WalletLedger, Wallets, WorkerProfiles,
+  UserTokens, Values, WalletLedger, Wallets, WorkerCards, WorkerProfiles,
 } from "./schema";
 import { ensureWallet, ledgerRef, postEntry, readWallet, walletRef } from "./referrals";
 
@@ -1590,6 +1590,9 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
           [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
           [SP.UPDATED_AT]: now,
         });
+        tx.set(db.collection(WorkerCards.COLLECTION).doc(uid), { [WorkerCards.JOBS_COMPLETED]: FieldValue.increment(1) }, { merge: true });
+        tx.set(db.collection(WorkerProfiles.COLLECTION).doc(uid), { [WorkerProfiles.JOBS_COMPLETED]: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
+        tx.set(db.collection("users").doc(uid), { jobsCompleted: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
         tx.create(partnerRef.collection(PartnerLedger.SUBCOLLECTION).doc(), {
           [PartnerLedger.AMOUNT_PAISE]: -take,
           [PartnerLedger.BALANCE_PAISE]: balance,

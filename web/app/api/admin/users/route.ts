@@ -109,11 +109,24 @@ async function getUncached(request: NextRequest) {
       const cursor = await col.doc(after).get();
       if (cursor.exists) query = query.startAfter(cursor);
     }
-    const snap = await query.limit(PAGE).get();
-    const wallets = snap.docs.length > 0
-      ? await db.getAll(...snap.docs.map((d) => db.collection(Wallets.COLLECTION).doc(d.id)))
-      : [];
-    const walletMap = new Map(wallets.filter((w) => w.exists).map((w) => [w.id, w.data()!]));
+    const isAll = params.get("all") === "true";
+    const requestedLimit = Number(params.get("limit"));
+    const limit = isAll ? 5000 : Math.min(5000, Math.max(1, requestedLimit || PAGE));
+    const snap = await query.limit(limit).get();
+
+    // Chunk wallet lookups in batches of 400 to respect Firestore 500-key getAll limit
+    const walletMap = new Map<string, FirebaseFirestore.DocumentData>();
+    if (snap.docs.length > 0) {
+      const docIds = snap.docs.map((d) => d.id);
+      for (let i = 0; i < docIds.length; i += 400) {
+        const slice = docIds.slice(i, i + 400);
+        const refs = slice.map((id) => db.collection(Wallets.COLLECTION).doc(id));
+        const wallets = await db.getAll(...refs);
+        for (const w of wallets) {
+          if (w.exists) walletMap.set(w.id, w.data()!);
+        }
+      }
+    }
 
     const actor = await getAdminActor(request);
     if (actor) {
@@ -127,7 +140,7 @@ async function getUncached(request: NextRequest) {
     return NextResponse.json({
       users: snap.docs.map((d) => toUser(d.id, role, d.data(), walletMap.get(d.id))),
       counts,
-      nextCursor: snap.size === PAGE ? snap.docs.at(-1)!.id : null
+      nextCursor: snap.size === limit ? snap.docs.at(-1)!.id : null
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to load users." }, { status: 500 });

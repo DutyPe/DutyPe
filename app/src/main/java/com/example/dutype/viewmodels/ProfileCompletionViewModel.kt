@@ -77,6 +77,8 @@ class ProfileCompletionViewModel @Inject constructor(
 
     suspend fun markProfileComplete(role: UserRole) = profileSetupStateManager.markProfileComplete(role)
 
+    suspend fun markProfileIncomplete(role: UserRole) = profileSetupStateManager.markProfileIncomplete(role)
+
     suspend fun getProfileSetupStatus(role: UserRole) = profileSetupStateManager.getProfileSetupStatus(role)
 
     suspend fun resetProfileSetupState() = profileSetupStateManager.resetProfileSetupState()

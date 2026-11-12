@@ -86,7 +86,7 @@ export function AdminWorkerProfilesClient() {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminApiFetch("/api/admin/worker-profiles?limit=200", { cache: "no-store" });
+      const res = await adminApiFetch("/api/admin/worker-profiles?limit=5000", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to load worker profiles");
       setProfiles(json.profiles || []);

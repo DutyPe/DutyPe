@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 
-const MAX_LIMIT = 200;
+const MAX_LIMIT = 5000;
 
 export type ListOptions = {
   /** Field to sort newest-first by; omit to page by document id. */
@@ -70,7 +70,8 @@ export async function listCollection(request: NextRequest, collection: string, o
       return NextResponse.json({ [dataKey]: doc.exists ? [row(doc.id, doc.data())] : [], nextCursor: null });
     }
 
-    const limit = Math.min(MAX_LIMIT, Math.max(1, Number(params.get("limit")) || 100));
+    const isAll = params.get("all") === "true";
+    const limit = isAll ? MAX_LIMIT : Math.min(MAX_LIMIT, Math.max(1, Number(params.get("limit")) || 100));
     const field = params.get("field")?.trim();
     const value = params.get("value");
     let query: Query = col;

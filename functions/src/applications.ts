@@ -203,10 +203,16 @@ export const setApplicationStatus = onCallSecured({}, async (raw: unknown, conte
     });
     if (next === S.HIRED) {
       tx.update(db.collection(EmployerProfiles.COLLECTION).doc(uid), { [EmployerProfiles.TOTAL_HIRES]: FieldValue.increment(1) });
+      tx.set(db.collection(WorkerProfiles.COLLECTION).doc(workerId), { totalHires: FieldValue.increment(1), timesHired: FieldValue.increment(1) }, { merge: true });
+      tx.set(db.collection("users").doc(workerId), { totalHires: FieldValue.increment(1) }, { merge: true });
     }
     if (next === S.COMPLETED) {
       tx.set(db.collection(WorkerCards.COLLECTION).doc(workerId),
         { [WorkerCards.JOBS_COMPLETED]: FieldValue.increment(1) }, { merge: true });
+      tx.set(db.collection(WorkerProfiles.COLLECTION).doc(workerId),
+        { [WorkerProfiles.JOBS_COMPLETED]: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
+      tx.set(db.collection("users").doc(workerId),
+        { jobsCompleted: FieldValue.increment(1), completedJobs: FieldValue.increment(1) }, { merge: true });
     }
     return { workerId, jobId };
   });

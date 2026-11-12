@@ -19,11 +19,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    const snap = await db.collection(Jobs.COLLECTION).where(Jobs.STATUS, "==", Values.JobStatus.EXPIRED).limit(BATCH).get();
+    const now = Timestamp.now();
+    
+    // Check both status == "expired" and date-expired jobs
+    let snap = await db.collection(Jobs.COLLECTION).where(Jobs.STATUS, "==", Values.JobStatus.EXPIRED).limit(BATCH).get();
+    if (snap.empty) {
+      snap = await db.collection(Jobs.COLLECTION).where(Jobs.EXPIRES_AT, "<", now).limit(BATCH).get();
+    }
+
     if (snap.empty) return NextResponse.json({ activatedCount: 0, message: "No expired jobs found." });
     const expiresAt = Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const batch = db.batch();
-    snap.docs.forEach((doc) => batch.update(doc.ref, { [Jobs.STATUS]: Values.JobStatus.OPEN, [Jobs.EXPIRES_AT]: expiresAt }));
+    snap.docs.forEach((doc) => batch.update(doc.ref, { 
+      [Jobs.STATUS]: Values.JobStatus.OPEN, 
+      [Jobs.EXPIRES_AT]: expiresAt,
+      isActive: true
+    }));
     await batch.commit();
 
     if (actor) {
