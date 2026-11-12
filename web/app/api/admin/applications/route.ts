@@ -46,6 +46,7 @@ async function getUncached(request: NextRequest) {
       const wId = String(d.get(Applications.WORKER_ID) ?? "");
       return {
         id: d.id,
+        sourceType: "STANDARD",
         jobId: String(d.get(Applications.JOB_ID) ?? ""),
         employerId: String(d.get(Applications.EMPLOYER_ID) ?? ""),
         workerId: wId,
@@ -58,7 +59,68 @@ async function getUncached(request: NextRequest) {
         appliedAt: created instanceof Timestamp ? created.toDate().toISOString() : null
       };
     });
-    return NextResponse.json({ applications, nextCursor: snap.size === PAGE ? snap.docs.at(-1)!.id : null });
+
+    // Also fetch instant job requests & applicant responses
+    const instantSnap = await db.collection("instant_requests")
+      .orderBy("createdAt", "desc")
+      .limit(60)
+      .get()
+      .catch(() => null);
+
+    const instantItems: typeof applications = [];
+    if (instantSnap && !instantSnap.empty) {
+      for (const d of instantSnap.docs) {
+        const created = d.get("createdAt");
+        const title = String(d.get("title") || d.get("category") || "Instant Work");
+        const pay = d.get("payPerPerson") ? `₹${d.get("payPerPerson")}` : "";
+        const workersNeeded = d.get("workersNeeded") ? `(${d.get("workersNeeded")} needed)` : "";
+        const area = String(d.get("area") || d.get("addressText") || "");
+
+        const responsesSnap = await d.ref.collection("responses").limit(5).get().catch(() => null);
+        if (responsesSnap && !responsesSnap.empty) {
+          for (const resp of responsesSnap.docs) {
+            const respCreated = resp.get("createdAt") || created;
+            instantItems.push({
+              id: `${d.id}_${resp.id}`,
+              sourceType: "INSTANT",
+              jobId: d.id,
+              employerId: String(d.get("employerId") ?? ""),
+              workerId: resp.id,
+              workerName: String(resp.get("workerName") || "Worker Applicant"),
+              workerPhone: String(resp.get("workerPhone") || d.get("contactNumber") || ""),
+              workerEmail: "",
+              jobTitle: `[⚡ Instant] ${title} ${pay} ${area ? `• ${area}` : ""}`.trim(),
+              status: String(resp.get("status") || d.get("status") || "APPLIED").toUpperCase(),
+              callCount: Number(d.get("responseCount") ?? 0),
+              appliedAt: respCreated instanceof Timestamp ? respCreated.toDate().toISOString() : null
+            });
+          }
+        } else {
+          instantItems.push({
+            id: d.id,
+            sourceType: "INSTANT",
+            jobId: d.id,
+            employerId: String(d.get("employerId") ?? ""),
+            workerId: "",
+            workerName: `Instant Hiring ${workersNeeded}`.trim(),
+            workerPhone: String(d.get("contactNumber") || ""),
+            workerEmail: "",
+            jobTitle: `[⚡ Instant] ${title} ${pay} ${area ? `• ${area}` : ""}`.trim(),
+            status: String(d.get("status") || "OPEN").toUpperCase(),
+            callCount: Number(d.get("responseCount") ?? 0),
+            appliedAt: created instanceof Timestamp ? created.toDate().toISOString() : null
+          });
+        }
+      }
+    }
+
+    const allApplications = [...instantItems, ...applications].sort((a, b) => {
+      const timeA = a.appliedAt ? new Date(a.appliedAt).getTime() : 0;
+      const timeB = b.appliedAt ? new Date(b.appliedAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    return NextResponse.json({ applications: allApplications, nextCursor: snap.size === PAGE ? snap.docs.at(-1)!.id : null });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to load applications." }, { status: 500 });
   }
@@ -76,10 +138,27 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Missing applicationId or invalid status." }, { status: 400 });
   }
   try {
-    await getFirebaseAdminDb().collection(Applications.COLLECTION).doc(applicationId).update({
-      [Applications.STATUS]: status,
-      [Applications.UPDATED_AT]: Timestamp.now()
-    });
+    if (applicationId.includes("_")) {
+      const [reqId, respId] = applicationId.split("_");
+      await getFirebaseAdminDb().collection("instant_requests").doc(reqId).collection("responses").doc(respId).update({
+        status,
+        updatedAt: Timestamp.now()
+      }).catch(() => null);
+    } else {
+      const appRef = getFirebaseAdminDb().collection(Applications.COLLECTION).doc(applicationId);
+      const appDoc = await appRef.get();
+      if (appDoc.exists) {
+        await appRef.update({
+          [Applications.STATUS]: status,
+          [Applications.UPDATED_AT]: Timestamp.now()
+        });
+      } else {
+        await getFirebaseAdminDb().collection("instant_requests").doc(applicationId).update({
+          status,
+          updatedAt: Timestamp.now()
+        }).catch(() => null);
+      }
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to update status." }, { status: 500 });

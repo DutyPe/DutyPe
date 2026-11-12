@@ -239,7 +239,6 @@ internal val SvcPage = Color(0xFFFFFFFF)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
     "CLEANING",
-    "AC",
     "ELECTRICIAN",
     "PLUMBER",
     "PACKERS_MOVERS",
@@ -1252,7 +1251,6 @@ private fun ServicesSearchBar(
 ) {
     val serviceSuggestions = remember {
         listOf(
-            "AC service",
             "House cleaning",
             "Plumber",
             "Electrician",
@@ -1260,7 +1258,7 @@ private fun ServicesSearchBar(
             "Carpenter",
             "Water purifier",
             "Bathroom cleaning",
-            "Appliance repair"
+            "Deep cleaning"
         )
     }
     var suggestionIndex by remember { mutableStateOf(0) }
@@ -2001,8 +1999,8 @@ fun CategoryServicesScreen(
     LaunchedEffect(Unit) { viewModel.loadCatalog() }
 
     val c = catalog
-    val cat = c?.categories?.filterIsInstance<ServiceCategory>()?.firstOrNull { it.id == categoryId }
-    val categoryServices = c?.services?.filterIsInstance<ServiceItem>()?.filter { it.category == categoryId }.orEmpty()
+    val cat = c?.categories?.filterIsInstance<ServiceCategory>()?.firstOrNull { it.id.equals(categoryId, ignoreCase = true) }
+    val categoryServices = c?.services?.filterIsInstance<ServiceItem>()?.filter { it.category.equals(categoryId, ignoreCase = true) }.orEmpty()
     val filteredServices = if (searchQuery.isBlank()) categoryServices
     else categoryServices.filter {
         it.label(lang).contains(searchQuery, ignoreCase = true) ||
@@ -2440,10 +2438,10 @@ data class TransparentRateItem(
 )
 
 val FixedStartingRates = listOf(
-    TransparentRateItem("🔌", "Switchboard Repair", "₹99", "electrician"),
-    TransparentRateItem("🌀", "Fan Install / Repair", "₹149", "electrician"),
-    TransparentRateItem("🚰", "Tap / Leak Repair", "₹129", "plumber"),
-    TransparentRateItem("❄️", "AC Deep Jet Clean", "₹499", "appliance")
+    TransparentRateItem("🔌", "Switchboard Repair", "₹99", "ELECTRICIAN"),
+    TransparentRateItem("🧹", "Bathroom Deep Clean", "₹249", "CLEANING"),
+    TransparentRateItem("🚰", "Tap / Leak Repair", "₹129", "PLUMBER"),
+    TransparentRateItem("🎨", "Wall Touch-up Paint", "₹399", "PAINTER")
 )
 
 /**

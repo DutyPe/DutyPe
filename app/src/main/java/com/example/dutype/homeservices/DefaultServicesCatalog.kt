@@ -19,7 +19,6 @@ object DefaultServicesCatalog {
 
     val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
         "CLEANING",
-        "AC",
         "ELECTRICIAN",
         "PLUMBER",
         "PACKERS_MOVERS",
@@ -1240,7 +1239,7 @@ object DefaultServicesCatalog {
             promoBanners = promoBanners,
             offers = offers,
             firstBookingFeeFree = true,
-            mostBookedServiceIds = listOf("bathroom_clean", "fan_install", "tap_leak_fix", "help_shifting")
+            mostBookedServiceIds = listOf("bathroom_clean", "kitchen_clean", "tap_leak_fix", "help_shifting")
         )
     }
 }

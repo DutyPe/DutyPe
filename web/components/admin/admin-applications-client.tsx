@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Search, CheckCircle2, Clock, XCircle, Briefcase, FileText } from "lucide-react";
+import { RefreshCw, Search, CheckCircle2, Clock, XCircle, Briefcase, FileText, Zap } from "lucide-react";
 
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 type NormalizedApplication = {
   id: string;
+  sourceType?: "STANDARD" | "INSTANT";
   workerId: string;
   workerName: string;
   workerPhone: string;
@@ -43,6 +44,7 @@ export function AdminApplicationsClient() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sourceFilter, setSourceFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
@@ -86,7 +88,7 @@ export function AdminApplicationsClient() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, pageSize]);
+  }, [searchTerm, statusFilter, sourceFilter, pageSize]);
 
   if (loading) {
     return <div className="empty-state">Loading all past and current applications from Firestore...</div>;
@@ -168,6 +170,8 @@ export function AdminApplicationsClient() {
     return acc;
   }, {});
 
+  const instantCount = applications.filter((app) => app.sourceType === "INSTANT").length;
+
   const filteredApplications = applications.filter((application) => {
     const search = searchTerm.toLowerCase().trim();
     const matchesSearch =
@@ -179,8 +183,11 @@ export function AdminApplicationsClient() {
       application.workerId.toLowerCase().includes(search) ||
       application.id.toLowerCase().includes(search);
     const matchesStatus = statusFilter === "ALL" || application.status === statusFilter;
+    const matchesSource =
+      sourceFilter === "ALL" ||
+      (sourceFilter === "INSTANT" ? application.sourceType === "INSTANT" : application.sourceType !== "INSTANT");
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesSource;
   });
 
   const {
@@ -196,21 +203,28 @@ export function AdminApplicationsClient() {
             <strong>{applications.length}</strong>
             <FileText size={18} style={{ opacity: 0.6, color: "var(--brand, #059669)" }} />
           </div>
-          <span>Total (Past & Current)</span>
+          <span>Total Postings & Apps</span>
         </div>
         <div className="admin-stat-card compact">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <strong>{(statusCounts.APPLIED ?? 0) + (statusCounts.PENDING ?? 0)}</strong>
+            <strong>{instantCount}</strong>
+            <Zap size={18} style={{ opacity: 0.8, color: "#d97706" }} />
+          </div>
+          <span>⚡ Instant Work</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <strong>{(statusCounts.APPLIED ?? 0) + (statusCounts.PENDING ?? 0) + (statusCounts.OPEN ?? 0)}</strong>
             <Clock size={18} style={{ opacity: 0.6, color: "#f59e0b" }} />
           </div>
-          <span>Applied / Pending</span>
+          <span>Pending / Open</span>
         </div>
         <div className="admin-stat-card compact">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <strong>{(statusCounts.HIRED ?? 0) + (statusCounts.ACCEPTED ?? 0) + (statusCounts.SHORTLISTED ?? 0)}</strong>
+            <strong>{(statusCounts.HIRED ?? 0) + (statusCounts.ACCEPTED ?? 0) + (statusCounts.SHORTLISTED ?? 0) + (statusCounts.FILLED ?? 0)}</strong>
             <CheckCircle2 size={18} style={{ opacity: 0.6, color: "#10b981" }} />
           </div>
-          <span>Hired / Shortlisted</span>
+          <span>Hired / Filled</span>
         </div>
         <div className="admin-stat-card compact">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -233,6 +247,17 @@ export function AdminApplicationsClient() {
           />
           <Search size={15} style={{ position: "absolute", left: "0.8rem", top: "50%", transform: "translateY(-50%)", opacity: 0.4 }} />
         </div>
+
+        <select
+          className="admin-filter"
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          style={{ minWidth: "150px" }}
+        >
+          <option value="ALL">All Sources ({applications.length})</option>
+          <option value="INSTANT">⚡ Instant Requests ({instantCount})</option>
+          <option value="STANDARD">Regular Applications ({applications.length - instantCount})</option>
+        </select>
 
         <select
           className="admin-filter"
@@ -296,7 +321,24 @@ export function AdminApplicationsClient() {
                 </td>
                 <td>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Briefcase size={14} style={{ opacity: 0.5, flexShrink: 0 }} />
+                    {application.sourceType === "INSTANT" ? (
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "3px",
+                        backgroundColor: "#fef3c7",
+                        color: "#b45309",
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        borderRadius: "4px",
+                        flexShrink: 0
+                      }}>
+                        <Zap size={11} /> INSTANT
+                      </span>
+                    ) : (
+                      <Briefcase size={14} style={{ opacity: 0.5, flexShrink: 0 }} />
+                    )}
                     <span style={{ fontWeight: 500 }}>{application.jobTitle || "Untitled job"}</span>
                   </div>
                 </td>

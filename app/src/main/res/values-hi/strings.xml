@@ -1999,7 +1999,7 @@
     <string name="my_jobs_application_withdrawn">आवेदन वापस ले लिया गया</string>
     <string name="my_jobs_withdraw_failed">वापस नहीं लिया जा सका। कृपया पुनः प्रयास करें।</string>
     <string name="my_jobs_rating_submit_failed">अभी रेटिंग सबमिट करने में असमर्थ</string>
-    <string name="my_jobs_active_now">अभी सक्रिय</string>
+    <string name="my_jobs_active_now">चयनित (HIRED)</string>
     <string name="my_jobs_call_employer">📞 नियोक्ता को कॉल करें</string>
     <string name="my_jobs_get_directions">📍 दिशा-निर्देश प्राप्त करें</string>
     <string name="my_jobs_browse_jobs">नौकरियां ब्राउज़ करें →</string>

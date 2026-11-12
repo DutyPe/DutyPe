@@ -68,6 +68,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.navigation.NavHostController
 
 import com.example.dutype.navigation.Routes
@@ -77,6 +80,8 @@ import com.example.dutype.components.ApplicationStatusBadge
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
+import com.example.dutype.viewmodels.InstantHelpViewModel
+import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobApplication
 import com.example.dutype.components.JobCardShimmer
 import timber.log.Timber
@@ -105,8 +110,10 @@ fun MyJobsScreen(
 ) {
     // Local state management
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var applicationFilter by remember { mutableStateOf("ALL") } // "ALL", "APPLIED", "HIRED", "REJECTED"
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
 
     // Withdraw dialog state
     var showWithdrawDialog by remember { mutableStateOf(false) }
@@ -123,47 +130,47 @@ fun MyJobsScreen(
 
     val currentUser = FirebaseAuth.getInstance().currentUser
 
-    // Get real data for both applied and saved jobs
+    // Get real data for applied, saved, and instant jobs
     val jobApplicationUiState by jobApplicationViewModel.legacyUiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
     val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
     val savedJobs = savedJobUiState.savedJobs
+    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
+    val instantResponses = instantHelpState.workerInstantResponses
 
-    // Debug logging for MyJobsScreen
-    LaunchedEffect(savedJobUiState) {
-        Timber.d("MyJobsScreen: SavedJobs UI State - isLoading: ${savedJobUiState.isLoading}, savedJobs: ${savedJobUiState.savedJobs.size}, hasError: ${savedJobUiState.hasError}")
-    }
-
-    // Real status buckets driving the Applied / Active / History pill tabs.
-    // ApplicationStatus's forward pipeline is APPLIED -> HIRED -> COMPLETED;
-    // REJECTED / WITHDRAWN / DELETED / FILLED are terminal, non-progressing
-    // states and are grouped into History alongside COMPLETED.
+    // Real status buckets
     val appliedApplications = remember(applications) {
         applications.filter { it.status == ApplicationStatus.APPLIED }
             .sortedByDescending { it.createdAt }
     }
     val activeApplications = remember(applications) {
-        applications.filter { it.status == ApplicationStatus.HIRED }
+        applications.filter { it.status == ApplicationStatus.HIRED || it.status == ApplicationStatus.COMPLETED }
             .sortedByDescending { it.createdAt }
     }
     val historyApplications = remember(applications) {
         applications.filter {
-            it.status == ApplicationStatus.COMPLETED ||
-                it.status == ApplicationStatus.REJECTED ||
+            it.status == ApplicationStatus.REJECTED ||
                 it.status == ApplicationStatus.WITHDRAWN
         }.sortedByDescending { it.createdAt }
+    }
+
+    val visibleApplications = remember(applications, applicationFilter) {
+        when (applicationFilter) {
+            "APPLIED" -> appliedApplications
+            "HIRED" -> activeApplications
+            "REJECTED" -> historyApplications
+            else -> applications.sortedByDescending { it.createdAt }
+        }
     }
 
     // Status bar matches the exact-spec screen background.
     val statusBarColor = MyJobsScreenBg.fg()
     LaunchedEffect(selectedTabIndex, statusBarColor) {
         onStatusBarColorChange(statusBarColor)
-
-        // Refresh applications when switching to any application-backed tab
-        if (selectedTabIndex in 0..2) {
-            jobApplicationViewModel.loadMyApplications()
-        } else if (selectedTabIndex == 3) {
-            savedJobViewModel.loadSavedJobs()
+        when (selectedTabIndex) {
+            0 -> jobApplicationViewModel.loadMyApplications()
+            1 -> instantHelpViewModel.loadWorkerUrgentHistory()
+            2 -> savedJobViewModel.loadSavedJobs()
         }
     }
 
@@ -186,7 +193,7 @@ fun MyJobsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
                 Text(
                     text = stringResource(R.string.my_jobs),
@@ -195,7 +202,7 @@ fun MyJobsScreen(
                     color = MyJobsInk.fg()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 val tabScrollState = rememberScrollState()
                 Row(
@@ -205,24 +212,19 @@ fun MyJobsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MyJobsPillTab(
-                        label = stringResource(R.string.my_jobs_applied_count, appliedApplications.size),
+                        label = "${stringResource(R.string.applications)} (${applications.size})",
                         selected = selectedTabIndex == 0,
                         onClick = { selectedTabIndex = 0 }
                     )
                     MyJobsPillTab(
-                        label = stringResource(R.string.my_jobs_active_count, activeApplications.size),
+                        label = "Instant Work (${instantResponses.size})",
                         selected = selectedTabIndex == 1,
                         onClick = { selectedTabIndex = 1 }
                     )
                     MyJobsPillTab(
-                        label = stringResource(R.string.my_jobs_history_count, historyApplications.size),
+                        label = stringResource(R.string.my_jobs_saved_count, savedJobs.size),
                         selected = selectedTabIndex == 2,
                         onClick = { selectedTabIndex = 2 }
-                    )
-                    MyJobsPillTab(
-                        label = stringResource(R.string.my_jobs_saved_count, savedJobs.size),
-                        selected = selectedTabIndex == 3,
-                        onClick = { selectedTabIndex = 3 }
                     )
                 }
             }
@@ -230,90 +232,151 @@ fun MyJobsScreen(
             // Content based on selected tab
             when (selectedTabIndex) {
                 0 -> {
-                    MyJobsStatusListContent(
-                        isLoading = jobApplicationUiState.isLoading,
-                        items = appliedApplications,
-                        scrollStateManager = scrollStateManager,
-                        emptyIcon = Icons.Outlined.Inbox,
-                        emptyMessage = stringResource(R.string.my_jobs_no_applied_jobs),
-                        emptyBody = stringResource(R.string.my_jobs_empty_applied_body),
-                        emptyTone = com.example.dutype.components.EmptyTone.BLUE,
-                        emptyArt = com.example.dutype.components.EmptyArt.WAITING,
-                        navController = navController
-                    ) { application ->
-                        AppliedJobCard(
-                            application = application,
-                            onClick = {
-                                navController.navigate(Routes.jobDetailRoute(application.jobId)) {
-                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
-                                        inclusive = false
-                                    }
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Filter row within Applications tab
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val filters = listOf(
+                                "ALL" to "${stringResource(R.string.all)} (${applications.size})",
+                                "APPLIED" to "${stringResource(R.string.applied)} (${appliedApplications.size})",
+                                "HIRED" to "${stringResource(R.string.hired)} (${activeApplications.size})",
+                                "REJECTED" to "${stringResource(R.string.rejected)} (${historyApplications.size})"
+                            )
+                            filters.forEach { (key, label) ->
+                                val isSelected = applicationFilter == key
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (isSelected) MyJobsInk.bg() else Color(0xFFF1F5F9).bg())
+                                        .clickable { applicationFilter = key }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else MyJobsInk.fg()
+                                    )
                                 }
-                            },
-                            onWithdrawClick = {
-                                applicationToWithdraw = application
-                                showWithdrawDialog = true
                             }
-                        )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        MyJobsStatusListContent(
+                            isLoading = jobApplicationUiState.isLoading,
+                            items = visibleApplications,
+                            scrollStateManager = scrollStateManager,
+                            emptyIcon = Icons.Outlined.Inbox,
+                            emptyMessage = stringResource(R.string.my_jobs_no_applied_jobs),
+                            emptyBody = stringResource(R.string.my_jobs_empty_applied_body),
+                            emptyTone = com.example.dutype.components.EmptyTone.BLUE,
+                            emptyArt = com.example.dutype.components.EmptyArt.WAITING,
+                            navController = navController
+                        ) { application ->
+                            if (application.status == ApplicationStatus.HIRED || application.status == ApplicationStatus.COMPLETED) {
+                                ActiveJobCard(
+                                    application = application,
+                                    onClick = {
+                                        navController.navigate(Routes.jobDetailRoute(application.jobId)) {
+                                            popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+                                                inclusive = false
+                                            }
+                                        }
+                                    }
+                                )
+                            } else if (application.status == ApplicationStatus.APPLIED) {
+                                AppliedJobCard(
+                                    application = application,
+                                    onClick = {
+                                        navController.navigate(Routes.jobDetailRoute(application.jobId)) {
+                                            popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+                                                inclusive = false
+                                            }
+                                        }
+                                    },
+                                    onWithdrawClick = {
+                                        applicationToWithdraw = application
+                                        showWithdrawDialog = true
+                                    }
+                                )
+                            } else {
+                                HistoryJobCard(
+                                    application = application,
+                                    onClick = {
+                                        navController.navigate(Routes.jobDetailRoute(application.jobId)) {
+                                            popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+                                                inclusive = false
+                                            }
+                                        }
+                                    },
+                                    onWithdrawClick = { app ->
+                                        applicationToWithdraw = app
+                                        showWithdrawDialog = true
+                                    },
+                                    onRateClick = { app ->
+                                        applicationToRate = app
+                                        showRatingSheet = true
+                                    },
+                                    hasAlreadyRated = application.id in ratedApplicationIds
+                                )
+                            }
+                        }
                     }
                 }
                 1 -> {
-                    MyJobsStatusListContent(
-                        isLoading = jobApplicationUiState.isLoading,
-                        items = activeApplications,
-                        scrollStateManager = scrollStateManager,
-                        emptyIcon = Icons.Outlined.WorkOutline,
-                        emptyMessage = stringResource(R.string.my_jobs_no_active_jobs),
-                        emptyBody = stringResource(R.string.my_jobs_empty_active_body),
-                        emptyTone = com.example.dutype.components.EmptyTone.GREEN,
-                        navController = navController
-                    ) { application ->
-                        ActiveJobCard(
-                            application = application,
-                            onClick = {
-                                navController.navigate(Routes.jobDetailRoute(application.jobId)) {
-                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
-                                        inclusive = false
-                                    }
+                    // Instant Work Tab
+                    if (instantHelpState.isLoadingWorkerUrgentHistory) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            JobCardShimmer()
+                        }
+                    } else if (instantResponses.isEmpty()) {
+                        MyJobsEmptyState(
+                            icon = Icons.Outlined.Bolt,
+                            message = "No Instant Work Applications",
+                            body = "Urgent same-day requests you applied for will appear here. Employers can hire you directly.",
+                            tone = com.example.dutype.components.EmptyTone.BLUE,
+                            art = com.example.dutype.components.EmptyArt.WAITING,
+                            navController = navController
+                        )
+                    } else {
+                        ScrollAwareLazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Transparent),
+                            contentPadding = PaddingValues(top = 4.dp, start = 16.dp, end = 16.dp, bottom = 100.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            scrollStateManager = scrollStateManager
+                        ) {
+                            itemsIndexed(
+                                items = instantResponses,
+                                key = { index, item -> "instant_${item.responseId.ifBlank { item.requestId }}_$index" }
+                            ) { index, response ->
+                                Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(8))) {
+                                    MyJobsInstantCard(
+                                        response = response,
+                                        onCallEmployer = { phone ->
+                                            try {
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                                    data = android.net.Uri.parse("tel:$phone")
+                                                }
+                                                cardContext.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Timber.e(e, "Failed to dial employer")
+                                            }
+                                        }
+                                    )
                                 }
                             }
-                        )
+                        }
                     }
                 }
                 2 -> {
-                    MyJobsStatusListContent(
-                        isLoading = jobApplicationUiState.isLoading,
-                        items = historyApplications,
-                        scrollStateManager = scrollStateManager,
-                        emptyIcon = Icons.Outlined.History,
-                        emptyMessage = stringResource(R.string.my_jobs_no_history_jobs),
-                        emptyBody = stringResource(R.string.my_jobs_empty_history_body),
-                        emptyTone = com.example.dutype.components.EmptyTone.PURPLE,
-                        emptyArt = com.example.dutype.components.EmptyArt.QUIET,
-                        navController = navController
-                    ) { application ->
-                        HistoryJobCard(
-                            application = application,
-                            onClick = {
-                                navController.navigate(Routes.jobDetailRoute(application.jobId)) {
-                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
-                                        inclusive = false
-                                    }
-                                }
-                            },
-                            onWithdrawClick = { app ->
-                                applicationToWithdraw = app
-                                showWithdrawDialog = true
-                            },
-                            onRateClick = { app ->
-                                applicationToRate = app
-                                showRatingSheet = true
-                            },
-                            hasAlreadyRated = application.id in ratedApplicationIds
-                        )
-                    }
-                }
-                3 -> {
                     SavedJobsList(
                         searchQuery = "",
                         onNavigateToJobDetails = { jobId ->
@@ -634,12 +697,21 @@ private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
                 .background(MyJobsEmeraldTint.bg())
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
-            Text(
-                text = stringResource(R.string.my_jobs_active_now),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MyJobsEmerald.fg()
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MyJobsEmerald.fg(),
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = stringResource(R.string.my_jobs_active_now),
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MyJobsEmerald.fg()
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -800,44 +872,60 @@ private fun applicationStepIndex(status: ApplicationStatus): Int = when (status)
 
 @Composable
 private fun JobProgressTracker(steps: List<String>, currentIndex: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        steps.forEachIndexed { index, label ->
-            val state = when {
-                index < currentIndex -> TrackerStepState.COMPLETED
-                index == currentIndex -> TrackerStepState.CURRENT
-                else -> TrackerStepState.PENDING
-            }
+    val stepCount = steps.size
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            steps.forEachIndexed { index, _ ->
+                val state = when {
+                    index < currentIndex -> TrackerStepState.COMPLETED
+                    index == currentIndex -> TrackerStepState.CURRENT
+                    else -> TrackerStepState.PENDING
+                }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(64.dp)
-            ) {
                 TrackerStepCircle(state = state)
-                Spacer(modifier = Modifier.height(6.dp))
+
+                if (index < stepCount - 1) {
+                    val lineColor = if (index < currentIndex) MyJobsEmerald.fg() else MyJobsBorder.fg()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(2.5.dp)
+                            .background(lineColor)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            steps.forEachIndexed { index, label ->
+                val state = when {
+                    index < currentIndex -> TrackerStepState.COMPLETED
+                    index == currentIndex -> TrackerStepState.CURRENT
+                    else -> TrackerStepState.PENDING
+                }
                 Text(
                     text = label,
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    fontWeight = if (state == TrackerStepState.CURRENT) FontWeight.SemiBold else FontWeight.Normal,
+                    fontSize = 11.sp,
+                    textAlign = when (index) {
+                        0 -> TextAlign.Start
+                        steps.lastIndex -> TextAlign.End
+                        else -> TextAlign.Center
+                    },
+                    fontWeight = if (state == TrackerStepState.CURRENT) FontWeight.Bold else FontWeight.Medium,
                     color = when (state) {
-                        TrackerStepState.COMPLETED -> MyJobsMuted
-                        TrackerStepState.CURRENT -> MyJobsInk
-                        TrackerStepState.PENDING -> MyJobsFaint
-                    }
-                )
-            }
-
-            if (index != steps.lastIndex) {
-                val connectorColor = if (index < currentIndex) MyJobsInk.fg() else MyJobsBorder.fg()
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 15.dp)
-                        .height(2.dp)
-                        .background(connectorColor)
+                        TrackerStepState.COMPLETED -> MyJobsEmerald.fg()
+                        TrackerStepState.CURRENT -> MyJobsInk.fg()
+                        TrackerStepState.PENDING -> MyJobsFaint.fg()
+                    },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -852,15 +940,15 @@ private fun TrackerStepCircle(state: TrackerStepState) {
         TrackerStepState.COMPLETED -> {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
-                    .background(MyJobsInk.bg()),
+                    .background(MyJobsEmerald.bg()),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "✓",
                     color = Color.White,
-                    fontSize = 14.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -868,17 +956,17 @@ private fun TrackerStepCircle(state: TrackerStepState) {
         TrackerStepState.CURRENT -> {
             val infiniteTransition = rememberInfiniteTransition(label = "trackerPulse")
             val pulseScale by infiniteTransition.animateFloat(
-                initialValue = 1f,
-                targetValue = 1.35f,
+                initialValue = 0.85f,
+                targetValue = 1.25f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 1200, easing = LinearOutSlowInEasing),
+                    animation = tween(durationMillis = 1000, easing = LinearOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse
                 ),
                 label = "trackerPulseScale"
             )
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
                     .background(Color.White.bg())
                     .border(2.dp, MyJobsEmerald.bd(), CircleShape),
@@ -886,7 +974,7 @@ private fun TrackerStepCircle(state: TrackerStepState) {
             ) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(8.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
                         .background(MyJobsEmerald.bg())
@@ -896,10 +984,136 @@ private fun TrackerStepCircle(state: TrackerStepState) {
         TrackerStepState.PENDING -> {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
                     .background(Color.White.bg())
-                    .border(2.dp, MyJobsBorder.bd(), CircleShape)
+                    .border(1.5.dp, MyJobsBorder.bd(), CircleShape)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MyJobsInstantCard(
+    response: InstantResponse,
+    onCallEmployer: (String) -> Unit
+) {
+    val status = response.status.lowercase(java.util.Locale.ROOT)
+    val statusColor = when (status) {
+        "accepted", "selected", "hired" -> MyJobsEmerald
+        "completed" -> Color(0xFF16A34A)
+        "applied", "called", "interested", "pending" -> Color(0xFFD97706)
+        "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
+        else -> MyJobsMuted
+    }
+    val statusLabel = when (status) {
+        "accepted", "selected", "hired" -> stringResource(R.string.hired)
+        "applied", "called", "interested", "pending" -> stringResource(R.string.applied)
+        "completed" -> stringResource(R.string.completed)
+        "rejected", "cancelled" -> stringResource(R.string.rejected)
+        else -> status.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.bg())
+            .border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFFFEF3C7).bg())
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "⚡ INSTANT",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFB45309).fg()
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = response.requestCategory.ifBlank { "Urgent Work" },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MyJobsMuted.fg()
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = response.requestTitle.ifBlank { "Urgent Work Requirement" },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MyJobsInk.fg(),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = response.employerName.ifBlank { "DutyPe Employer" },
+                    fontSize = 13.sp,
+                    color = MyJobsMuted.fg()
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(statusColor.copy(alpha = 0.12f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = statusLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor
+                )
+            }
+        }
+
+        if (response.budgetText.isNotBlank() || response.addressText.isNotBlank()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (response.budgetText.isNotBlank()) {
+                    Text(
+                        text = "💰 ${response.budgetText}",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF047857).fg()
+                    )
+                }
+                if (response.addressText.isNotBlank()) {
+                    Text(
+                        text = "📍 ${response.addressText}",
+                        fontSize = 12.sp,
+                        color = MyJobsMuted.fg(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        if (response.employerPhone.isNotBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            MyJobsActionButton(
+                label = stringResource(R.string.my_jobs_call_employer),
+                filled = true,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onCallEmployer(response.employerPhone) }
             )
         }
     }

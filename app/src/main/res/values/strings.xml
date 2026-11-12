@@ -2012,7 +2012,7 @@
     <string name="my_jobs_application_withdrawn">Application withdrawn</string>
     <string name="my_jobs_withdraw_failed">Couldn\'t withdraw. Please try again.</string>
     <string name="my_jobs_rating_submit_failed">Unable to submit rating right now</string>
-    <string name="my_jobs_active_now">ACTIVE NOW</string>
+    <string name="my_jobs_active_now">HIRED / SELECTED</string>
     <string name="my_jobs_call_employer">📞 Call Employer</string>
     <string name="my_jobs_get_directions">📍 Get Directions</string>
     <string name="my_jobs_browse_jobs">Browse Jobs →</string>

@@ -1497,6 +1497,16 @@ fun WithdrawalSuccessCelebrationDialog(
     onWatchAdAndSpin: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var countdownSeconds by remember { mutableIntStateOf(5) }
+
+    LaunchedEffect(Unit) {
+        while (countdownSeconds > 0) {
+            delay(1000L)
+            countdownSeconds--
+        }
+        onWatchAdAndSpin()
+    }
+
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(
@@ -1615,7 +1625,13 @@ fun WithdrawalSuccessCelebrationDialog(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = if (isAdLoading) stringResource(R.string.loading_sponsor_video) else stringResource(R.string.watch_video_spin_wheel),
+                            text = if (isAdLoading) {
+                                stringResource(R.string.loading_sponsor_video)
+                            } else if (countdownSeconds > 0) {
+                                "${stringResource(R.string.watch_video_spin_wheel)} (${countdownSeconds}s)"
+                            } else {
+                                stringResource(R.string.watch_video_spin_wheel)
+                            },
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -1623,7 +1639,17 @@ fun WithdrawalSuccessCelebrationDialog(
                     }
                 }
 
-                Spacer(Modifier.height(6.dp))
+                if (countdownSeconds > 0) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Auto-starting in ${countdownSeconds}s...",
+                        fontSize = 11.5.sp,
+                        color = WorkerColors.TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(Modifier.height(4.dp))
 
                 // Secondary Dismiss Button
                 TextButton(

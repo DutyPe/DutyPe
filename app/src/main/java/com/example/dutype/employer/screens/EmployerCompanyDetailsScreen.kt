@@ -50,6 +50,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.example.dutype.models.QuickLocations
+import com.example.dutype.utils.GeoUtils
+import com.firebase.geofire.GeoFireUtils
+import com.firebase.geofire.GeoLocation
+import kotlinx.coroutines.tasks.await
 import androidx.compose.ui.res.stringResource
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -82,12 +87,18 @@ fun EmployerCompanyDetailsScreen(
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 
+    val locationService = profileCompletionViewModel.locationService
+
     // Form state
-    var employerType by remember { mutableStateOf("COMPANY") }
+    var employerType by remember { mutableStateOf(Values.EmployerType.COMPANY) }
     var companyName by remember { mutableStateOf("") }
     var contactPerson by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
+    var businessLatitude by remember { mutableDoubleStateOf(0.0) }
+    var businessLongitude by remember { mutableDoubleStateOf(0.0) }
+    var isDetectingLocation by remember { mutableStateOf(false) }
 
     // Profile image
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
@@ -95,6 +106,43 @@ fun EmployerCompanyDetailsScreen(
     var isUploadingImage by remember { mutableStateOf(false) }
 
     var isSaving by remember { mutableStateOf(false) }
+
+    val fetchLocation: () -> Unit = {
+        scope.launch {
+            isDetectingLocation = true
+            try {
+                val locationInfo = locationService.getHighAccuracyLocation(
+                    timeoutMs = 8000L,
+                    minAccuracyMeters = 35f
+                ) ?: locationService.getCurrentLocation()
+                if (locationInfo != null && GeoUtils.hasValidCoordinates(locationInfo.latitude, locationInfo.longitude)) {
+                    businessAddress = locationInfo.getFullAddress()
+                    businessLatitude = locationInfo.latitude
+                    businessLongitude = locationInfo.longitude
+                    profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(locationInfo))
+                } else {
+                    Toast.makeText(context, "Could not detect GPS location. Please enter address manually.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error fetching current location in EmployerCompanyDetailsScreen")
+                Toast.makeText(context, "Location detection failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                isDetectingLocation = false
+            }
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            fetchLocation()
+        } else {
+            Toast.makeText(context, "Location permission required to detect GPS location", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Image picker + upload (unchanged behavior)
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -149,18 +197,29 @@ fun EmployerCompanyDetailsScreen(
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             try {
+                if (email.isBlank()) {
+                    email = currentUser.email.orEmpty().ifBlank { profileCompletionViewModel.getUserEmail().orEmpty() }
+                }
                 profileCompletionViewModel.getEmployer(currentUser.uid)
                     .onSuccess { saved ->
                         if (saved != null) {
-                            employerType = saved.employerType
+                            employerType = saved.employerType.ifBlank { Values.EmployerType.COMPANY }
                             companyName = if (saved.isCompany) saved.businessName else saved.ownerName
                             contactPerson = saved.ownerName
-                            contactPhone = saved.phone
+                            contactPhone = saved.phone.ifBlank { currentUser.phoneNumber.orEmpty() }
                             businessAddress = saved.address
+                            if (GeoUtils.hasValidCoordinates(saved.lat, saved.lng)) {
+                                businessLatitude = saved.lat
+                                businessLongitude = saved.lng
+                            }
                             profileImageUrl = saved.photoUrl.ifBlank { null }
                         }
                     }
                     .onFailure { Timber.e(it, "Error loading employer profile data") }
+
+                if (contactPhone.isBlank()) {
+                    contactPhone = currentUser.phoneNumber?.removePrefix("+91")?.trim() ?: ""
+                }
             } catch (e: Exception) {
                 Timber.e(e, "Error loading employer profile data")
             }
@@ -175,19 +234,87 @@ fun EmployerCompanyDetailsScreen(
                     val currentUser = FirebaseAuth.getInstance().currentUser
                     if (currentUser != null) {
                         val isCompany = employerType == Values.EmployerType.COMPANY
-                        profileCompletionViewModel.saveEmployer(
-                            mapOf(
-                                EmployerProfiles.EMPLOYER_TYPE to employerType,
-                                EmployerProfiles.OWNER_NAME to (if (isCompany) contactPerson.ifBlank { companyName } else companyName).trim(),
-                                EmployerProfiles.BUSINESS_NAME to if (isCompany) companyName.trim() else "",
-                                EmployerProfiles.ADDRESS to businessAddress.trim()
-                            )
-                        ).getOrThrow()
+
+                        // Resolve coordinates if missing but address text is present
+                        var finalLat = businessLatitude
+                        var finalLng = businessLongitude
+                        if (!GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
+                            val matched = QuickLocations.matchCoordinates(businessAddress)
+                            if (matched != null) {
+                                finalLat = matched.first
+                                finalLng = matched.second
+                            } else if (businessAddress.isNotBlank()) {
+                                try {
+                                    val geocoded = locationService.getCoordinatesFromAddress(businessAddress.trim())
+                                    if (geocoded != null && GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
+                                        finalLat = geocoded.latitude
+                                        finalLng = geocoded.longitude
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.w(e, "Could not geocode employer address: $businessAddress")
+                                }
+                            }
+                        }
+                        if (!GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
+                            finalLat = 17.2473
+                            finalLng = 80.1514
+                        }
+                        val geohashStr = GeoFireUtils.getGeoHashForLocation(GeoLocation(finalLat, finalLng))
+                        val userPhone = currentUser.phoneNumber?.takeIf { it.isNotBlank() }
+                            ?: (if (contactPhone.isNotBlank()) "+91 ${contactPhone.removePrefix("+91").trim()}" else "")
+
+                        val employerProfileData = mutableMapOf<String, Any?>(
+                            EmployerProfiles.EMPLOYER_TYPE to employerType,
+                            EmployerProfiles.OWNER_NAME to (if (contactPerson.isNotBlank()) contactPerson.trim() else companyName.trim()),
+                            EmployerProfiles.BUSINESS_NAME to (if (companyName.isNotBlank()) companyName.trim() else contactPerson.trim()),
+                            EmployerProfiles.PHONE to userPhone,
+                            EmployerProfiles.ADDRESS to businessAddress.trim(),
+                            EmployerProfiles.AREA to businessAddress.take(40),
+                            EmployerProfiles.LAT to finalLat,
+                            EmployerProfiles.LNG to finalLng,
+                            "geohash" to geohashStr
+                        )
+                        if (email.isNotBlank()) {
+                            employerProfileData[EmployerProfiles.EMAIL] = email.trim()
+                        }
+                        if (!profileImageUrl.isNullOrBlank()) {
+                            employerProfileData[EmployerProfiles.PHOTO_URL] = profileImageUrl
+                        }
+
+                        // 1. Save employer document in Firestore
+                        profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()
+
+                        // 2. Authoritative sync to central users collection
+                        val userLocationUpdate = mapOf<String, Any?>(
+                            "name" to (if (contactPerson.isNotBlank()) contactPerson.trim() else companyName.trim()),
+                            "fullName" to (if (contactPerson.isNotBlank()) contactPerson.trim() else companyName.trim()),
+                            "businessName" to (if (companyName.isNotBlank()) companyName.trim() else contactPerson.trim()),
+                            "city" to businessAddress.take(40),
+                            "email" to email.trim(),
+                            "updatedAt" to com.google.firebase.Timestamp.now(),
+                            "lat" to finalLat,
+                            "lng" to finalLng,
+                            "geohash" to geohashStr,
+                            "address" to businessAddress.trim(),
+                            "area" to businessAddress.take(40),
+                            "hasLocation" to true,
+                            "locationUpdatedAt" to com.google.firebase.Timestamp.now()
+                        )
+                        runCatching {
+                            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users").document(currentUser.uid)
+                                .set(userLocationUpdate, com.google.firebase.firestore.SetOptions.merge())
+                                .await()
+                        }.onFailure { Timber.w(it, "Could not sync employer location to users collection") }
+
                         Toast.makeText(
                             context,
                             context.getString(R.string.profile_saved_success),
                             Toast.LENGTH_SHORT
                         ).show()
+
+                        // Save and go back
+                        navController.popBackStack()
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Error saving company details")
@@ -215,9 +342,7 @@ fun EmployerCompanyDetailsScreen(
                 .statusBarsPadding()
         ) {
             CdTopBar(
-                isSaving = isSaving,
-                onBack = { navController.popBackStack() },
-                onSave = doSave
+                onBack = { navController.popBackStack() }
             )
             Column(
                 modifier = Modifier
@@ -232,12 +357,42 @@ fun EmployerCompanyDetailsScreen(
                     isUploading = isUploadingImage,
                     onChoose = { imagePickerLauncher.launch("image/*") }
                 )
+                CdEmployerTypeCard(
+                    selectedType = employerType,
+                    onSelectType = { employerType = it }
+                )
                 CdBasicsCard(
                     companyName = companyName,
                     onCompanyName = { companyName = it },
                     contactPerson = contactPerson,
                     onContactPerson = { contactPerson = it },
-                    contactPhone = contactPhone
+                    contactPhone = contactPhone,
+                    email = email,
+                    onEmailChange = { email = it }
+                )
+                CdAddressCard(
+                    address = businessAddress,
+                    onAddressChange = { businessAddress = it },
+                    latitude = businessLatitude,
+                    longitude = businessLongitude,
+                    isDetecting = isDetectingLocation,
+                    onDetectLocation = {
+                        if (locationService.hasLocationPermission()) {
+                            fetchLocation()
+                        } else {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                    },
+                    onSelectPreset = { presetAddress, lat, lng ->
+                        businessAddress = presetAddress
+                        businessLatitude = lat
+                        businessLongitude = lng
+                    }
                 )
             }
         }
@@ -256,41 +411,29 @@ fun EmployerCompanyDetailsScreen(
 
 @Composable
 private fun CdTopBar(
-    isSaving: Boolean,
-    onBack: () -> Unit,
-    onSave: () -> Unit
+    onBack: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
             .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.back),
-                tint = CdNavy.fg(),
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable(onClick = onBack)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = stringResource(R.string.company_details_section),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = CdNavy.fg()
-            )
-        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = stringResource(R.string.back),
+            tint = CdNavy.fg(),
+            modifier = Modifier
+                .size(24.dp)
+                .clickable(onClick = onBack)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
-            text = stringResource(R.string.save),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = CdCobalt.fg(),
-            modifier = Modifier.clickable(enabled = !isSaving, onClick = onSave)
+            text = stringResource(R.string.company_details_section),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = CdNavy.fg()
         )
     }
 }
@@ -408,12 +551,67 @@ private fun CdCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
+private fun CdEmployerTypeCard(
+    selectedType: String,
+    onSelectType: (String) -> Unit
+) {
+    CdCard {
+        Text(
+            text = "EMPLOYER / BUSINESS TYPE",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CdHint.fg(),
+            letterSpacing = 0.6.sp
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val types = listOf(
+                Values.EmployerType.INDIVIDUAL to "Individual",
+                "SHOP" to "Shop / Business",
+                Values.EmployerType.COMPANY to "Company"
+            )
+            types.forEach { (typeValue, label) ->
+                val isSelected = (selectedType == typeValue) || (typeValue == "SHOP" && selectedType == "SHOP")
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) CdNavy.bg() else Color(0xFFF1F5F9).bg())
+                        .border(
+                            1.dp,
+                            if (isSelected) CdNavy.bd() else CdBorder.bd(),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .clickable { onSelectType(typeValue) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else CdNavy.fg(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CdBasicsCard(
     companyName: String,
     onCompanyName: (String) -> Unit,
     contactPerson: String,
     onContactPerson: (String) -> Unit,
-    contactPhone: String
+    contactPhone: String,
+    email: String,
+    onEmailChange: (String) -> Unit
 ) {
     CdCard {
         Text(
@@ -427,13 +625,15 @@ private fun CdBasicsCard(
         CdField(
             label = stringResource(R.string.business_name),
             value = companyName,
-            onValueChange = onCompanyName
+            onValueChange = onCompanyName,
+            placeholder = "e.g. Sri Venkateswara Kirana / Shop"
         )
         Spacer(modifier = Modifier.height(10.dp))
         CdField(
             label = stringResource(R.string.owner_contact_name),
             value = contactPerson,
-            onValueChange = onContactPerson
+            onValueChange = onContactPerson,
+            placeholder = "e.g. Kiran Kumar"
         )
         Spacer(modifier = Modifier.height(10.dp))
         CdField(
@@ -446,6 +646,138 @@ private fun CdBasicsCard(
                 { CdVerifiedBadge() }
             } else null
         )
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = stringResource(R.string.email_address),
+            value = email,
+            onValueChange = onEmailChange,
+            placeholder = stringResource(R.string.enter_email),
+            keyboardType = KeyboardType.Email
+        )
+    }
+}
+
+@Composable
+private fun CdAddressCard(
+    address: String,
+    onAddressChange: (String) -> Unit,
+    latitude: Double,
+    longitude: Double,
+    isDetecting: Boolean,
+    onDetectLocation: () -> Unit,
+    onSelectPreset: (String, Double, Double) -> Unit
+) {
+    CdCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "BUSINESS LOCATION & ADDRESS",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CdHint.fg(),
+                letterSpacing = 0.6.sp
+            )
+            if (GeoUtils.hasValidCoordinates(latitude, longitude)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = CdGreen.fg(),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "GPS Saved",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CdGreen.fg()
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = stringResource(R.string.business_address),
+            value = address,
+            onValueChange = onAddressChange,
+            placeholder = "e.g. Near Bustand, Wyra Road, Khammam"
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFFEFF6FF).bg())
+                .border(1.dp, Color(0xFFBFDBFE).bd(), RoundedCornerShape(10.dp))
+                .clickable(enabled = !isDetecting, onClick = onDetectLocation),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isDetecting) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = CdCobalt.fg()
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Detecting current location...",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CdCobalt.fg()
+                    )
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "📍", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Use Current GPS Location",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CdCobalt.fg()
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "Quick Select Area:",
+            fontSize = 11.sp,
+            color = CdMuted.fg(),
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            QuickLocations.PRESETS.forEach { preset ->
+                val isSelected = address.contains(preset.shortName, ignoreCase = true)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isSelected) CdCobalt.bg() else Color(0xFFF1F5F9).bg())
+                        .clickable {
+                            onSelectPreset(preset.address, preset.lat, preset.lng)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = preset.shortName,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) Color.White else CdNavy.fg()
+                    )
+                }
+            }
+        }
     }
 }
 
