@@ -168,6 +168,17 @@ android {
     }
 
     bundle {
+        // Keep English, Telugu, and Hindi in base APK to support in-app language switching
+        // without requiring on-demand dynamic feature downloads or causing split mismatch.
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
         storeArchive {
             enable = true
         }
