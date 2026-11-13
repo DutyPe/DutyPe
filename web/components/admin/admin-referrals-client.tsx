@@ -33,14 +33,42 @@ type ReferralRow = {
 type Lookup = {
   uid: string;
   name: string;
+  activeCode?: string;
+  codes?: string[];
   wallet: null | {
-    referralCode: string; balancePaise: number; lifetimeEarnedPaise: number; withdrawnPaise: number;
-    successfulReferrals: number; blocked: boolean;
+    referralCode: string;
+    balancePaise: number;
+    lifetimeEarnedPaise: number;
+    withdrawnPaise: number;
+    successfulReferrals: number;
+    blocked: boolean;
   };
   ledger: Array<{ id: string; type: string; amountPaise: number; balanceAfterPaise: number; createdAt: string | null }>;
-  referredBy: null | { referrerUid: string; code: string; status: string };
+  referredBy: null | {
+    referrerUid: string;
+    name?: string;
+    code: string;
+    status: string;
+    totalSuccessfulReferrals?: number;
+    totalReferralsCount?: number;
+    coReferees?: Array<{
+      uid: string;
+      name?: string;
+      phone?: string;
+      status: string;
+      isCurrentUser?: boolean;
+      createdAt: string | null;
+    }>;
+  };
   referrals: Array<{ refereeUid: string; refereeName?: string; status: string; createdAt: string | null }>;
-  withdrawals: Array<{ id: string; amountPaise: number; status: string; createdAt: string | null }>;
+  withdrawals: Array<{
+    id: string;
+    amountPaise: number;
+    status: string;
+    txnRef?: string;
+    failureReason?: string;
+    createdAt: string | null;
+  }>;
 };
 
 const rupees = (paise: number) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN")}`;
@@ -60,6 +88,8 @@ export function AdminReferralsClient() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const [showCoReferees, setShowCoReferees] = useState(true);
 
   // Manual Credit Modal States
   const [creditModalOpen, setCreditModalOpen] = useState(false);
@@ -204,8 +234,8 @@ export function AdminReferralsClient() {
     }
   }
 
-  async function runLookup() {
-    const query = lookupQuery.trim();
+  const runLookup = useCallback(async (target?: string) => {
+    const query = (target ?? lookupQuery).trim();
     if (!query) return;
     setLoading(true);
     setError(null);
@@ -215,11 +245,18 @@ export function AdminReferralsClient() {
       const payload = (await response.json()) as Lookup & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Lookup failed.");
       setLookup(payload);
+      setLookupQuery(query);
     } catch (lookupError) {
       setError(lookupError instanceof Error ? lookupError.message : "Lookup failed.");
     } finally {
       setLoading(false);
     }
+  }, [lookupQuery]);
+
+  function inspectUser(target: string) {
+    setTab("lookup");
+    setMessage(null);
+    void runLookup(target);
   }
 
   return (
@@ -329,8 +366,29 @@ export function AdminReferralsClient() {
           </div>
           {lookup ? (
             <div className="admin-section-stack">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h3>{lookup.name || lookup.uid}</h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>{lookup.name || lookup.uid}</h3>
+                  <div style={{ fontSize: "0.85rem", color: "#64748b", marginTop: "4px" }}>
+                    UID: <code className="admin-code">{lookup.uid}</code>
+                    {(() => {
+                      const codes = lookup.codes ?? [];
+                      if (!codes.length) return null;
+                      const primary = lookup.activeCode || lookup.wallet?.referralCode || codes[0];
+                      const aliases = codes.filter((c) => c !== primary);
+                      return (
+                        <span style={{ marginLeft: "10px" }}>
+                          Active code: <strong style={{ color: "#0f172a" }}>{primary}</strong>
+                          {aliases.length > 0 ? (
+                            <span style={{ marginLeft: "6px", color: "#64748b" }}>
+                              (aliases: {aliases.join(", ")})
+                            </span>
+                          ) : null}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="button"
@@ -343,37 +401,219 @@ export function AdminReferralsClient() {
                   + Credit This User
                 </button>
               </div>
+
               {lookup.wallet ? (
                 <div className="admin-stats-grid small">
                   <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.balancePaise)}</strong><span>Balance</span></div>
                   <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.lifetimeEarnedPaise)}</strong><span>Earned</span></div>
                   <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.withdrawnPaise)}</strong><span>Withdrawn</span></div>
                   <div className="admin-stat-card compact"><strong>{lookup.wallet.successfulReferrals}</strong><span>Successful referrals</span></div>
-                  <div className="admin-stat-card compact"><strong>{lookup.wallet.referralCode || "—"}</strong><span>{lookup.wallet.blocked ? "Code (blocked)" : "Code"}</span></div>
+                  <div className="admin-stat-card compact"><strong>{lookup.wallet.referralCode || lookup.activeCode || "—"}</strong><span>{lookup.wallet.blocked ? "Code (blocked)" : "Code"}</span></div>
                 </div>
               ) : <p>No wallet yet.</p>}
-              {lookup.referredBy ? <p>Joined with code <code>{lookup.referredBy.code}</code> ({lookup.referredBy.status}).</p> : null}
-              <h4>Money history</h4>
-              <table className="data-table admin-table">
-                <thead><tr><th>When</th><th>Type</th><th>Amount</th><th>Balance after</th></tr></thead>
-                <tbody>
-                  {lookup.ledger.map((l) => (
-                    <tr key={l.id}><td>{when(l.createdAt)}</td><td>{l.type}</td><td>{rupees(l.amountPaise)}</td><td>{rupees(l.balanceAfterPaise)}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-              <h4>People they referred ({lookup.referrals.length})</h4>
-              <ul style={{ paddingLeft: "1.2rem", display: "flex", flexDirection: "column", gap: "6px" }}>
-                {lookup.referrals.map((r) => (
-                  <li key={r.refereeUid}>
-                    <strong>{r.refereeName || r.refereeUid}</strong> —{" "}
-                    <span className={`status-pill ${r.status === "COMPLETED" ? "success" : r.status === "PENDING" ? "warning" : "danger"}`} style={{ fontSize: "0.75rem", padding: "1px 6px" }}>
-                      {r.status}
-                    </span>{" "}
-                    · {when(r.createdAt)}
-                  </li>
-                ))}
-              </ul>
+
+              {/* Referral Origin & Network Cluster */}
+              {lookup.referredBy ? (
+                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                    <div>
+                      <h4 style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+                        🔗 Referral Origin & Group Network
+                      </h4>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#64748b" }}>
+                        Joined using code <code className="admin-code">{lookup.referredBy.code}</code> · Status:{" "}
+                        <span className={`status-pill ${lookup.referredBy.status === "COMPLETED" ? "success" : "warning"}`} style={{ fontSize: "0.75rem", padding: "1px 6px" }}>
+                          {lookup.referredBy.status}
+                        </span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="button"
+                      style={{ fontSize: "0.85rem", padding: "6px 14px", background: "#2563eb", color: "white" }}
+                      onClick={() => inspectUser(lookup.referredBy!.referrerUid)}
+                    >
+                      🔍 Look Up Referrer ({lookup.referredBy.name || lookup.referredBy.referrerUid})
+                    </button>
+                  </div>
+
+                  <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "0.75rem", marginBottom: "0.75rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: "0.95rem" }}>
+                          Referrer: {lookup.referredBy.name}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          UID: <code className="admin-code">{lookup.referredBy.referrerUid}</code>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 700, color: "#059669", fontSize: "1rem" }}>
+                          {lookup.referredBy.totalReferralsCount ?? 0} Total Referrals in Circle
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          ({lookup.referredBy.totalSuccessfulReferrals ?? 0} successful)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {lookup.referredBy.coReferees && lookup.referredBy.coReferees.length > 0 ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#334155" }}>
+                          👥 All {lookup.referredBy.coReferees.length} Users in this Referral Circle:
+                        </span>
+                        <button
+                          type="button"
+                          className="button ghost"
+                          style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                          onClick={() => setShowCoReferees(!showCoReferees)}
+                        >
+                          {showCoReferees ? "Hide List" : "Show All"}
+                        </button>
+                      </div>
+
+                      {showCoReferees ? (
+                        <div style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px", background: "white" }}>
+                          <table className="data-table admin-table" style={{ margin: 0, fontSize: "0.85rem" }}>
+                            <thead>
+                              <tr>
+                                <th>User</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lookup.referredBy.coReferees.map((c) => (
+                                <tr key={c.uid} style={c.isCurrentUser ? { background: "#eff6ff", fontWeight: 600 } : {}}>
+                                  <td>
+                                    {c.name}
+                                    {c.isCurrentUser ? (
+                                      <span style={{ marginLeft: "6px", color: "#2563eb", fontSize: "0.75rem", background: "#dbeafe", padding: "1px 6px", borderRadius: "4px" }}>
+                                        THIS USER
+                                      </span>
+                                    ) : null}
+                                    <div className="admin-cell-sub"><code className="admin-code">{c.uid}</code></div>
+                                  </td>
+                                  <td>
+                                    <span className={`status-pill ${c.status === "COMPLETED" ? "success" : "warning"}`} style={{ fontSize: "0.7rem", padding: "1px 6px" }}>
+                                      {c.status}
+                                    </span>
+                                  </td>
+                                  <td>{when(c.createdAt)}</td>
+                                  <td>
+                                    {!c.isCurrentUser ? (
+                                      <button
+                                        type="button"
+                                        className="table-action"
+                                        style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                                        onClick={() => inspectUser(c.uid)}
+                                      >
+                                        Inspect
+                                      </button>
+                                    ) : <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>Current</span>}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* People they referred */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "1rem" }}>
+                <h4 style={{ margin: 0 }}>People they referred ({lookup.referrals.length})</h4>
+              </div>
+              {lookup.referrals.length === 0 ? (
+                <div style={{ padding: "0.75rem", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: "6px", fontSize: "0.85rem", color: "#64748b" }}>
+                  No direct referrals made under this user&apos;s personal code yet.
+                  {lookup.referredBy ? (
+                    <span style={{ display: "block", marginTop: "4px" }}>
+                      💡 This user joined under <strong>{lookup.referredBy.name || lookup.referredBy.code}</strong> as part of a <strong>{lookup.referredBy.totalReferralsCount}-member</strong> referral ring. See the Referral Origin & Group card above.
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="table-wrap">
+                  <table className="data-table admin-table" style={{ fontSize: "0.85rem" }}>
+                    <thead><tr><th>Referee</th><th>Status</th><th>Joined</th><th>Action</th></tr></thead>
+                    <tbody>
+                      {lookup.referrals.map((r) => (
+                        <tr key={r.refereeUid}>
+                          <td>
+                            <strong>{r.refereeName || r.refereeUid}</strong>
+                            <div className="admin-cell-sub"><code className="admin-code">{r.refereeUid}</code></div>
+                          </td>
+                          <td>
+                            <span className={`status-pill ${r.status === "COMPLETED" ? "success" : "warning"}`} style={{ fontSize: "0.75rem", padding: "1px 6px" }}>
+                              {r.status}
+                            </span>
+                          </td>
+                          <td>{when(r.createdAt)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="table-action"
+                              style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                              onClick={() => inspectUser(r.refereeUid)}
+                            >
+                              Inspect
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* User Withdrawals */}
+              {lookup.withdrawals && lookup.withdrawals.length > 0 ? (
+                <>
+                  <h4 style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>Withdrawal Requests ({lookup.withdrawals.length})</h4>
+                  <div className="table-wrap">
+                    <table className="data-table admin-table" style={{ fontSize: "0.85rem" }}>
+                      <thead><tr><th>Requested</th><th>Amount</th><th>Status</th><th>Details</th></tr></thead>
+                      <tbody>
+                        {lookup.withdrawals.map((w) => (
+                          <tr key={w.id}>
+                            <td>{when(w.createdAt)}</td>
+                            <td><strong>{rupees(w.amountPaise)}</strong></td>
+                            <td>
+                              <span className={`status-pill ${w.status === "COMPLETED" ? "success" : w.status === "FAILED" ? "danger" : "warning"}`} style={{ fontSize: "0.75rem", padding: "1px 6px" }}>
+                                {w.status}
+                              </span>
+                            </td>
+                            <td>
+                              {w.txnRef ? <div className="admin-cell-sub">Ref: {w.txnRef}</div> : null}
+                              {w.failureReason ? <div className="admin-cell-sub danger-text">{w.failureReason}</div> : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
+
+              <h4 style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>Money history</h4>
+              <div className="table-wrap">
+                <table className="data-table admin-table" style={{ fontSize: "0.85rem" }}>
+                  <thead><tr><th>When</th><th>Type</th><th>Amount</th><th>Balance after</th></tr></thead>
+                  <tbody>
+                    {lookup.ledger.map((l) => (
+                      <tr key={l.id}><td>{when(l.createdAt)}</td><td>{l.type}</td><td>{rupees(l.amountPaise)}</td><td>{rupees(l.balanceAfterPaise)}</td></tr>
+                    ))}
+                    {!lookup.ledger.length ? <tr><td colSpan={4} className="admin-empty">No wallet transactions recorded.</td></tr> : null}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : null}
         </section>
