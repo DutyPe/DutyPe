@@ -317,7 +317,13 @@ fun WorkerNavGraph(
         // Job Application Screen
         composable(
             route = Routes.JOB_APPLICATION,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/job_application/{jobId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://job_application/{jobId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://job/{jobId}/apply" },
+                androidx.navigation.navDeepLink { uriPattern = "https://dutype.in/job/{jobId}/apply" }
+            )
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             com.example.dutype.worker.screens.JobApplicationScreen(
@@ -511,6 +517,11 @@ fun WorkerNavGraph(
         // Spin & Win Viral Wheel - Playful Zoom Entrance
         composable(
             route = Routes.SPIN_AND_WIN,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/spin_and_win" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://spin_and_win" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/spin_and_win" }
+            ),
             enterTransition = {
                 scaleIn(
                     initialScale = 0.90f,

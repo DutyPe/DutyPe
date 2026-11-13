@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.navigation.safeNavigate
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.components.cascadeEnter
 import com.example.dutype.components.bouncyClickable
@@ -422,7 +423,10 @@ fun EmptyJobsState(
             Spacer(modifier = Modifier.height(14.dp))
             PlaySpinGameEmptyCard(
                 onPlayClick = {
-                    navController?.navigate(Routes.SPIN_AND_WIN)
+                    val success = navController?.safeNavigate(Routes.SPIN_AND_WIN) ?: false
+                    if (!success) {
+                        com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+                    }
                 }
             )
         }
@@ -591,7 +595,10 @@ fun EmptyJobsState(
         // Play Spin & Win Game card under empty state
         PlaySpinGameEmptyCard(
             onPlayClick = {
-                navController?.navigate(Routes.SPIN_AND_WIN)
+                val success = navController?.safeNavigate(Routes.SPIN_AND_WIN) ?: false
+                if (!success) {
+                    com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+                }
             }
         )
     }
@@ -966,7 +973,7 @@ fun HomeSectionsContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .wrapContentHeight(),
-                    navController = rootNavController,
+                    navController = navController,
                     currentLocationName = emptyJobsCurrentLocationName,
                     isAppliedAllVariant = emptyJobsIsAppliedAllVariant,
                     suggestedCities = emptyJobsSuggestedCities,

@@ -62,6 +62,9 @@ object DeepLinkHandler {
                 route == Routes.WORKER_NOTIFICATIONS ||
                 route == Routes.WORKER_ALL_JOBS ||
                 route == com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS ||
+                route == Routes.SPIN_AND_WIN ||
+                route == Routes.WORKER_REFER_EARN ||
+                route == Routes.WORKER_EARNINGS ||
                 route.startsWith("worker_") ||
                 route.startsWith("job_application") -> Routes.WORKER_HOME
                 else -> null
@@ -201,17 +204,45 @@ object DeepLinkHandler {
                 runCatching { navController.navigate(route) { launchSingleTop = true } }.isSuccess
             }
 
-            // App scheme: dutype://job/123
+            // App scheme: dutype://job/123 or dutype://job/123/apply
             data.scheme == SCHEME && data.host == HOST_JOB -> {
-                val jobId = data.lastPathSegment
-                Timber.d("🔗 DEEP LINK: Detected job deep link - jobId: $jobId")
-                if (jobId != null) {
-                    navigateToJob(navController, jobId)
-                    true
-                } else {
-                    Timber.w("🔗 DEEP LINK: ⚠️ Job ID is null")
-                    false
+                val segments = data.pathSegments
+                when {
+                    segments.size >= 2 && segments[1].equals("apply", ignoreCase = true) -> {
+                        val jobId = segments[0]
+                        com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.jobApplicationRoute(jobId))
+                        safeNavigate(navController, Routes.WORKER_HOME, "job-apply:$jobId")
+                        true
+                    }
+                    else -> {
+                        val jobId = data.lastPathSegment
+                        Timber.d("🔗 DEEP LINK: Detected job deep link - jobId: $jobId")
+                        if (jobId != null) {
+                            navigateToJob(navController, jobId)
+                            true
+                        } else {
+                            Timber.w("🔗 DEEP LINK: ⚠️ Job ID is null")
+                            false
+                        }
+                    }
                 }
+            }
+
+            // App scheme: dutype://job_application/123 or dutype://apply/123
+            data.scheme == SCHEME && (data.host == "job_application" || data.host == "apply") -> {
+                val jobId = data.lastPathSegment
+                if (!jobId.isNullOrBlank()) {
+                    com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.jobApplicationRoute(jobId))
+                    safeNavigate(navController, Routes.WORKER_HOME, "job-application:$jobId")
+                    true
+                } else false
+            }
+
+            // App scheme: dutype://spin_and_win or dutype://spin
+            data.scheme == SCHEME && (data.host == "spin_and_win" || data.host == "spin" || data.host == "game") -> {
+                com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+                safeNavigate(navController, Routes.WORKER_HOME, "spin-and-win")
+                true
             }
             
             // App scheme: dutype://worker/456
@@ -242,6 +273,18 @@ object DeepLinkHandler {
                     // dutype://worker/refer or dutype://worker/referrals
                     pathSegments.firstOrNull() in setOf("refer", "referrals") -> {
                         navigateToReferralHome(navController)
+                        true
+                    }
+                    // dutype://worker/spin or dutype://worker/spin_and_win
+                    pathSegments.firstOrNull() in setOf("spin", "spin_and_win") -> {
+                        com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+                        safeNavigate(navController, Routes.WORKER_HOME, "worker-spin-and-win")
+                        true
+                    }
+                    // dutype://worker/earnings
+                    pathSegments.firstOrNull() == "earnings" -> {
+                        com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.WORKER_EARNINGS)
+                        safeNavigate(navController, Routes.WORKER_HOME, "worker-earnings")
                         true
                     }
                     // dutype://worker/home
@@ -764,6 +807,27 @@ object DeepLinkHandler {
             }
             lowerSegments.size >= 2 && lowerSegments[0] in setOf("job", "jobs") -> {
                 navigateToJob(navController, segments[1])
+                true
+            }
+            lowerSegments.size >= 2 && lowerSegments[0] in setOf("job_application", "apply") -> {
+                val jobId = segments[1]
+                com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.jobApplicationRoute(jobId))
+                safeNavigate(navController, Routes.WORKER_HOME, "job-application:$jobId")
+                true
+            }
+            routeKey in setOf(Routes.SPIN_AND_WIN, "spin_and_win", "spin-and-win", "spin") -> {
+                com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+                safeNavigate(navController, Routes.WORKER_HOME, "spin-and-win")
+                true
+            }
+            routeKey in setOf(Routes.WORKER_REFER_EARN, "worker_refer_earn", "refer_earn") -> {
+                com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.WORKER_REFER_EARN)
+                safeNavigate(navController, Routes.WORKER_HOME, "worker-refer-earn")
+                true
+            }
+            routeKey in setOf(Routes.WORKER_EARNINGS, "worker_earnings", "earnings") -> {
+                com.example.dutype.navigation.WorkerInnerNavQueue.setPending(Routes.WORKER_EARNINGS)
+                safeNavigate(navController, Routes.WORKER_HOME, "worker-earnings")
                 true
             }
             lowerSegments.size >= 3 && lowerSegments[0] == "app" && lowerSegments[1] == "worker" && lowerSegments[2] == "jobs" -> {

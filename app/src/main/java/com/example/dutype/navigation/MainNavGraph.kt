@@ -571,6 +571,86 @@ fun MainNavGraph(
             )
         }
 
+        // Root-level handling for worker Spin & Win to prevent IllegalArgumentException when deep links
+        // or root navigations target spin_and_win.
+        composable(
+            route = Routes.SPIN_AND_WIN,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/spin_and_win" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://spin_and_win" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/spin_and_win" }
+            )
+        ) {
+            WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        // Root-level handling for job application screen to prevent IllegalArgumentException when deep links
+        // or notifications arrive at root graph or while on select_role.
+        composable(
+            route = Routes.JOB_APPLICATION,
+            arguments = listOf(
+                androidx.navigation.navArgument("jobId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            ),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/job_application/{jobId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://job_application/{jobId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://job/{jobId}/apply" },
+                androidx.navigation.navDeepLink { uriPattern = "https://dutype.in/job/{jobId}/apply" }
+            )
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId").orEmpty()
+            if (jobId.isNotBlank()) {
+                WorkerInnerNavQueue.setPending(Routes.jobApplicationRoute(jobId))
+            }
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        // Root-level handling for worker Refer & Earn
+        composable(
+            route = Routes.WORKER_REFER_EARN,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/worker_refer_earn" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://referrals" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://refer" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/refer" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/referrals" }
+            )
+        ) {
+            WorkerInnerNavQueue.setPending(Routes.WORKER_REFER_EARN)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        // Root-level handling for worker Earnings
+        composable(
+            route = Routes.WORKER_EARNINGS,
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/worker_earnings" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://worker/earnings" }
+            )
+        ) {
+            WorkerInnerNavQueue.setPending(Routes.WORKER_EARNINGS)
+            WorkerMainScreen(
+                rootNavController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
         // DutyPe AI from the home-screen shortcut (deep links are handled on this navController).
         composable(
             route = Routes.DUTYPE_AI,

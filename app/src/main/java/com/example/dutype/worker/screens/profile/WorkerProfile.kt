@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.profile
 
+import com.example.dutype.navigation.safeNavigate
+import com.example.dutype.navigation.WorkerInnerNavQueue
 import com.example.dutype.components.cascadeEnter
 import com.example.dutype.components.bouncyClickable
 
@@ -670,18 +672,27 @@ fun WorkerProfileScreen(
                         },
                         onEarnings = {
                             if (isLoggedIn) {
-                                localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
+                                if (localNavController?.safeNavigate(Routes.WORKER_EARNINGS) != true) {
+                                    WorkerInnerNavQueue.setPending(Routes.WORKER_EARNINGS)
+                                    rootNavController.safeNavigate(Routes.WORKER_HOME)
+                                }
                             } else {
                                 pendingMenuAction = "earnings"
                                 rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_EARNINGS))
                             }
                         },
                         onSpinWin = {
-                            localNavController?.navigate(Routes.SPIN_AND_WIN) ?: rootNavController.navigate(Routes.SPIN_AND_WIN)
+                            if (localNavController?.safeNavigate(Routes.SPIN_AND_WIN) != true) {
+                                WorkerInnerNavQueue.setPending(Routes.SPIN_AND_WIN)
+                                rootNavController.safeNavigate(Routes.WORKER_HOME)
+                            }
                         },
                         onReferEarn = {
                             if (isLoggedIn) {
-                                localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
+                                if (localNavController?.safeNavigate(Routes.WORKER_REFER_EARN) != true) {
+                                    WorkerInnerNavQueue.setPending(Routes.WORKER_REFER_EARN)
+                                    rootNavController.safeNavigate(Routes.WORKER_HOME)
+                                }
                             } else {
                                 pendingMenuAction = "refer_earn"
                                 rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_REFER_EARN))
