@@ -77,9 +77,10 @@ service cloud.firestore {
     match /user_tokens/{uid} {
       allow get, delete: if isSelf(uid);
       allow create, update: if isSelf(uid) &&
-        request.resource.data.keys().hasOnly(['fcmToken', 'language', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['fcmToken', 'language', 'updatedAt', 'role']) &&
         optString(request.resource.data, 'fcmToken', 4096) &&
-        optString(request.resource.data, 'language', 5);
+        optString(request.resource.data, 'language', 5) &&
+        optString(request.resource.data, 'role', 20);
     }
 
     match /users/{uid} {

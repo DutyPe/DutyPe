@@ -115,7 +115,14 @@ export async function POST(request: NextRequest) {
           await batch.commit();
 
           const tokenDocs = await db.getAll(...uids.map((uid) => db.collection(UserTokens.COLLECTION).doc(uid)));
-          const fcmTokens = Array.from(new Set(tokenDocs.map((t) => String(t.get(UserTokens.FCM_TOKEN) ?? "")).filter(Boolean)));
+          const userDocs = await db.getAll(...uids.map((uid) => db.collection("users").doc(uid)));
+          const fcmTokens = Array.from(new Set(
+            uids.map((_, idx) => {
+              const t1 = String(tokenDocs[idx]?.get(UserTokens.FCM_TOKEN) ?? "").trim();
+              const t2 = String(userDocs[idx]?.get("fcmToken") ?? "").trim();
+              return t1 || t2;
+            }).filter(Boolean)
+          ));
 
           if (fcmTokens.length > 0) {
             for (let i = 0; i < fcmTokens.length; i += 500) {
@@ -161,55 +168,86 @@ export async function POST(request: NextRequest) {
 
     // Specific users: inbox doc + direct push each.
     const now = Date.now();
-    const tokens = await db.getAll(...recipientIds.map((uid) => db.collection(UserTokens.COLLECTION).doc(uid)));
+    const tokenDocs = await db.getAll(...recipientIds.map((uid) => db.collection(UserTokens.COLLECTION).doc(uid)));
+    const userDocs = await db.getAll(...recipientIds.map((uid) => db.collection("users").doc(uid)));
+
+    const notifType = preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL";
     const batch = db.batch();
     recipientIds.forEach((uid) => batch.set(db.collection(Notifications.COLLECTION).doc(), {
       [Notifications.RECIPIENT_ID]: uid,
       [Notifications.TITLE]: title,
       [Notifications.BODY]: message,
-      [Notifications.TYPE]: "GENERAL",
+      [Notifications.TYPE]: notifType,
       [Notifications.DATA]: deepLink ? { deepLink } : {},
       [Notifications.READ]: false,
       [Notifications.CREATED_AT]: Timestamp.fromMillis(now),
       [Notifications.EXPIRE_AT]: Timestamp.fromMillis(now + INBOX_TTL_MS)
     }));
     batch.set(db.collection(BROADCASTS).doc(), {
-      title, message, preset, targetRole: "USERS", recipientCount: recipientIds.length, status: "sent", createdAt: Timestamp.fromMillis(now)
+      title,
+      message,
+      preset,
+      targetRole: "USERS",
+      recipientCount: recipientIds.length,
+      status: "sent",
+      topic: "direct_users",
+      createdAt: Timestamp.fromMillis(now)
     });
     await batch.commit();
-    const fcmTokens = tokens.map((t) => String(t.get(UserTokens.FCM_TOKEN) ?? "")).filter(Boolean);
+
+    const fcmTokens = Array.from(new Set(
+      recipientIds.map((_, idx) => {
+        const t1 = String(tokenDocs[idx]?.get(UserTokens.FCM_TOKEN) ?? "").trim();
+        const t2 = String(userDocs[idx]?.get("fcmToken") ?? "").trim();
+        return t1 || t2;
+      }).filter(Boolean)
+    ));
+
     if (fcmTokens.length) {
-      await getFirebaseAdminMessaging().sendEachForMulticast({
-        tokens: fcmTokens,
-        notification: { title, body: message },
-        data: {
-          title,
-          body: message,
-          message: message,
-          type: "GENERAL",
-          channel: "high_priority",
-          channel_id: "high_priority",
-          priority: "high",
-          ...(deepLink ? { deepLink } : {})
-        },
-        android: {
-          priority: "high",
-          notification: {
-            channelId: "high_priority",
+      for (let i = 0; i < fcmTokens.length; i += 500) {
+        const chunk = fcmTokens.slice(i, i + 500);
+        await getFirebaseAdminMessaging().sendEachForMulticast({
+          tokens: chunk,
+          notification: { title, body: message },
+          data: {
             title,
             body: message,
-            icon: "ic_notification",
-            color: "#3B82F6",
-            sound: "default",
-            clickAction: "OPEN_ACTIVITY",
-            defaultSound: true,
-            defaultVibrateTimings: true,
-            visibility: "public"
+            message: message,
+            type: notifType,
+            channel: "high_priority",
+            channel_id: "high_priority",
+            priority: "high",
+            ...(deepLink ? { deepLink } : {})
+          },
+          android: {
+            priority: "high",
+            notification: {
+              channelId: "high_priority",
+              title,
+              body: message,
+              icon: "ic_notification",
+              color: "#3B82F6",
+              sound: "default",
+              clickAction: "OPEN_ACTIVITY",
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              visibility: "public"
+            }
           }
-        }
-      });
+        });
+      }
     }
-    return NextResponse.json({ ok: true, recipientCount: recipientIds.length, pushed: fcmTokens.length });
+
+    const warning = fcmTokens.length === 0
+      ? "Notice: Recipient has no registered FCM device token in user_tokens or users. In-app inbox was delivered, but system push cannot be delivered until the user opens the updated app to sync their device token."
+      : undefined;
+
+    return NextResponse.json({
+      ok: true,
+      recipientCount: recipientIds.length,
+      pushed: fcmTokens.length,
+      ...(warning ? { warning } : {})
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to send notification." }, { status: 500 });
   }

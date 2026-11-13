@@ -165,6 +165,20 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                     Timber.e(e, "🔔 ❌ Failed to save FCM token")
                 }
             }
+
+        // Dual sync to users/{userId} for redundancy
+        runCatching {
+            firestore
+                .collection("users")
+                .document(userId)
+                .set(
+                    mapOf(
+                        "fcmToken" to token,
+                        "updatedAt" to Timestamp.now()
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+        }
     }
 
     /**

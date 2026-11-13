@@ -34,6 +34,17 @@ export const sendBroadcastNotification = functions
 
     functions.logger.info(`Processing broadcast notification: ${notificationId}`, notification);
 
+    // Skip direct user notifications, audit records, or notifications already handled directly
+    if (
+      notification.targetRole === "USERS" ||
+      notification.recipientCount !== undefined ||
+      notification.status === "sent" ||
+      notification.topic === "direct_users"
+    ) {
+      functions.logger.info(`Skipping broadcast for direct user notification / audit record: ${notificationId}`);
+      return null;
+    }
+
     const fallbackTitle = notification.title || "DutyPe";
     const fallbackMessage = notification.message || "";
     const topic = notification.topic || TOPIC_ALL_USERS;

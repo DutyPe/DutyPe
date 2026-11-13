@@ -233,6 +233,17 @@ class FCMTokenManager @Inject constructor(
                 }
             }
         }
+
+        // Dual sync: Also save fcmToken in users/{userId} for redundancy
+        runCatching {
+            firestore.collection("users").document(userId).set(
+                mapOf(
+                    "fcmToken" to token,
+                    "updatedAt" to Timestamp.now()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            ).await()
+        }
     }
 
     /**
@@ -268,7 +279,8 @@ class FCMTokenManager @Inject constructor(
         } catch (e: FirebaseFirestoreException) {
             when (e.code) {
                 FirebaseFirestoreException.Code.PERMISSION_DENIED -> {
-                    Timber.w("FCMTokenManager: permission denied saving token with role for user: $userId")
+                    Timber.w("FCMTokenManager: permission denied saving token with role for user: $userId, falling back without role")
+                    saveTokenToFirestore(userId, token)
                 }
                 FirebaseFirestoreException.Code.NOT_FOUND -> {
                     Timber.w("FCMTokenManager: token doc not found during token with role save for user: $userId")
@@ -281,6 +293,17 @@ class FCMTokenManager @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
             throw e
+        }
+
+        // Dual sync: Also save fcmToken in users/{userId} for redundancy
+        runCatching {
+            firestore.collection("users").document(userId).set(
+                mapOf(
+                    "fcmToken" to token,
+                    "updatedAt" to Timestamp.now()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            ).await()
         }
     }
 
