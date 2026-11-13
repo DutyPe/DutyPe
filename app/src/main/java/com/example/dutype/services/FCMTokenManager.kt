@@ -197,6 +197,10 @@ class FCMTokenManager @Inject constructor(
      * and language were already saved for this user (a write per app start adds up at 1M users).
      */
     suspend fun saveTokenToFirestore(userId: String, token: String) {
+        if (token.isBlank() || userId.isBlank()) {
+            Timber.w("FCMTokenManager: Token or userId is blank, skipping save")
+            return
+        }
         val T = com.example.dutype.firestore.FirestoreSchema.UserTokens
         val language = LocaleHelper.getLanguage(appContext)
         val fingerprint = "$userId|$token|$language"
@@ -210,7 +214,8 @@ class FCMTokenManager @Inject constructor(
                     T.FCM_TOKEN to token,
                     T.LANGUAGE to language,
                     T.UPDATED_AT to Timestamp.now()
-                )
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
             ).await()
             prefs.edit().putString("saved", fingerprint).apply()
             Timber.i("FCMTokenManager: Token saved for user: $userId")
@@ -234,9 +239,45 @@ class FCMTokenManager @Inject constructor(
      * Save FCM token with role information
      */
     suspend fun saveTokenToFirestoreWithRole(userId: String, token: String, role: String) {
+        if (token.isBlank() || userId.isBlank()) {
+            Timber.w("FCMTokenManager: Token or userId is blank, skipping save with role")
+            return
+        }
+        val T = com.example.dutype.firestore.FirestoreSchema.UserTokens
+        val language = LocaleHelper.getLanguage(appContext)
+        val fingerprint = "$userId|$token|$language|$role"
+        val prefs = appContext.getSharedPreferences("fcm_token_state", android.content.Context.MODE_PRIVATE)
+        if (prefs.getString("saved_with_role", null) == fingerprint) return
+        val tokenRef = firestore.collection(T.COLLECTION).document(userId)
+
         try {
-            saveTokenToFirestore(userId, token)
+            tokenRef.set(
+                mapOf(
+                    T.FCM_TOKEN to token,
+                    T.LANGUAGE to language,
+                    T.UPDATED_AT to Timestamp.now(),
+                    "role" to role
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            ).await()
+            prefs.edit()
+                .putString("saved_with_role", fingerprint)
+                .putString("saved", "$userId|$token|$language")
+                .apply()
             Timber.i("FCMTokenManager: Token with role saved for user: $userId, role: $role")
+        } catch (e: FirebaseFirestoreException) {
+            when (e.code) {
+                FirebaseFirestoreException.Code.PERMISSION_DENIED -> {
+                    Timber.w("FCMTokenManager: permission denied saving token with role for user: $userId")
+                }
+                FirebaseFirestoreException.Code.NOT_FOUND -> {
+                    Timber.w("FCMTokenManager: token doc not found during token with role save for user: $userId")
+                }
+                else -> {
+                    Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
+                    throw e
+                }
+            }
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
             throw e

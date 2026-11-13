@@ -33,6 +33,7 @@ interface ComposeServiceEntryPoint {
     fun inAppReviewManager(): com.example.dutype.utils.InAppReviewManager
     fun deepLinkBus(): com.example.dutype.navigation.DeepLinkBus
     fun profileSetupStateManager(): com.example.dutype.state.ProfileSetupStateManager
+    fun fcmTokenManager(): com.example.dutype.services.FCMTokenManager
 
     companion object {
         fun from(context: Context): ComposeServiceEntryPoint =

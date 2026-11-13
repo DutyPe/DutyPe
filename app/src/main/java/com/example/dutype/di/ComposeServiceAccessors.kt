@@ -36,3 +36,11 @@ fun rememberInAppReviewManager(): com.example.dutype.utils.InAppReviewManager {
         ComposeServiceEntryPoint.from(context).inAppReviewManager()
     }
 }
+
+@Composable
+fun rememberFCMTokenManager(): com.example.dutype.services.FCMTokenManager {
+    val context = LocalContext.current
+    return remember(context) {
+        ComposeServiceEntryPoint.from(context).fcmTokenManager()
+    }
+}

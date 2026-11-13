@@ -120,6 +120,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var appConfigRepository: com.example.dutype.repositories.AppConfigRepository
 
+    @Inject
+    lateinit var profileSetupStateManagerLazy: dagger.Lazy<com.example.dutype.state.ProfileSetupStateManager>
+    private val profileSetupStateManager: com.example.dutype.state.ProfileSetupStateManager get() = profileSetupStateManagerLazy.get()
+
     // Activity result launcher kept for the update manager API.
     private val updateResultLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
@@ -685,12 +689,11 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 val user = FirebaseAuth.getInstance().currentUser
                 if (user != null) {
-                    val prefs = applicationContext.getSharedPreferences("fcm_token_state", Context.MODE_PRIVATE)
-                    val lastReg = prefs.getLong("last_reg_ts", 0L)
-                    val now = System.currentTimeMillis()
-                    if (now - lastReg > 24 * 60 * 60 * 1000L) {
-                        fcmTokenManager.registerToken()
-                        prefs.edit().putLong("last_reg_ts", now).apply()
+                    val role = profileSetupStateManager.getUserRole()
+                    when (role) {
+                        com.example.dutype.models.UserRole.EMPLOYER -> fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                        com.example.dutype.models.UserRole.WORKER -> fcmTokenManager.registerTokenWithRole("WORKER")
+                        else -> fcmTokenManager.registerToken()
                     }
                 }
             }.onFailure { error ->

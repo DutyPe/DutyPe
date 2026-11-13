@@ -224,6 +224,7 @@ fun WorkerHomeScreen(
     // mutableState pair previously declared here was dead (never assigned, never read) and was deleted.
     val birthdayService: BirthdayService = com.example.dutype.di.rememberBirthdayService()
     val inAppReviewTriggerService = rememberInAppReviewTriggerService()
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
 
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
@@ -448,14 +449,18 @@ fun WorkerHomeScreen(
         if (isGranted) {
             scope.launch(Dispatchers.IO) {
                 runCatching {
-                    val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
-                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
-                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_WORKERS)
-                    if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
-                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
-                    }
-                }
+                    fcmTokenManager.registerTokenWithRole("WORKER")
+                }.onFailure { Timber.w(it, "Failed to register FCM token for worker after permission") }
             }
+        }
+    }
+
+    // Ensure worker is registered with FCM token and subscribed to worker topics on entry
+    LaunchedEffect(currentUser?.uid) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                fcmTokenManager.registerTokenWithRole("WORKER")
+            }.onFailure { Timber.w(it, "Failed to register FCM token for worker on screen entry") }
         }
     }
 
@@ -1611,13 +1616,8 @@ fun WorkerHomeScreen(
                 }
                 scope.launch(Dispatchers.IO) {
                     runCatching {
-                        val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
-                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
-                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_WORKERS)
-                        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
-                            fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
-                        }
-                    }
+                        fcmTokenManager.registerTokenWithRole("WORKER")
+                    }.onFailure { Timber.w(it, "Failed to register FCM token for worker on enable notifications") }
                 }
             },
             userRole = "worker"

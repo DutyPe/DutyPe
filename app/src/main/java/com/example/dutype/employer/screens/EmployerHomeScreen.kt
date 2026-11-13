@@ -223,6 +223,7 @@ fun EmployerHomeScreen(
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     val reviewTriggerService = rememberInAppReviewTriggerService()
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
 
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
@@ -450,14 +451,18 @@ fun EmployerHomeScreen(
         if (isGranted) {
             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching {
-                    val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
-                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
-                    fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_EMPLOYERS)
-                    if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
-                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
-                    }
-                }
+                    fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                }.onFailure { Timber.w(it, "Failed to register FCM token for employer after permission") }
             }
+        }
+    }
+
+    // Ensure employer is registered with FCM token and subscribed to employer topics on entry
+    LaunchedEffect(employerId) {
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                fcmTokenManager.registerTokenWithRole("EMPLOYER")
+            }.onFailure { Timber.w(it, "Failed to register FCM token for employer on screen entry") }
         }
     }
 
@@ -637,13 +642,8 @@ fun EmployerHomeScreen(
                 }
                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     runCatching {
-                        val fcm = com.google.firebase.messaging.FirebaseMessaging.getInstance()
-                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_ALL_USERS)
-                        fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_EMPLOYERS)
-                        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
-                            fcm.subscribeToTopic(com.example.dutype.services.FCMTokenManager.TOPIC_GUEST_USERS)
-                        }
-                    }
+                        fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                    }.onFailure { Timber.w(it, "Failed to register FCM token for employer on enable notifications") }
                 }
             },
             userRole = "employer"

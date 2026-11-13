@@ -24,9 +24,9 @@ const INBOX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_DIRECT_RECIPIENTS = 50;
 
 function topicFor(preset: Preset, role: TargetRole): string {
-  if (preset === "APP_UPDATE") return "app_updates";
   if (role === "WORKER") return "workers";
   if (role === "EMPLOYER") return "employers";
+  if (preset === "APP_UPDATE") return "app_updates";
   return "all_users";
 }
 
@@ -79,14 +79,84 @@ export async function POST(request: NextRequest) {
   const db = getFirebaseAdminDb();
   try {
     if (recipientIds.length === 0) {
+      const pushTopic = topicFor(preset, role);
       const ref = await db.collection(BROADCASTS).add({
-        title, message, preset, targetRole: role, topic: topicFor(preset, role),
+        title, message, preset, targetRole: role, topic: pushTopic,
         type: preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL",
         ...(deepLink ? { deepLink } : {}),
         ...(translations ? { translations } : {}),
         createdAt: Timestamp.now()
       });
-      return NextResponse.json({ ok: true, campaignId: ref.id, pushTopic: topicFor(preset, role) });
+
+      // Dual delivery: Also deliver in-app inbox & direct push to targeted role users (up to 300)
+      try {
+        let userQuery = db.collection("users").limit(300);
+        if (role === "EMPLOYER" || role === "WORKER") {
+          userQuery = db.collection("users").where("role", "==", role).limit(300);
+        }
+        const userSnap = await userQuery.get();
+        const uids = userSnap.docs.map((d) => d.id);
+
+        if (uids.length > 0) {
+          const now = Date.now();
+          const batch = db.batch();
+          uids.forEach((uid) => {
+            batch.set(db.collection(Notifications.COLLECTION).doc(), {
+              [Notifications.RECIPIENT_ID]: uid,
+              [Notifications.TITLE]: title,
+              [Notifications.BODY]: message,
+              [Notifications.TYPE]: preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL",
+              [Notifications.DATA]: deepLink ? { deepLink } : {},
+              [Notifications.READ]: false,
+              [Notifications.CREATED_AT]: Timestamp.fromMillis(now),
+              [Notifications.EXPIRE_AT]: Timestamp.fromMillis(now + INBOX_TTL_MS)
+            });
+          });
+          await batch.commit();
+
+          const tokenDocs = await db.getAll(...uids.map((uid) => db.collection(UserTokens.COLLECTION).doc(uid)));
+          const fcmTokens = Array.from(new Set(tokenDocs.map((t) => String(t.get(UserTokens.FCM_TOKEN) ?? "")).filter(Boolean)));
+
+          if (fcmTokens.length > 0) {
+            for (let i = 0; i < fcmTokens.length; i += 500) {
+              const chunk = fcmTokens.slice(i, i + 500);
+              await getFirebaseAdminMessaging().sendEachForMulticast({
+                tokens: chunk,
+                notification: { title, body: message },
+                data: {
+                  title,
+                  body: message,
+                  message,
+                  type: preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL",
+                  channel: "high_priority",
+                  channel_id: "high_priority",
+                  priority: "high",
+                  ...(deepLink ? { deepLink } : {})
+                },
+                android: {
+                  priority: "high",
+                  notification: {
+                    channelId: "high_priority",
+                    title,
+                    body: message,
+                    icon: "ic_notification",
+                    color: "#3B82F6",
+                    sound: "default",
+                    clickAction: "OPEN_ACTIVITY",
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                    visibility: "public"
+                  }
+                }
+              });
+            }
+          }
+        }
+      } catch (dualErr) {
+        console.error("Audience broadcast dual-delivery non-fatal error:", dualErr);
+      }
+
+      return NextResponse.json({ ok: true, campaignId: ref.id, pushTopic });
     }
 
     // Specific users: inbox doc + direct push each.
@@ -132,7 +202,6 @@ export async function POST(request: NextRequest) {
             color: "#3B82F6",
             sound: "default",
             clickAction: "OPEN_ACTIVITY",
-            priority: "high",
             defaultSound: true,
             defaultVibrateTimings: true,
             visibility: "public"

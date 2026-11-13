@@ -71,7 +71,6 @@ exports.sendBroadcastNotification = functions
                         color: "#3B82F6",
                         sound: "default",
                         clickAction: "OPEN_ACTIVITY",
-                        priority: "high",
                         defaultSound: true,
                         defaultVibrateTimings: true,
                         visibility: "public",
