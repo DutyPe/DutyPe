@@ -16,7 +16,7 @@ export const runtime = "nodejs";
  *   • Messages to specific users (≤ 50 uids) write each user's inbox doc and push to their token.
  */
 type Preset = "APP_UPDATE" | "MAINTENANCE" | "EMERGENCY" | "GENERAL";
-type TargetRole = "ALL" | "WORKER" | "EMPLOYER";
+type TargetRole = "ALL" | "WORKER" | "EMPLOYER" | "GUEST";
 
 const BROADCASTS = "broadcast_notifications";
 const PLAY_STORE_WEB_URL = "https://play.google.com/store/apps/details?id=com.dutype.app";
@@ -24,6 +24,7 @@ const INBOX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_DIRECT_RECIPIENTS = 50;
 
 function topicFor(preset: Preset, role: TargetRole): string {
+  if (role === "GUEST") return "guest_users";
   if (role === "WORKER") return "workers";
   if (role === "EMPLOYER") return "employers";
   if (preset === "APP_UPDATE") return "app_updates";
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
 
   const preset = (["APP_UPDATE", "MAINTENANCE", "EMERGENCY"].includes(String(body.preset)) ? body.preset : "GENERAL") as Preset;
-  const role = (["WORKER", "EMPLOYER"].includes(String(body.targetRole)) ? body.targetRole : "ALL") as TargetRole;
+  const role = (["WORKER", "EMPLOYER", "GUEST"].includes(String(body.targetRole)) ? body.targetRole : "ALL") as TargetRole;
   const title = String(body.title ?? "").trim().slice(0, 120);
   const message = String(body.message ?? "").trim().slice(0, 500);
   const deepLink = preset === "APP_UPDATE" ? PLAY_STORE_WEB_URL : String(body.deepLink ?? "").trim().slice(0, 300);

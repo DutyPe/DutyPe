@@ -13,6 +13,7 @@ const TOPIC_ALL_USERS = "all_users";
 const TOPIC_WORKERS = "workers";
 const TOPIC_EMPLOYERS = "employers";
 const TOPIC_APP_UPDATES = "app_updates";
+const TOPIC_GUEST_USERS = "guest_users";
 /**
  * Send broadcast notification to all users or specific role
  * Triggered when a document is created in "broadcast_notifications" collection
@@ -20,7 +21,7 @@ const TOPIC_APP_UPDATES = "app_updates";
  * Document fields:
  * - title: string (required)
  * - message: string (required)
- * - topic: string (optional) - "all_users", "workers", "employers", "app_updates"
+ * - topic: string (optional) - "all_users", "workers", "employers", "app_updates", "guest_users"
  *                              defaults to "all_users"
  * - type: string (optional) - notification type for app handling
  */
@@ -45,7 +46,7 @@ exports.sendBroadcastNotification = functions
     const topic = notification.topic || TOPIC_ALL_USERS;
     const type = notification.type || "broadcast";
     // Validate topic
-    const validTopics = [TOPIC_ALL_USERS, TOPIC_WORKERS, TOPIC_EMPLOYERS, TOPIC_APP_UPDATES];
+    const validTopics = [TOPIC_ALL_USERS, TOPIC_WORKERS, TOPIC_EMPLOYERS, TOPIC_APP_UPDATES, TOPIC_GUEST_USERS];
     if (!validTopics.includes(topic)) {
         functions.logger.error(`Invalid topic: ${topic}`);
         await snapshot.ref.update({

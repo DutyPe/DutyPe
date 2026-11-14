@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reEngageInactiveWorkers = exports.remindPendingApplications = exports.remindExpiringJobs = exports.engagementEvening = exports.engagementAfternoon = exports.engagementMorning = void 0;
+exports.reEngageInactiveWorkers = exports.reEngageInactiveDay2 = exports.reEngageInactiveDay1 = exports.remindPendingApplications = exports.remindExpiringJobs = exports.engagementNightReferral = exports.engagementEvening = exports.engagementAfternoon = exports.engagementMorning = void 0;
 /**
  * Scheduled reminders, built to cost the same at 1k or 1M users:
  *
@@ -111,6 +111,18 @@ async function engagement(slot) {
 exports.engagementMorning = schedule("0 9 * * *").onRun(() => engagement("morning"));
 exports.engagementAfternoon = schedule("0 14 * * *").onRun(() => engagement("afternoon"));
 exports.engagementEvening = schedule("0 19 * * *").onRun(() => engagement("evening"));
+/** 20:30 IST: Night viral referral & money earning push to workers and guests. */
+exports.engagementNightReferral = schedule("30 20 * * *").onRun(async () => {
+    if (isQuietHours())
+        return null;
+    const day = Math.floor((Date.now() + IST_OFFSET_MS) / DAY_MS);
+    const ref = notification_i18n_1.SE_REFERRAL_POOL[day % notification_i18n_1.SE_REFERRAL_POOL.length];
+    await Promise.all([
+        sendToTopics("workers", ref.id, ref.deepLink),
+        sendToTopics("guest_users", ref.id, "dutype://refer-earn"),
+    ]);
+    return null;
+});
 // ───────────────────────────── personal reminders ─────────────────────────────
 /** Jobs that expire 23–24 h from now (hourly run ⇒ each job once). */
 exports.remindExpiringJobs = schedule("0 * * * *").onRun(async () => {
@@ -176,6 +188,46 @@ exports.remindPendingApplications = schedule("0 */2 * * *").onRun(async () => {
     })));
     for (let i = 0; i < tasks.length; i += 25)
         await Promise.all(tasks.slice(i, i + 25).map((t) => t()));
+    return null;
+});
+/** Users inactive for 1 day (24-30 hour window ⇒ once per inactive spell). */
+exports.reEngageInactiveDay1 = schedule("0 11 * * *").onRun(async () => {
+    if (isQuietHours())
+        return null;
+    const now = Date.now();
+    const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
+        .where(schema_1.WorkerCards.LAST_ACTIVE_AT, ">=", Timestamp.fromMillis(now - 1 * DAY_MS - 6 * HOUR_MS))
+        .where(schema_1.WorkerCards.LAST_ACTIVE_AT, "<", Timestamp.fromMillis(now - 1 * DAY_MS))
+        .limit(2000)
+        .get();
+    for (let i = 0; i < snap.docs.length; i += 25) {
+        await Promise.all(snap.docs.slice(i, i + 25).map((card) => (0, notify_1.notify)(card.id, {
+            type: "NEW_JOB_ALERT",
+            templateId: "SE_WORKER_INACTIVE_DAY_1",
+            data: { action: "view_jobs" },
+            role: schema_1.Values.Role.WORKER,
+        })));
+    }
+    return null;
+});
+/** Users inactive for 2 days (48-54 hour window ⇒ once per inactive spell). */
+exports.reEngageInactiveDay2 = schedule("0 16 * * *").onRun(async () => {
+    if (isQuietHours())
+        return null;
+    const now = Date.now();
+    const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
+        .where(schema_1.WorkerCards.LAST_ACTIVE_AT, ">=", Timestamp.fromMillis(now - 2 * DAY_MS - 6 * HOUR_MS))
+        .where(schema_1.WorkerCards.LAST_ACTIVE_AT, "<", Timestamp.fromMillis(now - 2 * DAY_MS))
+        .limit(2000)
+        .get();
+    for (let i = 0; i < snap.docs.length; i += 25) {
+        await Promise.all(snap.docs.slice(i, i + 25).map((card) => (0, notify_1.notify)(card.id, {
+            type: "NEW_JOB_ALERT",
+            templateId: "SE_WORKER_INACTIVE_DAY_2",
+            data: { action: "view_jobs" },
+            role: schema_1.Values.Role.WORKER,
+        })));
+    }
     return null;
 });
 /** Workers whose card went quiet exactly 7 days ago (6-hour window ⇒ once per inactive spell). */

@@ -98,6 +98,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.navigation.Routes
+import com.example.dutype.navigation.safeNavigate
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -142,6 +143,26 @@ fun SelectRoleScreen(
 
         var selectedRole by remember { mutableStateOf("WORKER") }
         var showLanguageBottomSheet by remember { mutableStateOf(false) }
+        var isNavigating by remember { mutableStateOf(false) }
+
+        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+) so guests receive engagement notifications
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            Timber.d("SelectRoleScreen: POST_NOTIFICATIONS permission result: $isGranted")
+        }
+
+        LaunchedEffect(Unit) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val currentPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
+                if (currentPermission != PackageManager.PERMISSION_GRANTED) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        }
 
         val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
         val activeLangName = when (LocaleHelper.getLanguage(context)) {
@@ -151,9 +172,14 @@ fun SelectRoleScreen(
         }
 
         fun applyRole(role: String, asGuest: Boolean = true) {
+            if (isNavigating) {
+                Timber.w("SelectRoleScreen: navigation already in progress, debouncing tap")
+                return
+            }
+            isNavigating = true
             Timber.d("🔍 Role selected: $role, asGuest: $asGuest")
             if (role == "SERVICES") {
-                navController.navigate(Routes.SERVICES) {
+                navController.safeNavigate(Routes.SERVICES) {
                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
@@ -174,7 +200,7 @@ fun SelectRoleScreen(
                 }
             }
             if (!asGuest) {
-                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$role")
+                navController.safeNavigate("${Routes.ENHANCED_LOGIN}?role=$role")
             } else if (onRoleSelected != null) {
                 onRoleSelected.invoke(role)
             } else {
@@ -182,7 +208,7 @@ fun SelectRoleScreen(
                     Routes.EMPLOYER_HOME
                 else
                     Routes.WORKER_HOME
-                navController.navigate(dest) {
+                navController.safeNavigate(dest) {
                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
@@ -302,7 +328,11 @@ fun SelectRoleScreen(
 
             Box(modifier = Modifier.cascadeEnter(index = 4)) {
                 ContinueButton(
-                    onClick = { applyRole(selectedRole, asGuest = true) },
+                    onClick = {
+                        if (!isNavigating) {
+                            applyRole(selectedRole, asGuest = true)
+                        }
+                    },
                     accentColor = when (selectedRole) {
                         "WORKER" -> Color(0xFF10B981)
                         "EMPLOYER" -> Color(0xFF2563EB)

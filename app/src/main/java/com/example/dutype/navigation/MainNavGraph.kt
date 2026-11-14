@@ -1029,14 +1029,16 @@ fun RoleSelectionWithNavigation(
 ) {
     val scope = rememberCoroutineScope()
     var selectedRole by remember { mutableStateOf<String?>(null) }
+    var isNavigating by remember { mutableStateOf(false) }
 
     // Auto-redirect already authenticated users so they never get trapped on Role Selection
     val activeUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     LaunchedEffect(activeUser) {
-        if (activeUser != null && selectedRole == null) {
+        if (activeUser != null && selectedRole == null && !isNavigating) {
+            isNavigating = true
             val storedRole = profileCompletionViewModel.getUserRole()
             val targetHome = if (storedRole == com.example.dutype.models.UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
-            navController.navigate(targetHome) {
+            navController.safeNavigate(targetHome) {
                 popUpTo(0) { inclusive = true }
                 launchSingleTop = true
             }
@@ -1074,21 +1076,21 @@ fun RoleSelectionWithNavigation(
                             when (userRole) {
                                 com.example.dutype.models.UserRole.WORKER -> {
                                     Timber.i("Existing user - Worker navigates to WORKER_HOME")
-                                    navController.navigate(Routes.WORKER_HOME) {
+                                    navController.safeNavigate(Routes.WORKER_HOME) {
                                         popUpTo(0) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
                                 com.example.dutype.models.UserRole.EMPLOYER -> {
                                     Timber.i("Existing user - Navigating to EMPLOYER_HOME")
-                                    navController.navigate(Routes.EMPLOYER_HOME) {
+                                    navController.safeNavigate(Routes.EMPLOYER_HOME) {
                                         popUpTo(0) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
                                 else -> {
                                     Timber.i("Fallback - Navigating to WORKER_HOME")
-                                    navController.navigate(Routes.WORKER_HOME) {
+                                    navController.safeNavigate(Routes.WORKER_HOME) {
                                         popUpTo(0) { inclusive = true }
                                         launchSingleTop = true
                                     }
@@ -1104,21 +1106,21 @@ fun RoleSelectionWithNavigation(
                                 when (userRole) {
                                     com.example.dutype.models.UserRole.WORKER -> {
                                         Timber.i("Local profile complete - Worker navigates to WORKER_HOME")
-                                        navController.navigate(Routes.WORKER_HOME) {
+                                        navController.safeNavigate(Routes.WORKER_HOME) {
                                             popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     com.example.dutype.models.UserRole.EMPLOYER -> {
                                         Timber.i("Local profile complete - Navigating to EMPLOYER_HOME")
-                                        navController.navigate(Routes.EMPLOYER_HOME) {
+                                        navController.safeNavigate(Routes.EMPLOYER_HOME) {
                                             popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     else -> {
                                         Timber.i("Fallback - Navigating to WORKER_HOME")
-                                        navController.navigate(Routes.WORKER_HOME) {
+                                        navController.safeNavigate(Routes.WORKER_HOME) {
                                             popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
@@ -1129,21 +1131,21 @@ fun RoleSelectionWithNavigation(
                                 when (userRole) {
                                     com.example.dutype.models.UserRole.WORKER -> {
                                         Timber.i("Profile incomplete - Navigating to PROFILE_SETUP")
-                                        navController.navigate(Routes.PROFILE_SETUP) {
+                                        navController.safeNavigate(Routes.PROFILE_SETUP) {
                                             popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     com.example.dutype.models.UserRole.EMPLOYER -> {
                                         Timber.i("Profile incomplete - Navigating to EMPLOYER_PROFILE_SETUP")
-                                        navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                                        navController.safeNavigate(Routes.EMPLOYER_PROFILE_SETUP) {
                                             popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     else -> {
                                         Timber.i("Fallback - Navigating to PROFILE_SETUP")
-                                        navController.navigate(Routes.PROFILE_SETUP) {
+                                        navController.safeNavigate(Routes.PROFILE_SETUP) {
                                             popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
@@ -1157,21 +1159,21 @@ fun RoleSelectionWithNavigation(
                     when (userRole) {
                         com.example.dutype.models.UserRole.WORKER -> {
                             Timber.i("Fallback: Navigating to PROFILE_SETUP")
-                            navController.navigate(Routes.PROFILE_SETUP) {
+                            navController.safeNavigate(Routes.PROFILE_SETUP) {
                                 popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 launchSingleTop = true
                             }
                         }
                         com.example.dutype.models.UserRole.EMPLOYER -> {
                             Timber.i("Fallback: Navigating to EMPLOYER_PROFILE_SETUP")
-                            navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
+                            navController.safeNavigate(Routes.EMPLOYER_PROFILE_SETUP) {
                                 popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 launchSingleTop = true
                             }
                         }
                         else -> {
                             Timber.i("Fallback: Navigating to PROFILE_SETUP")
-                            navController.navigate(Routes.PROFILE_SETUP) {
+                            navController.safeNavigate(Routes.PROFILE_SETUP) {
                                 popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                                 launchSingleTop = true
                             }
@@ -1184,7 +1186,7 @@ fun RoleSelectionWithNavigation(
                 profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
                 val homeRoute = if (targetRole == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
                 Timber.i("Unauthenticated user selected $role -> navigating directly to $homeRoute")
-                navController.navigate(homeRoute) {
+                navController.safeNavigate(homeRoute) {
                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
@@ -1199,6 +1201,11 @@ fun RoleSelectionWithNavigation(
     SelectRoleScreen(
         navController = navController,
         onRoleSelected = { role ->
+            if (isNavigating) {
+                Timber.w("RoleSelectionWithNavigation: navigation already in progress, debouncing tap")
+                return@SelectRoleScreen
+            }
+            isNavigating = true
             val targetRole = if (role.equals("EMPLOYER", ignoreCase = true)) UserRole.EMPLOYER else UserRole.WORKER
             scope.launch {
                 profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
@@ -1208,7 +1215,7 @@ fun RoleSelectionWithNavigation(
                 // Navigate directly to Home screen based on selected role (Guest mode)
                 val homeRoute = if (targetRole == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
                 Timber.i("Guest user selected $role -> routing directly to $homeRoute")
-                navController.navigate(homeRoute) {
+                navController.safeNavigate(homeRoute) {
                     popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }

@@ -6,7 +6,7 @@ import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDateTime } from "@/lib/firebase/firestore-helpers";
 
 type NotificationPreset = "APP_UPDATE" | "MAINTENANCE" | "EMERGENCY" | "GENERAL";
-type TargetRole = "ALL" | "WORKER" | "EMPLOYER";
+type TargetRole = "ALL" | "WORKER" | "EMPLOYER" | "GUEST";
 
 type NotificationCampaignRow = {
   id: string;
@@ -80,6 +80,10 @@ function formatAudience(targetRole: TargetRole) {
 
   if (targetRole === "EMPLOYER") {
     return "Employers only";
+  }
+
+  if (targetRole === "GUEST") {
+    return "Guests only (Unregistered)";
   }
 
   return "All users";
@@ -206,6 +210,7 @@ export function AdminNotificationsClient() {
               <option value="ALL">All users</option>
               <option value="WORKER">Workers only</option>
               <option value="EMPLOYER">Employers only</option>
+              <option value="GUEST">Guests only (Unregistered)</option>
             </select>
           </label>
 

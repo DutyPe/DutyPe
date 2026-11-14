@@ -633,6 +633,210 @@ export const NOTIFICATION_TEMPLATES: Translations = {
       body: "यह नौकरी अपने आप बंद कर दी गई। कुछ गड़बड़ हुई हो तो नौकरी से शिकायत करें।",
     },
   },
+
+  // ── Smart Engagement: Viral Referrals & Money Earning ───────────
+  SE_REFERRAL_EXTRA_INCOME: {
+    en: {
+      title: "💸 ₹500 extra today? It's sitting in your phone!",
+      body: "Share DutyPe with friends or worker groups. Earn real cash directly into your bank when they join!",
+    },
+    te: {
+      title: "💸 ఈరోజు ₹500 అదనంగా కావాలా? మీ చేతుల్లోనే ఉంది!",
+      body: "మీ స్నేహితులకు DutyPe షేర్ చేయండి. వారు చేరినప్పుడు మీ బ్యాంక్ ఖాతాలో నేరుగా నగదు పొందండి!",
+    },
+    hi: {
+      title: "💸 आज ₹500 एक्स्ट्रा? यह आपके फोन में ही है!",
+      body: "दोस्तों को DutyPe शेयर करें। उनके जुड़ने पर सीधे बैंक खाते में असली कैश पाएं!",
+    },
+  },
+  SE_REFERRAL_VIRAL_EARN: {
+    en: {
+      title: "Someone near you just withdrew ₹350! 🤑",
+      body: "Don't leave money on the table. Your referral link is ready. Share & earn instant cash!",
+    },
+    te: {
+      title: "మీ సమీపంలో ఒకరు ఇప్పుడే ₹350 విత్‌డ్రా చేసుకున్నారు! 🤑",
+      body: "మీరు ఎందుకు ఆలస్యం చేస్తున్నారు? మీ రెఫరల్ లింక్ సిద్ధంగా ఉంది. ఇప్పుడే షేర్ చేసి డబ్బు సంపాదించండి!",
+    },
+    hi: {
+      title: "आपके पास किसी ने अभी ₹350 निकाले! 🤑",
+      body: "पैसे क्यों छोड़ रहे हैं? आपका रेफरल लिंक तैयार है। शेयर करें और तुरंत कैश कमाएं!",
+    },
+  },
+  SE_SPIN_WIN_REWARD: {
+    en: {
+      title: "🎰 Your Daily Spin is waiting!",
+      body: "Spin the wheel today to win instant wallet cash and exciting bonus rewards!",
+    },
+    te: {
+      title: "🎰 మీ రోజువారీ స్పిన్ సిద్ధంగా ఉంది!",
+      body: "నేడు వీల్ తిప్పి తక్షణ వాలెట్ నగదు మరియు ఆకర్షణీయమైన బహుమతులు గెలుచుకోండి!",
+    },
+    hi: {
+      title: "🎰 आपका डेली स्पिन तैयार है!",
+      body: "आज ही पहिया घुमाएं और सीधे वॉलेट में कैश बोनस जीतें!",
+    },
+  },
+
+  // ── Smart Engagement: Swiggy/Zomato style Viral & Emotional Worker copy ─
+  SE_WORKER_INACTIVE_DAY_1: {
+    en: {
+      title: "We miss you! 🥺 14 new jobs just posted nearby",
+      body: "Employers are actively calling candidates right now. 1 tap could change your month!",
+    },
+    te: {
+      title: "మేము మిమ్మల్ని మిస్ అవుతున్నాం! 🥺 సమీపంలో 14 కొత్త ఉద్యోగాలు",
+      body: "యజమానులు ఇప్పుడే అభ్యర్థులకు కాల్ చేస్తున్నారు. ఒక్క క్లిక్‌తో మీ ఆదాయాన్ని పెంచుకోండి!",
+    },
+    hi: {
+      title: "आपकी याद आ रही है! 🥺 पास में 14 नई नौकरियां आई हैं",
+      body: "नियोक्ता अभी उम्मीदवारों को कॉल कर रहे हैं। 1 क्लिक में नौकरी पाएं!",
+    },
+  },
+  SE_WORKER_INACTIVE_DAY_2: {
+    en: {
+      title: "Still searching for work? ⏳ Don't let someone else take it!",
+      body: "3 employers checked profiles matching your skills today. Open DutyPe and apply before vacancies close!",
+    },
+    te: {
+      title: "ఇంకా పని కోసం చూస్తున్నారా? ⏳ ఇతరులు దక్కించుకోకముందే చూసుకోండి!",
+      body: "ఈరోజు మీ నైపుణ్యాలకు సరిపోయే ఉద్యోగాలు వచ్చాయి. DutyPe ఓపెన్ చేసి ఇప్పుడే దరఖాస్తు చేసుకోండి!",
+    },
+    hi: {
+      title: "अभी भी काम की तलाश में हैं? ⏳ मौका हाथ से न जाने दें!",
+      body: "3 नियोक्ताओं ने आज आपकी प्रोफाइल जैसी नौकरियां पोस्ट की हैं। तुरंत अप्लाई करें!",
+    },
+  },
+  SE_WORKER_EMOTIONAL_SALARY: {
+    en: {
+      title: "Salary day feels great, right? 💵",
+      body: "Highest paying jobs in your city are hiring today. Daily payment & monthly options available!",
+    },
+    te: {
+      title: "జీతం రోజు సంతోషం వేరు కదా! 💵",
+      body: "మీ నగరంలో అత్యధిక జీతం ఇచ్చే ఉద్యోగాలు అందుబాటులో ఉన్నాయి. రోజువారీ లేదా నెలవారీ పేమెంట్!",
+    },
+    hi: {
+      title: "सैलरी का दिन सबसे अच्छा लगता है ना? 💵",
+      body: "आपके शहर में सबसे ज्यादा सैलरी वाली नौकरियां आज हायर कर रही हैं। तुरंत अप्लाई करें!",
+    },
+  },
+  SE_WORKER_HUNGRY_FOR_WORK: {
+    en: {
+      title: "Hungry for extra income this week? 🍕",
+      body: "New high-demand jobs posted in your area today. Don't wait until tomorrow — apply now!",
+    },
+    te: {
+      title: "ఈ వారం అదనపు ఆదాయం కావాలా? 🍕",
+      body: "ఈరోజే మీ ప్రాంతంలో అత్యధిక డిమాండ్ ఉన్న ఉద్యోగాలు పోస్ట్ అయ్యాయి. రేపటి వరకు ఆగకండి — ఇప్పుడే దరఖాస్తు చేసుకోండి!",
+    },
+    hi: {
+      title: "इस हफ्ते एक्स्ट्रा इनकम चाहिए? 🍕",
+      body: "आपके इलाके में ज्यादा डिमांड वाली नौकरियां आज आई हैं। कल तक का इंतजार न करें — तुरंत अप्लाई करें!",
+    },
+  },
+  SE_WORKER_CLOSING_SOON: {
+    en: {
+      title: "Tick tock! ⏰ Top jobs close applications tonight",
+      body: "5 employers near you are finishing their hiring today. Send your application in 10 seconds!",
+    },
+    te: {
+      title: "సమయం మించిపోతోంది! ⏰ ఈ రాత్రికే టాప్ ఉద్యోగాల దరఖాస్తులు ముగుస్తాయి",
+      body: "మీ దగ్గరలోని 5 గురు యజమానులు నేటితో రిక్రూట్‌మెంట్ ముగిస్తున్నారు. 10 సెకన్లలో మీ దరఖాస్తు పంపండి!",
+    },
+    hi: {
+      title: "समय कम है! ⏰ बेहतरीन नौकरियों के आवेदन आज रात बंद हो रहे हैं",
+      body: "आपके पास के 5 नियोक्ता आज हायरिंग पूरी कर रहे हैं। 10 सेकंड में अपना आवेदन भेजें!",
+    },
+  },
+
+  // ── Smart Engagement: Inactivity & Urgency for Employers ───────
+  SE_EMPLOYER_INACTIVE_DAY_1: {
+    en: {
+      title: "Need reliable workers today? ⚡",
+      body: "Top rated, verified workers near your location are active and ready to join immediately!",
+    },
+    te: {
+      title: "ఈరోజే నమ్మకమైన వర్కర్లు కావాలా? ⚡",
+      body: "మీ పరిసరాల్లోని ఉత్తమ, వెరిఫైడ్ వర్కర్లు సిద్ధంగా ఉన్నారు. వెంటనే సంప్రదించండి!",
+    },
+    hi: {
+      title: "आज भरोसेमंद कारीगर/वर्कर चाहिए? ⚡",
+      body: "आपके पास वेरिफाइड वर्कर तुरंत काम शुरू करने के लिए तैयार हैं!",
+    },
+  },
+  SE_EMPLOYER_INACTIVE_DAY_2: {
+    en: {
+      title: "Don't let your work stop! 👷‍♂️",
+      body: "Finding the right staff takes seconds on DutyPe. Post a job or explore available workers now!",
+    },
+    te: {
+      title: "మీ పనిని ఆగిపోనివ్వకండి! 👷‍♂️",
+      body: "DutyPeలో సరైన సిబ్బందిని కనుగొనడం చాలా సులభం. ఇప్పుడే జాబ్ పోస్ట్ చేయండి లేదా వర్కర్లను చూడండి!",
+    },
+    hi: {
+      title: "अपना काम रुकने न दें! 👷‍♂️",
+      body: "DutyPe पर सही स्टाफ ढूंढना बेहद आसान है। अभी जॉब पोस्ट करें या वर्कर खोजें!",
+    },
+  },
+  SE_EMPLOYER_FAST_HIRE: {
+    en: {
+      title: "Why wait 3 days when DutyPe hires in 10 minutes? ⚡",
+      body: "Post your instant hiring requirement and get connected to nearby verified workers immediately.",
+    },
+    te: {
+      title: "DutyPeలో 10 నిమిషాల్లో వర్కర్లు దొరుకుతుంటే 3 రోజులు ఎందుకు ఆగడం? ⚡",
+      body: "మీ అత్యవసర అవసరాన్ని పోస్ట్ చేసి సమీపంలోని వెరిఫైడ్ వర్కర్లను తక్షణమే పొందండి.",
+    },
+    hi: {
+      title: "जब DutyPe पर 10 मिनट में काम होता है तो 3 दिन क्यों रुकना? ⚡",
+      body: "अपनी अर्जेंट जरूरत पोस्ट करें और तुरंत पास के वेरिफाइड वर्करों से जुड़ें।",
+    },
+  },
+
+  // ── Smart Engagement: Guest Inactivity & Retention ───────────
+  SE_GUEST_INACTIVE_DAY_1: {
+    en: {
+      title: "₹50 Welcome reward is waiting for you! 🎁",
+      body: "Complete your free profile in 30 seconds and start exploring direct hiring jobs!",
+    },
+    te: {
+      title: "మీ కోసం ₹50 స్వాగత బహుమతి వేచి ఉంది! 🎁",
+      body: "కేవలం 30 సెకన్లలో ఉచిత ప్రొఫైల్ పూర్తి చేసి నేరుగా ఉద్యోగాలు పొందండి!",
+    },
+    hi: {
+      title: "आपके लिए ₹50 वेलकम रिवॉर्ड तैयार है! 🎁",
+      body: "30 सेकंड में अपनी फ्री प्रोफाइल बनाएं और तुरंत जॉब पाना शुरू करें!",
+    },
+  },
+  SE_GUEST_INACTIVE_DAY_2: {
+    en: {
+      title: "Did you forget your DutyPe account? 🥺",
+      body: "1,200+ workers and employers connected this week. Don't miss out on earning opportunities!",
+    },
+    te: {
+      title: "మీ DutyPe ఖాతాను మర్చిపోయారా? 🥺",
+      body: "ఈ వారం 1,200+ మంది పని పొందారు. ఆదాయ అవకాశాలను కోల్పోకండి, ఇప్పుడే సైన్ ఇన్ చేయండి!",
+    },
+    hi: {
+      title: "क्या आप DutyPe भूल गए? 🥺",
+      body: "इस हफ्ते 1,200+ लोगों को काम मिला। तुरंत साइन इन करें और कमाई शुरू करें!",
+    },
+  },
+  SE_GUEST_INSTANT_CASH: {
+    en: {
+      title: "Your friends are earning on DutyPe! 💰",
+      body: "Why stay behind? Sign in with 1 tap, complete your profile, and explore thousands of local jobs.",
+    },
+    te: {
+      title: "మీ స్నేహితులు DutyPeలో సంపాదిస్తున్నారు! 💰",
+      body: "మీరు ఎందుకు వెనుకబడాలి? ఒక్క ట్యాప్‌తో సైన్ ఇన్ చేసి వేలాది స్థానిక ఉద్యోగాలను చూడండి.",
+    },
+    hi: {
+      title: "आपके दोस्त DutyPe पर कमा रहे हैं! 💰",
+      body: "आप पीछे क्यों रहें? 1 टैप में साइन इन करें और हज़ारों लोकल नौकरियां देखें।",
+    },
+  },
 };
 
 /** Maps a worker smart-engagement scheduled-template index → template id. */
@@ -644,8 +848,14 @@ export const SE_WORKER_POOL: Array<{ id: keyof typeof NOTIFICATION_TEMPLATES; de
   { id: "SE_WORKER_NEW_COMPANIES", deepLink: "dutype://jobs" },
   { id: "SE_WORKER_NEXT_JOB", deepLink: "dutype://jobs" },
   { id: "SE_WORKER_GOOD_MORNING", deepLink: "dutype://jobs", timeOfDay: "morning" },
+  { id: "SE_WORKER_EMOTIONAL_SALARY", deepLink: "dutype://jobs", timeOfDay: "morning" },
+  { id: "SE_WORKER_HUNGRY_FOR_WORK", deepLink: "dutype://jobs", timeOfDay: "afternoon" },
+  { id: "SE_WORKER_CLOSING_SOON", deepLink: "dutype://jobs", timeOfDay: "evening" },
   { id: "SE_WORKER_EVENING_CHECK", deepLink: "dutype://my-jobs", timeOfDay: "evening" },
   { id: "SE_WORKER_UNREAD_UPDATES", deepLink: "dutype://notifications" },
+  { id: "SE_REFERRAL_EXTRA_INCOME", deepLink: "dutype://refer-earn" },
+  { id: "SE_REFERRAL_VIRAL_EARN", deepLink: "dutype://refer-earn" },
+  { id: "SE_SPIN_WIN_REWARD", deepLink: "dutype://spin-and-win" },
 ];
 
 export const SE_EMPLOYER_POOL: Array<{ id: keyof typeof NOTIFICATION_TEMPLATES; deepLink: string; timeOfDay?: "morning" | "afternoon" | "evening" }> = [
@@ -656,6 +866,7 @@ export const SE_EMPLOYER_POOL: Array<{ id: keyof typeof NOTIFICATION_TEMPLATES; 
   { id: "SE_EMPLOYER_PERFORMANCE", deepLink: "dutype://employer/home" },
   { id: "SE_EMPLOYER_TIP_SALARY", deepLink: "dutype://employer/post-job" },
   { id: "SE_EMPLOYER_HIRE_FASTER", deepLink: "dutype://employer/home" },
+  { id: "SE_EMPLOYER_FAST_HIRE", deepLink: "dutype://employer/post-job" },
   { id: "SE_EMPLOYER_FOLLOWUP", deepLink: "dutype://employer/applications" },
   { id: "SE_EMPLOYER_RESPOND_24H", deepLink: "dutype://employer/applications" },
 ];
@@ -670,6 +881,15 @@ export const SE_GUEST_POOL: Array<{ id: keyof typeof NOTIFICATION_TEMPLATES; tim
   { id: "SE_GUEST_EVENING_PROFILE", timeOfDay: "evening" },
   { id: "SE_GUEST_EVENING_TOMORROW", timeOfDay: "evening" },
   { id: "SE_GUEST_EVENING_THOUSANDS", timeOfDay: "evening" },
+  { id: "SE_GUEST_INACTIVE_DAY_1", timeOfDay: "morning" },
+  { id: "SE_GUEST_INACTIVE_DAY_2", timeOfDay: "afternoon" },
+  { id: "SE_GUEST_INSTANT_CASH", timeOfDay: "evening" },
+];
+
+export const SE_REFERRAL_POOL: Array<{ id: keyof typeof NOTIFICATION_TEMPLATES; deepLink: string }> = [
+  { id: "SE_REFERRAL_EXTRA_INCOME", deepLink: "dutype://refer-earn" },
+  { id: "SE_REFERRAL_VIRAL_EARN", deepLink: "dutype://refer-earn" },
+  { id: "SE_SPIN_WIN_REWARD", deepLink: "dutype://spin-and-win" },
 ];
 
 export function normalizeLocale(value: unknown): SupportedLocale {
