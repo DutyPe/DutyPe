@@ -78,9 +78,15 @@
 -dontwarn coil.**
 
 # -----------------------------------------------------------------------------
-# Kotlin Coroutines & Jetpack Compose Stability & Node Architecture
+# Kotlin Coroutines & Jetpack Compose Stability & Node Architecture (R8 Full Mode Safe)
 # -----------------------------------------------------------------------------
 -keepclassmembers class * extends kotlin.coroutines.jvm.internal.SuspendLambda {
+    *** invokeSuspend(...);
+}
+-keepclassmembers class * extends kotlin.coroutines.jvm.internal.ContinuationImpl {
+    *** invokeSuspend(...);
+}
+-keepclassmembers class * extends kotlin.coroutines.jvm.internal.BaseContinuationImpl {
     *** invokeSuspend(...);
 }
 -keep class kotlin.coroutines.Continuation { *; }
