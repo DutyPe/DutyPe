@@ -1763,18 +1763,33 @@ private fun PostJobSinglePageForm(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    val freeUsed = c.employerProfile?.freeJobPostsUsed ?: 0
+                    val isFirstFree = freeUsed < 1
+                    val normalCredits = c.employerSubscription?.normalCredits ?: 0
                     Text(
-                        text = "🎉",
+                        text = if (isFirstFree) "🎉" else if (normalCredits > 0) "⚡" else "ℹ️",
                         fontSize = 18.sp
                     )
                     Column {
                         Text(
-                            text = "100% Free Job Posting",
+                            text = if (isFirstFree) {
+                                "1st Job Post 100% Free"
+                            } else if (normalCredits > 0) {
+                                "$normalCredits Job Credits Available"
+                            } else {
+                                "Employer Plans (From ₹19)"
+                            },
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF065F46)
                         )
                         Text(
-                            text = "Post unlimited jobs on DutyPe completely free of charge!",
+                            text = if (isFirstFree) {
+                                "Post your 1st job on DutyPe completely free of charge!"
+                            } else if (normalCredits > 0) {
+                                "Post your vacancy and connect with verified candidates directly"
+                            } else {
+                                "Upgrade from just ₹19 to post jobs and unlock candidates"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF047857)
                         )

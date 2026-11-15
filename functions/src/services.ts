@@ -203,10 +203,10 @@ function partnerFeeOf(config: ServicesConfig, jobsCompleted: number, b: Firebase
     Number(b[BK.DISCOUNT] || 0), Number(b[BK.COMMISSION_PCT] || 0));
 }
 
-/** Per-partner credit need for [b] (DutyPe Free Growth Campaign: zero credits needed). */
+/** Per-partner credit need for [b] (depends on whether it would be their free first job). */
 async function creditsNeededFor(b: admin.firestore.DocumentData): Promise<(jobsCompleted: number) => number> {
-  // DutyPe 100% Free Campaign: Partners require 0 prepaid credits to accept jobs
-  return () => 0;
+  const config = await loadConfig();
+  return (jobs) => requiredCredits(b, partnerFeeOf(config, jobs, b));
 }
 
 /** Paise a partner must hold to accept (before extras). */
@@ -1573,10 +1573,9 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
       const price = Number(d[BK.PRICE] || 0);
       const fee = Number(d[BK.BOOKING_FEE] || 0);
       const discount = Number(d[BK.DISCOUNT] || 0);
-      // DutyPe 100% Free Campaign: Zero commission and zero platform fee taken from partners
-      const take = 0;
+      const take = takePaise(price, extras, fee, discount, feeOf(d, config.partnerFee), Number(d[BK.COMMISSION_PCT] || 0));
       const total = Math.max(0, price - discount) + extras;
-      const balance = Number(p.get(SP.CREDITS_PAISE) || 0);
+      const balance = Number(p.get(SP.CREDITS_PAISE) || 0) - take;
       tx.update(ref, {
         [BK.STATUS]: BS.COMPLETED,
         [BK.EXTRAS]: extras,

@@ -4873,7 +4873,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             val isLowBal = !isFirstFree && walletBal < reqFee
 
                             Text(
-                                text = "🎁 100% Free Booking • Pay technician after service only",
+                                text = "⚡ Platform fee ₹9 • Pay technician after service only",
                                 color = Color(0xFF15803D),
                                 fontSize = 11.sp,
                                 maxLines = 1,

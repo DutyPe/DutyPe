@@ -269,8 +269,36 @@ export const getWorkerContact = onCallSecured({}, async (raw: unknown, context) 
   const existingUnlock = await unlockRef.get();
 
   if (!existingUnlock.exists) {
-    // DutyPe 100% Free Campaign: Contact unlock is 100% free for all employers!
-    // No contact deductions or subscription plan required.
+    const empDoc = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
+    const S = EmployerProfiles.Subscription;
+    const sub = (empDoc.get(EmployerProfiles.SUBSCRIPTION) || {}) as Record<string, unknown>;
+    const subStatus = String(sub[S.STATUS] || "NONE");
+    const credits = (sub[S.CREDITS] || {}) as Record<string, unknown>;
+    const instantCredits = Number(credits[S.CREDITS_INSTANT] || 0);
+    const expiresAt = (sub[S.EXPIRES_AT] as admin.firestore.Timestamp)?.toMillis?.() ?? Number(sub[S.EXPIRES_AT] || 0);
+
+    const isSubActive = subStatus === "ACTIVE" && (expiresAt === 0 || expiresAt > Date.now());
+    const hasUnlocks = isSubActive && instantCredits > 0;
+
+    // Check if employer is on 1st free job trial and has free trial candidate contacts (up to 5 free unlocks)
+    const freePostsUsed = Number(empDoc.get(EmployerProfiles.FREE_JOB_POSTS_USED) || 0);
+    const freeUnlocksUsed = Number(empDoc.get("freeUnlocksUsed") || 0);
+    const hasFreeTrialUnlocks = freePostsUsed <= 1 && freeUnlocksUsed < 5;
+
+    if (!hasUnlocks && !hasFreeTrialUnlocks) {
+      fail("failed-precondition", "No contact unlocks remaining. Please subscribe to an Employer Plan (from just ₹19) to unlock worker contacts.");
+    }
+
+    if (hasUnlocks) {
+      await empDoc.ref.update({
+        [`${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`]: FieldValue.increment(-1),
+      });
+    } else {
+      await empDoc.ref.update({
+        freeUnlocksUsed: FieldValue.increment(1),
+      });
+    }
+
     await unlockRef.set({
       [EmployerProfiles.Unlocks.JOB_ID]: jobId,
       [EmployerProfiles.Unlocks.CREATED_AT]: Timestamp.now(),
