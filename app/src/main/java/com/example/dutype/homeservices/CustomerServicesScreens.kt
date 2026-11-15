@@ -5699,11 +5699,11 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         }
                     }
                 }
-                val platformFee = if (service.price <= 149) 9 else 19
+                val platformFee = 9
                 val isFirstFree = (q?.firstBooking == true) || (q?.discountLabel?.contains("first", ignoreCase = true) == true)
 
                 PriceLine("Service Price", service.price)
-                PriceLine("Platform Fee (100% Free 🎉)", 0)
+                PriceLine("Platform Fee", platformFee)
                 if (discount > 0 && !isFirstFree) DiscountLine(q?.discountLabel.orEmpty().ifBlank { "Discount Applied" }, discount)
                 HorizontalDivider(color = SvcLine.bg())
                 PriceLine(stringResource(R.string.svc_price_total), total, bold = true)
@@ -7949,16 +7949,11 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
 
             SvcSection {
                 Text(stringResource(R.string.svc_bill), fontWeight = FontWeight.Bold, color = SvcInk.fg())
-                val platformFee = if (b.price <= 149) 9 else 19
+                val platformFee = 9
                 val isFirstBookingFree = b.bookingFee == 0
 
                 PriceLine("Service Price", b.price)
-                if (isFirstBookingFree) {
-                    PriceLine("Platform Fee (1st Booking Free 🎉)", platformFee, struck = true)
-                    PriceLine("Platform Fee Paid", 0)
-                } else {
-                    PriceLine("Platform Fee (DutyPe Fee)", b.bookingFee)
-                }
+                PriceLine("Platform Fee (DutyPe Fee)", b.bookingFee.takeIf { it > 0 } ?: platformFee)
                 if (b.discount > 0 && !isFirstBookingFree) DiscountLine(b.discountLabel.ifBlank { "Discount Applied" }, b.discount)
                 if (b.extras > 0) PriceLine(stringResource(R.string.svc_extras, b.extras, b.extrasNote), b.extras)
                 if (b.status == BookingStatus.CANCELLED && b.cancellationFee > 0) {

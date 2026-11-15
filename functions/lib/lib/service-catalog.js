@@ -372,9 +372,7 @@ function findService(config, serviceId) {
     return (_b = (_a = config.services.find((x) => x.id.toLowerCase() === targetId && x.active !== false)) !== null && _a !== void 0 ? _a : config.services.find((x) => x.id.toLowerCase() === sid && x.active !== false)) !== null && _b !== void 0 ? _b : null;
 }
 function platformFeeFor(price) {
-    if (price <= 149)
-        return 9;
-    return 19;
+    return 9;
 }
 function bookingFeeFor(config, service) {
     return platformFeeFor(service.price);

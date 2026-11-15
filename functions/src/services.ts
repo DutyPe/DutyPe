@@ -515,9 +515,9 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     }
   }
 
-  // DutyPe 100% Free Campaign: Completely free booking for all customers (zero platform fee)
-  const isFreePlatformFee = true;
-  const effectiveBookingFee = 0;
+  // DutyPe Platform Fee: Flat ₹9 for all doorstep home services
+  const isFreePlatformFee = false;
+  const effectiveBookingFee = 9;
 
   // Ensure customer has a closed-loop micro-wallet
   await ensureWallet(uid);

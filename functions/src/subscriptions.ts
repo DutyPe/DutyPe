@@ -29,10 +29,14 @@ export interface PlanRow {
  * SubscriptionRepository). ₹99 has no AI; ₹199 and ₹299 include DutyPe AI.
  */
 export const DEFAULT_PLANS: PlanRow[] = [
-  { id: "single_job_49", pricePaise: 4_900, jobs: 1, instantUnlocks: 10, validityDays: 30, ai: true, aiPerDay: 10 },
-  { id: "launch_pass_199", pricePaise: 19_900, jobs: 5, instantUnlocks: 50, validityDays: 45, ai: true, aiPerDay: 50 },
-  { id: "business_pro_499", pricePaise: 49_900, jobs: 20, instantUnlocks: 100, validityDays: 45, ai: true, aiPerDay: 500 },
-  { id: "basic_99", pricePaise: 9_900, jobs: 3, instantUnlocks: 25, validityDays: 30, ai: true, aiPerDay: 25 },
+  { id: "single_job_19", pricePaise: 1_900, jobs: 1, instantUnlocks: 10, validityDays: 30, ai: true, aiPerDay: 10 },
+  { id: "basic_49", pricePaise: 4_900, jobs: 3, instantUnlocks: 25, validityDays: 30, ai: true, aiPerDay: 25 },
+  { id: "launch_pass_99", pricePaise: 9_900, jobs: 8, instantUnlocks: 50, validityDays: 45, ai: true, aiPerDay: 50 },
+  { id: "business_pro_499", pricePaise: 49_900, jobs: 30, instantUnlocks: 100, validityDays: 45, ai: true, aiPerDay: 500 },
+  // Earlier plans, kept so pending payments for them can still be verified.
+  { id: "single_job_49", pricePaise: 4_900, jobs: 1, instantUnlocks: 10, validityDays: 30, ai: true, aiPerDay: 10, legacy: true },
+  { id: "launch_pass_199", pricePaise: 19_900, jobs: 5, instantUnlocks: 50, validityDays: 45, ai: true, aiPerDay: 50, legacy: true },
+  { id: "basic_99", pricePaise: 9_900, jobs: 3, instantUnlocks: 25, validityDays: 30, ai: true, aiPerDay: 25, legacy: true },
   // Earlier plans, kept so pending payments for them can still be verified.
   { id: "pro_ai_199", pricePaise: 19_900, jobs: 6, instantUnlocks: 15, validityDays: 45, ai: true, aiPerDay: 100, legacy: true },
   { id: "max_ai_299", pricePaise: 29_900, jobs: 12, instantUnlocks: 40, validityDays: 45, ai: true, aiPerDay: 300, legacy: true },

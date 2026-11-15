@@ -1828,6 +1828,7 @@ fun EmployerTrialCountdownCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            val isFirstJobFree = freeJobPostsUsed < 1
             // Top Badge Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1835,7 +1836,7 @@ fun EmployerTrialCountdownCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF059669),
+                    color = if (isFirstJobFree) Color(0xFF059669) else Color(0xFF2563EB),
                     modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     Row(
@@ -1843,10 +1844,18 @@ fun EmployerTrialCountdownCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = when {
-                                isTelugu -> "🎉 యజమానులందరికీ 100% ఉచితం"
-                                isHindi -> "🎉 सभी नियोक्ताओं के लिए 100% मुफ्त"
-                                else -> "🎉 100% FREE FOR ALL EMPLOYERS"
+                            text = if (isFirstJobFree) {
+                                when {
+                                    isTelugu -> "🎉 1వ ఉద్యోగ పోస్ట్ 100% ఉచితం"
+                                    isHindi -> "🎉 पहली नौकरी पोस्ट 100% मुफ्त"
+                                    else -> "🎉 1ST JOB POST 100% FREE"
+                                }
+                            } else {
+                                when {
+                                    isTelugu -> "⚡ ప్లాన్‌లు కేవలం ₹19 నుండి ప్రారంభం"
+                                    isHindi -> "⚡ प्लान्स केवल ₹19 से शुरू"
+                                    else -> "⚡ PLANS START AT JUST ₹19"
+                                }
                             },
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -1860,44 +1869,68 @@ fun EmployerTrialCountdownCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = when {
-                    isTelugu -> "అపరిమిత ఉద్యోగాలను ఉచితంగా పోస్ట్ చేయండి"
-                    isHindi -> "असीमित नौकरियां मुफ्त में पोस्ट करें"
-                    else -> "Post Unlimited Jobs for Free"
+                text = if (isFirstJobFree) {
+                    when {
+                        isTelugu -> "మీ మొదటి ఉద్యోగాన్ని ఉచితంగా పోస్ట్ చేయండి"
+                        isHindi -> "अपनी पहली नौकरी मुफ्त में पोस्ट करें"
+                        else -> "Post Your First Job for Free"
+                    }
+                } else {
+                    when {
+                        isTelugu -> "డ్యూటీపే ప్లాన్‌లతో వేగంగా నియామకం చేయండి"
+                        isHindi -> "ड्यूटीपे प्लान्स के साथ तेजी से भर्ती करें"
+                        else -> "Hire Faster with DutyPe Plans"
+                    }
                 },
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF065F46).fg()
+                color = if (isFirstJobFree) Color(0xFF065F46).fg() else Color(0xFF1E3A8A).fg()
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = when {
-                    isTelugu -> "జీరో ఛార్జీలు, ఎలాంటి దాచిన రుసుములు లేవు. మీకు కావలసినన్ని ఖాళీలను పోస్ట్ చేయండి మరియు స్థానిక అభ్యర్థులతో వెంటనే కనెక్ట్ అవ్వండి."
-                    isHindi -> "जीरो पोस्टिंग शुल्क, कोई छुपा शुल्क नहीं। जितनी चाहें उतनी रिक्तियां पोस्ट करें और तुरंत स्थानीय उम्मीदवारों से जुड़ें।"
-                    else -> "Zero posting charges, zero hidden fees. Post as many vacancies as you need and connect with verified local candidates instantly."
+                text = if (isFirstJobFree) {
+                    when {
+                        isTelugu -> "జీరో ఛార్జీలు, ఎలాంటి దాచిన రుసుములు లేవు. మీ ఖాళీని పోస్ట్ చేయండి మరియు స్థానిక అభ్యర్థులతో వెంటనే కనెక్ట్ అవ్వండి."
+                        isHindi -> "जीरो पोस्टिंग शुल्क, कोई छुपा शुल्क नहीं। अपनी रिक्ति पोस्ट करें और तुरंत स्थानीय उम्मीदवारों से जुड़ें।"
+                        else -> "Zero posting charges, zero hidden fees. Post your vacancy and connect with verified local candidates instantly."
+                    }
+                } else {
+                    when {
+                        isTelugu -> "మీ 1 ఉచిత ఉద్యోగ పోస్ట్ ఉపయోగించబడింది. కేవలం ₹19 నుండి ప్రారంభమయ్యే ప్లాన్‌లతో ఉద్యోగాలు పోస్ట్ చేయండి మరియు అభ్యర్థుల నంబర్‌లను నేరుగా పొందండి."
+                        isHindi -> "आपकी 1 मुफ्त नौकरी पोस्ट उपयोग की जा चुकी है। केवल ₹19 से शुरू प्लान्स के साथ तुरंत भर्ती करें।"
+                        else -> "Your 1 free job post is used. Upgrade from just ₹19 to post jobs and contact verified candidates directly."
+                    }
                 },
                 fontSize = 12.5.sp,
-                color = Color(0xFF047857).fg(),
+                color = if (isFirstJobFree) Color(0xFF047857).fg() else Color(0xFF1D4ED8).fg(),
                 lineHeight = 17.sp
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             Button(
-                onClick = onPostJobClick,
+                onClick = if (isFirstJobFree) onPostJobClick else onUpgradeClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669))
+                colors = ButtonDefaults.buttonColors(containerColor = if (isFirstJobFree) Color(0xFF059669) else Color(0xFF2563EB))
             ) {
                 Text(
-                    text = when {
-                        isTelugu -> "ఉచితంగా పోస్ట్ చేయండి"
-                        isHindi -> "मुफ्त नौकरी पोस्ट करें"
-                        else -> "Post Unlimited Jobs Free"
+                    text = if (isFirstJobFree) {
+                        when {
+                            isTelugu -> "1వ ఉద్యోగాన్ని ఉచితంగా పోస్ట్ చేయండి"
+                            isHindi -> "1st नौकरी मुफ्त पोस्ट करें"
+                            else -> "Post 1st Job Free"
+                        }
+                    } else {
+                        when {
+                            isTelugu -> "ప్లాన్‌లను చూడండి (₹19 నుండి)"
+                            isHindi -> "प्लान्स देखें (₹19 से शुरू)"
+                            else -> "View Plans (From ₹19)"
+                        }
                     },
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,

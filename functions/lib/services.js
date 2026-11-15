@@ -475,9 +475,9 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
             (0, input_1.fail)("permission-denied", "This coupon code is exclusive to another user account.");
         }
     }
-    // DutyPe 100% Free Campaign: Completely free booking for all customers (zero platform fee)
-    const isFreePlatformFee = true;
-    const effectiveBookingFee = 0;
+    // DutyPe Platform Fee: Flat ₹9 for all doorstep home services
+    const isFreePlatformFee = false;
+    const effectiveBookingFee = 9;
     // Ensure customer has a closed-loop micro-wallet
     await (0, referrals_1.ensureWallet)(uid);
     const ref = db.collection(BK.COLLECTION).doc();

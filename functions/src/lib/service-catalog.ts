@@ -587,8 +587,7 @@ export function findService(config: ServicesConfig, serviceId: string): ServiceI
 }
 
 export function platformFeeFor(price: number): number {
-  if (price <= 149) return 9;
-  return 19;
+  return 9;
 }
 
 export function bookingFeeFor(config: ServicesConfig, service: ServiceItem): number {

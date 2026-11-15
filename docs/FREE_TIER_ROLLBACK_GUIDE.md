@@ -1,12 +1,13 @@
-# DutyPe 100% Free Campaign & Rollback Guide
+# DutyPe Monetization & Pricing Guide (Post-Rollback)
 
-> **Context**: To accelerate marketplace liquidity and maximize job postings, applicant matching, and home service bookings, DutyPe is set to **100% Free** across all core services until the platform surpasses **50+ employer hires per day**.
-> 
-> - **Job Postings**: Unlimited free postings for all employers (no ₹49 subscriptions, no 48h expiration cuts, no credit limits).
-> - **Applicant Unlocks**: Free and instant viewing/calling of applicant contact numbers.
-> - **Instant / Urgent Needs**: Unlimited free emergency worker requests.
-> - **Home Services**: Free service booking for customers (zero platform fee / booking fee) and zero commission / zero credit deductions from service partners.
-> - **Service Notifications**: Nearest partner dispatch strictly restricted to within 5–10 km of the booking location.
+> **Status (Nov 2026)**: Monetization re-enabled for employers with introductory aggressive micro-pricing:
+> - **Job Postings**: 1st Job Post is **100% Free**. Subsequent job postings require an active Employer Plan:
+>   - **Single Job**: **₹19** (was ₹49, crossed-out MRP ₹149 — 87% OFF) • 1 job post & 10 unlocks.
+>   - **Starter Basic**: **₹49** (was ₹99, crossed-out MRP ₹299 — 84% OFF) • 3 job posts & 25 unlocks.
+>   - **Launch Pass**: **₹99** (was ₹199, crossed-out MRP ₹499 — 80% OFF) • 8 job posts & 50 unlocks.
+>   - **Business Pro**: **₹499** (crossed-out MRP ₹1299 — 62% OFF) • 30 job posts & 100 unlocks.
+> - **Home Services**: Flat **₹9 Platform Fee** for all doorstep services.
+> - **Worker Side**: **100% Free** forever. Workers are never charged upfront. Monetized via AdMob rewarded ads and Spin & Win.
 
 ---
 

@@ -876,9 +876,14 @@ private class PostJobController(
         val isTrialExpired = profile?.isTrialExpired == true
         val hasFreePosts = freeUsed < 1 && !isTrialExpired
 
-        // DutyPe 100% Free Campaign: Unlimited free job postings for all employers!
-        // No subscription paywall or credit blocking is enforced.
-        Timber.d("DUTYPE FREE CAMPAIGN: Employer posting job with unlimited free tier")
+        val hasActiveSub = sub?.isActive == true && normalCredits > 0
+        val canPost = hasActiveSub || referralCredits > 0 || isUnlimited || grantedFreeJobs > 0 || hasFreePosts
+
+        if (!canPost) {
+            Timber.w("CREDIT CHECK: Employer has no job posting credits left (freeUsed=$freeUsed)")
+            showNoCreditsDialog = true
+            return
+        }
 
         ensureCompanyName(uid, displayName)
 
@@ -1653,7 +1658,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
             )
 
             Text(
-                text = "You've used your 1 free job post. Choose an Employer Plan to post more jobs and find candidates instantly.",
+                text = "You've used your 1 free job post. Choose an Employer Plan (from just ₹19) to post more jobs and find candidates instantly.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center

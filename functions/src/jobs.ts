@@ -183,12 +183,35 @@ function chargeForPost(
   tx: admin.firestore.Transaction, employer: Employer, quota: admin.firestore.DocumentSnapshot, nowMs: number,
   config?: JobPostingConfig,
 ): Charge {
-  // DutyPe 100% Free Campaign: Unlimited free job postings for all employers!
-  // No subscription required, zero charges. Track usage count for analytics.
-  tx.update(employer.ref, {
-    [EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
-  });
-  return "free";
+  const S = EmployerProfiles.Subscription;
+  const sub = obj(employer.data[EmployerProfiles.SUBSCRIPTION]);
+  const expiresAt = sub[S.EXPIRES_AT] instanceof Timestamp ? (sub[S.EXPIRES_AT] as admin.firestore.Timestamp).toMillis() : 0;
+  const active = sub[S.STATUS] === "ACTIVE" && (expiresAt === 0 || expiresAt > nowMs);
+  const normalCredits = Number(obj(sub[S.CREDITS])[S.CREDITS_NORMAL] || 0);
+  if (active && normalCredits > 0) {
+    tx.update(employer.ref, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));
+    return "credit";
+  }
+  if (referralPostsLeft(employer.data, nowMs) > 0) {
+    useReferralPost(tx, employer.ref);
+    return "referral";
+  }
+  const grantedFree = Number(employer.data["grantedFreeJobPosts"] || 0);
+  if (grantedFree > 0) {
+    tx.update(employer.ref, {
+      grantedFreeJobPosts: FieldValue.increment(-1),
+      [EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+    });
+    return "free";
+  }
+  const freeUsed = Number(employer.data[EmployerProfiles.FREE_JOB_POSTS_USED] || 0);
+  if (freeUsed < 1) {
+    tx.update(employer.ref, {
+      [EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+    });
+    return "free";
+  }
+  fail("resource-exhausted", "Your 1 free job post has been used. Please subscribe to an Employer Plan (from just ₹19) to post more jobs & contact workers.");
 }
 
 interface TodayPost { title: string; category: string; lat: number; lng: number; status: string }

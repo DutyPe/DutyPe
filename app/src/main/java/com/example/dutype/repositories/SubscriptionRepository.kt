@@ -96,7 +96,7 @@ class SubscriptionRepository @Inject constructor(
             .get().await().get("plans") as? List<Map<String, Any?>>
         val fetched = rows.orEmpty().mapNotNull { row -> (row["id"] as? String)?.let { Plan.fromMap(it, row) } }.filterNot { it.legacy }
         
-        // Ensure all 4 standard plans (₹49, ₹99, ₹199, ₹499) are ALWAYS present in the exact order
+        // Ensure all 4 standard plans (₹19, ₹49, ₹99, ₹499) are ALWAYS present in the exact order
         val defaultMap = DEFAULT_PLANS.associateBy { it.id }
         val mergedStandard = DEFAULT_PLANS.map { def ->
             fetched.find { it.id == def.id } ?: def
@@ -232,10 +232,10 @@ class SubscriptionRepository @Inject constructor(
     private companion object {
         /** Same as the server's DEFAULT_PLANS (functions/src/subscriptions.ts): ₹99 without AI, ₹199 / ₹299 with DutyPe AI. */
         val DEFAULT_PLANS = listOf(
-            Plan("single_job_49", "Single Job", 4_900, 1, 10, 30, "1 job post & 10 worker contact unlocks • DutyPe AI", "Instant Hire", ai = true, aiPerDay = 10),
-            Plan("basic_99", "Starter Basic", 9_900, 3, 25, 30, "3 job posts & 25 worker contact unlocks • DutyPe AI", "Value Pack", ai = true, aiPerDay = 25),
-            Plan("launch_pass_199", "Launch Pass", 19_900, 5, 50, 45, "5 verified hires + 50 worker contact unlocks • 45 Days • Liri AI", "Most Popular", ai = true, aiPerDay = 50),
-            Plan("business_pro_499", "Business Pro", 49_900, 20, 100, 45, "20 job posts + 100 unlocks • 45 Days • Liri AI Pro", "Best Value", ai = true, aiPerDay = 500)
+            Plan("single_job_19", "Single Job", 1_900, 1, 10, 30, "1 job post & 10 worker contact unlocks • DutyPe AI", "Instant Hire", ai = true, aiPerDay = 10),
+            Plan("basic_49", "Starter Basic", 4_900, 3, 25, 30, "3 job posts & 25 worker contact unlocks • DutyPe AI", "Value Pack", ai = true, aiPerDay = 25),
+            Plan("launch_pass_99", "Launch Pass", 9_900, 8, 50, 45, "8 verified hires + 50 worker contact unlocks • 45 Days • Liri AI", "Most Popular", ai = true, aiPerDay = 50),
+            Plan("business_pro_499", "Business Pro", 49_900, 30, 100, 45, "30 job posts + 100 unlocks • 45 Days • Liri AI Pro", "Best Value", ai = true, aiPerDay = 500)
         )
     }
 }
