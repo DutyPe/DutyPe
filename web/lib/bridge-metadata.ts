@@ -17,8 +17,9 @@ export function getBridgeMetadata(input: BridgeMetaInput): Metadata {
     },
     description: input.description,
     keywords,
-    alternates: {
-      canonical: "/"
+    robots: {
+      index: false,
+      follow: false
     },
     openGraph: {
       title: input.title,

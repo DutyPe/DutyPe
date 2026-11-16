@@ -4,6 +4,9 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms of Service | DutyPe",
   description: "Terms and conditions of use for DutyPe job marketplace and on-demand home services platform.",
+  alternates: {
+    canonical: "/terms"
+  }
 };
 
 export default function TermsOfServicePage() {

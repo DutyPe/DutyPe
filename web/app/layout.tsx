@@ -41,9 +41,6 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/apple-icon.png"
   },
-  alternates: {
-    canonical: "/"
-  },
   openGraph: {
     title: "DutyPe",
     description: siteMeta.description,

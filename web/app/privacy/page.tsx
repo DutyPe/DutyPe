@@ -4,6 +4,9 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy | DutyPe",
   description: "Official Privacy Policy for DutyPe - Hyperlocal Job Marketplace & Home Services Platform.",
+  alternates: {
+    canonical: "/privacy"
+  }
 };
 
 export default function PrivacyPolicyPage() {

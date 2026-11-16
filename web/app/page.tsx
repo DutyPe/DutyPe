@@ -35,6 +35,9 @@ export const metadata: Metadata = {
     title: "DutyPe - Find Daily Wage Work, Warehouse Jobs & Same-Day Pay Near You",
     description: "Find verified daily wage work, same-day warehouse placement, and instant local helper gigs near you. Direct hiring with 0% commission.",
     type: "website"
+  },
+  alternates: {
+    canonical: "/"
   }
 };
 
