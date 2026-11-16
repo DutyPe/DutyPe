@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import adminApp from "firebase-admin";
 
 import { getAdminActor, logAdminAudit, requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
@@ -12,7 +13,7 @@ export const runtime = "nodejs";
 /**
  * Dedicated server-side admin endpoint to settle withdrawals immediately.
  * POST /api/admin/referrals/settle
- * Body: { withdrawalId: string, status: "COMPLETED" | "PROCESSING" | "FAILED", txnRef?: string, failureReason?: string }
+ * Body: { withdrawalId: string, status: "COMPLETED" | "PROCESSING" | "FAILED" | "ADJUST", txnRef?: string, failureReason?: string, newAmount?: number, adjustReason?: string }
  */
 export async function POST(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request, RateLimitTiers.FINANCIAL);
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const outcome = await db.runTransaction(async (tx) => {
+      // 1. Initial read: check withdrawal document
       const wSnap = await tx.get(withdrawalRef);
       if (!wSnap.exists) {
         throw new Error("Withdrawal request not found");
@@ -77,7 +79,9 @@ export async function POST(request: NextRequest) {
       const uid = String(wSnap.get(Withdrawals.UID) || "");
       const amountPaise = Number(wSnap.get(Withdrawals.AMOUNT_PAISE) || 0);
 
-      // If adjusting the amount (e.g. removing an invalid milestone/bug bonus)
+      // --- STRICT FIRESTORE INVARIANT: ALL READS MUST OCCUR BEFORE ALL WRITES ---
+
+      // CASE A: ADJUST AMOUNT
       if (nextStatus === "ADJUST") {
         const newPaise = Math.round((newAmountRupees ?? 0) * 100);
         if (newPaise <= 0 || newPaise > amountPaise) {
@@ -85,14 +89,17 @@ export async function POST(request: NextRequest) {
         }
         const diffPaise = amountPaise - newPaise;
 
+        const withLedgerRef = db.collection(WalletLedger.COLLECTION).doc(`withdrawal_${withdrawalId}`);
+        // READ BEFORE ANY WRITES
+        const withLedgerSnap = await tx.get(withLedgerRef);
+
+        // NOW EXECUTE WRITES
         tx.update(withdrawalRef, {
           [Withdrawals.AMOUNT_PAISE]: newPaise,
           [Withdrawals.FAILURE_REASON]: failureReason,
           adjustedAt: Timestamp.now(),
         });
 
-        const withLedgerRef = db.collection(WalletLedger.COLLECTION).doc(`withdrawal_${withdrawalId}`);
-        const withLedgerSnap = await tx.get(withLedgerRef);
         if (withLedgerSnap.exists) {
           tx.update(withLedgerRef, {
             [WalletLedger.AMOUNT_PAISE]: -newPaise,
@@ -113,25 +120,27 @@ export async function POST(request: NextRequest) {
         return { uid, amountPaise: newPaise, alreadySettled: false, status: "PENDING", note: failureReason };
       }
 
-      const updateData: Record<string, unknown> = {
-        [Withdrawals.STATUS]: nextStatus,
-        ...(txnRef ? { [Withdrawals.TXN_REF]: txnRef } : {}),
-        ...(failureReason ? { [Withdrawals.FAILURE_REASON]: failureReason } : {}),
-        ...(nextStatus !== "PROCESSING" ? { [Withdrawals.PROCESSED_AT]: Timestamp.now() } : {}),
-      };
-
-      tx.update(withdrawalRef, updateData);
-
-      // If failed, refund the money back to the wallet
+      // CASE B: FAILED WITHDRAWAL (REFUND BACK TO WALLET)
       if (nextStatus === "FAILED") {
         const refundEventId = `refund_${withdrawalId}`;
         const walletRef = db.collection(Wallets.COLLECTION).doc(uid);
         const ledgerRef = db.collection(WalletLedger.COLLECTION).doc(refundEventId);
 
+        // READ ALL DOCUMENTS BEFORE ANY WRITES
         const [walletSnap, ledgerSnap] = await Promise.all([
           tx.get(walletRef),
           tx.get(ledgerRef),
         ]);
+
+        // NOW EXECUTE WRITES
+        const updateData: Record<string, unknown> = {
+          [Withdrawals.STATUS]: nextStatus,
+          ...(txnRef ? { [Withdrawals.TXN_REF]: txnRef } : {}),
+          ...(failureReason ? { [Withdrawals.FAILURE_REASON]: failureReason } : {}),
+          [Withdrawals.PROCESSED_AT]: Timestamp.now(),
+        };
+
+        tx.update(withdrawalRef, updateData);
 
         if (!ledgerSnap.exists) {
           const currentBalance = Number(walletSnap.get(Wallets.BALANCE_PAISE) || 0);
@@ -156,7 +165,19 @@ export async function POST(request: NextRequest) {
             [WalletLedger.CREATED_AT]: Timestamp.now(),
           });
         }
+
+        return { uid, amountPaise, alreadySettled: false, status: nextStatus, note: failureReason };
       }
+
+      // CASE C: COMPLETED OR PROCESSING (NO EXTRA READS REQUIRED)
+      const updateData: Record<string, unknown> = {
+        [Withdrawals.STATUS]: nextStatus,
+        ...(txnRef ? { [Withdrawals.TXN_REF]: txnRef } : {}),
+        ...(failureReason ? { [Withdrawals.FAILURE_REASON]: failureReason } : {}),
+        ...(nextStatus !== "PROCESSING" ? { [Withdrawals.PROCESSED_AT]: Timestamp.now() } : {}),
+      };
+
+      tx.update(withdrawalRef, updateData);
 
       return { uid, amountPaise, alreadySettled: false, status: nextStatus, note: failureReason };
     });
@@ -183,17 +204,41 @@ export async function POST(request: NextRequest) {
           ? `Your referral earnings withdrawal of ₹${outcome.amountPaise / 100} has been paid via UPI. Ref: ${txnRef}`
           : nextStatus === "ADJUST"
           ? `Your withdrawal request was adjusted to ₹${outcome.amountPaise / 100}. Reason: ${failureReason}`
-          : `Your withdrawal of ₹${outcome.amountPaise / 100} could not be processed (${failureReason}). Please check your balance and request again.`;
+          : `Your withdrawal of ₹${outcome.amountPaise / 100} could not be processed (${failureReason}). Please check your UPI ID and request again.`;
 
       await notifCol.add({
         userId: outcome.uid,
-        type: "PAYMENT",
+        recipientId: outcome.uid,
         title,
+        body: message,
         message,
+        type: "PAYMENT",
         data: { withdrawalId, status: nextStatus, txnRef, note: failureReason },
         read: false,
         createdAt: Timestamp.now(),
       }).catch(() => {});
+
+      // Send push notification if token available
+      try {
+        const tokenDoc = await db.collection("user_tokens").doc(outcome.uid).get();
+        const token = tokenDoc.get("fcmToken");
+        if (token && typeof token === "string") {
+          await adminApp.messaging().send({
+            token,
+            notification: {
+              title,
+              body: message,
+            },
+            data: {
+              type: "PAYMENT",
+              withdrawalId,
+              status: nextStatus,
+            },
+          });
+        }
+      } catch {
+        // Push notification is best-effort
+      }
     }
 
     return NextResponse.json({
