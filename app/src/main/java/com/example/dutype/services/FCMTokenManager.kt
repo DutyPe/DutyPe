@@ -43,6 +43,12 @@ class FCMTokenManager @Inject constructor(
         private const val MAX_RETRIES = 3
         // Backoff delays in ms: attempt 1 → 1 s, attempt 2 → 2 s, attempt 3 → 4 s
         private val BACKOFF_MS = longArrayOf(1_000L, 2_000L, 4_000L)
+
+        private const val PREFS_NAME = "fcm_token_state"
+        private const val KEY_SAVED_WITH_ROLE = "saved_with_role_v3"
+        private const val KEY_SAVED = "saved_v3"
+        private const val KEY_LAST_SYNC_TIME = "last_sync_timestamp_v3"
+        private const val RESYNC_INTERVAL_MS = 24 * 60 * 60 * 1000L // 24 hours
     }
 
     /**
@@ -193,8 +199,8 @@ class FCMTokenManager @Inject constructor(
     fun unsubscribeFromLanguageTopicPublic(baseTopic: String) = unsubscribeFromLanguageTopic(baseTopic)
 
     /**
-     * Saves user_tokens/{uid} {fcmToken, language, updatedAt}. Skips the write when the same token
-     * and language were already saved for this user (a write per app start adds up at 1M users).
+     * Saves user_tokens/{uid} {fcmToken, language, updatedAt} and users/{uid}.fcmToken.
+     * Skips writing only if the same fingerprint was synced within the last 24 hours.
      */
     suspend fun saveTokenToFirestore(userId: String, token: String) {
         if (token.isBlank() || userId.isBlank()) {
@@ -204,8 +210,10 @@ class FCMTokenManager @Inject constructor(
         val T = com.example.dutype.firestore.FirestoreSchema.UserTokens
         val language = LocaleHelper.getLanguage(appContext)
         val fingerprint = "$userId|$token|$language"
-        val prefs = appContext.getSharedPreferences("fcm_token_state", android.content.Context.MODE_PRIVATE)
-        if (prefs.getString("saved", null) == fingerprint) return
+        val prefs = appContext.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val lastSync = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
+        val isFresh = (System.currentTimeMillis() - lastSync) < RESYNC_INTERVAL_MS
+        if (prefs.getString(KEY_SAVED, null) == fingerprint && isFresh) return
         val tokenRef = firestore.collection(T.COLLECTION).document(userId)
 
         try {
@@ -217,7 +225,10 @@ class FCMTokenManager @Inject constructor(
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
-            prefs.edit().putString("saved", fingerprint).apply()
+            prefs.edit()
+                .putString(KEY_SAVED, fingerprint)
+                .putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis())
+                .apply()
             Timber.i("FCMTokenManager: Token saved for user: $userId")
         } catch (e: FirebaseFirestoreException) {
             when (e.code) {
@@ -257,8 +268,10 @@ class FCMTokenManager @Inject constructor(
         val T = com.example.dutype.firestore.FirestoreSchema.UserTokens
         val language = LocaleHelper.getLanguage(appContext)
         val fingerprint = "$userId|$token|$language|$role"
-        val prefs = appContext.getSharedPreferences("fcm_token_state", android.content.Context.MODE_PRIVATE)
-        if (prefs.getString("saved_with_role", null) == fingerprint) return
+        val prefs = appContext.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val lastSync = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
+        val isFresh = (System.currentTimeMillis() - lastSync) < RESYNC_INTERVAL_MS
+        if (prefs.getString(KEY_SAVED_WITH_ROLE, null) == fingerprint && isFresh) return
         val tokenRef = firestore.collection(T.COLLECTION).document(userId)
 
         try {
@@ -272,8 +285,9 @@ class FCMTokenManager @Inject constructor(
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
             prefs.edit()
-                .putString("saved_with_role", fingerprint)
-                .putString("saved", "$userId|$token|$language")
+                .putString(KEY_SAVED_WITH_ROLE, fingerprint)
+                .putString(KEY_SAVED, "$userId|$token|$language")
+                .putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis())
                 .apply()
             Timber.i("FCMTokenManager: Token with role saved for user: $userId, role: $role")
         } catch (e: FirebaseFirestoreException) {
@@ -319,7 +333,7 @@ class FCMTokenManager @Inject constructor(
                 .document(userId)
                 .delete()
                 .await()
-            appContext.getSharedPreferences("fcm_token_state", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+            appContext.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).edit().clear().apply()
             com.example.dutype.jobs.PlaceRepository.clearUrgentTopic(appContext)
 
             Timber.i("FCMTokenManager: Token removed for user: $userId")

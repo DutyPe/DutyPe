@@ -94,6 +94,8 @@ export function AdminNotificationsClient() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState<NotificationFormState>(initialForm);
 
   const expectedType = useMemo(() => (
@@ -136,6 +138,8 @@ export function AdminNotificationsClient() {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
+    setWarning(null);
+    setSuccessMsg(null);
 
     try {
       const recipientIds = form.recipientIds
@@ -157,9 +161,15 @@ export function AdminNotificationsClient() {
         })
       });
 
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; warning?: string; pushed?: number; recipientCount?: number };
       if (!response.ok) {
         throw new Error(payload.error || "Failed to broadcast notification.");
+      }
+
+      if (payload.warning) {
+        setWarning(payload.warning);
+      } else {
+        setSuccessMsg(`Notification sent successfully! (Pushed to ${payload.pushed ?? 0} devices)`);
       }
 
       await loadCampaigns();
@@ -256,14 +266,32 @@ export function AdminNotificationsClient() {
           </label>
 
           <label className="editor-form-wide">
-            <span>Specific user IDs (optional, overrides audience)</span>
+            <span>Specific user IDs or 10-digit Phone Numbers (optional, overrides audience)</span>
             <textarea
               value={form.recipientIds}
               onChange={(event) => setForm((current) => ({ ...current, recipientIds: event.target.value }))}
-              placeholder="Paste comma- or newline-separated user IDs to send to specific users only."
+              placeholder="Paste comma- or newline-separated user IDs or 10-digit phone numbers (e.g. 8019151847)."
               rows={3}
             />
           </label>
+
+          {warning && (
+            <div style={{ padding: "12px 16px", borderRadius: "8px", background: "rgba(245, 158, 11, 0.15)", border: "1px solid #F59E0B", color: "#F59E0B", fontSize: "14px", lineHeight: 1.5 }}>
+              ⚠️ <strong>Warning:</strong> {warning}
+            </div>
+          )}
+
+          {error && (
+            <div style={{ padding: "12px 16px", borderRadius: "8px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid #EF4444", color: "#EF4444", fontSize: "14px", lineHeight: 1.5 }}>
+              ❌ <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {successMsg && (
+            <div style={{ padding: "12px 16px", borderRadius: "8px", background: "rgba(34, 197, 94, 0.15)", border: "1px solid #22C55E", color: "#22C55E", fontSize: "14px", lineHeight: 1.5 }}>
+              ✅ <strong>Success:</strong> {successMsg}
+            </div>
+          )}
 
           <div className="editor-form-actions">
             <button type="submit" className="button" disabled={submitting}>

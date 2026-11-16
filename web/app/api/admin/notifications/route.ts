@@ -79,14 +79,94 @@ export async function POST(request: NextRequest) {
 
   const db = getFirebaseAdminDb();
   try {
-    if (recipientIds.length === 0) {
+    // Resolve recipient IDs (supports Auth UIDs and 10-digit phone numbers like 8019151847 or +918019151847)
+    const resolvedUids: string[] = [];
+    for (const rawId of recipientIds) {
+      const clean = rawId.trim();
+      if (!clean) continue;
+      const digits = clean.replace(/\D/g, "");
+      if ((clean.startsWith("+") && digits.length >= 10) || digits.length === 10) {
+        const last10 = digits.slice(-10);
+        const phoneVariants = [`+91${last10}`, last10, `91${last10}`];
+        let foundUid: string | null = null;
+        for (const p of phoneVariants) {
+          const snap = await db.collection("users").where("phoneNumber", "==", p).limit(1).get();
+          if (!snap.empty) { foundUid = snap.docs[0].id; break; }
+          const snap2 = await db.collection("users").where("phone", "==", p).limit(1).get();
+          if (!snap2.empty) { foundUid = snap2.docs[0].id; break; }
+        }
+        if (foundUid) {
+          resolvedUids.push(foundUid);
+        } else {
+          resolvedUids.push(clean);
+        }
+      } else {
+        resolvedUids.push(clean);
+      }
+    }
+    const targetRecipientUids = Array.from(new Set(resolvedUids));
+
+    if (targetRecipientUids.length === 0) {
       const pushTopic = topicFor(preset, role);
+      const fcmMessaging = getFirebaseAdminMessaging();
+
+      // Direct FCM topic dispatch: Immediate background delivery without depending on Cloud Function triggers
+      const topicMsg = {
+        topic: pushTopic,
+        notification: { title, body: message },
+        data: {
+          title,
+          body: message,
+          message,
+          type: preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL",
+          targetRole: role,
+          channel: "high_priority",
+          channel_id: "high_priority",
+          priority: "high",
+          ...(deepLink ? { deepLink } : {})
+        },
+        android: {
+          priority: "high" as const,
+          notification: {
+            channelId: "high_priority",
+            title,
+            body: message,
+            icon: "ic_notification",
+            color: "#3B82F6",
+            sound: "default",
+            clickAction: "OPEN_ACTIVITY",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+            visibility: "public" as const
+          }
+        }
+      };
+
+      let baseMsgId: string | null = null;
+      try {
+        baseMsgId = await fcmMessaging.send(topicMsg);
+        console.log(`Audience broadcast sent directly to topic ${pushTopic}:`, baseMsgId);
+      } catch (fcmErr) {
+        console.error(`Failed direct FCM topic send to ${pushTopic}:`, fcmErr);
+      }
+
+      // Also fan out to language-suffixed topics (en, te, hi) so devices subscribed to workers_te or all_users_te receive it
+      const langTopics = [`${pushTopic}_en`, `${pushTopic}_te`, `${pushTopic}_hi`];
+      for (const lt of langTopics) {
+        try {
+          await fcmMessaging.send({ ...topicMsg, topic: lt });
+        } catch (_) {}
+      }
+
       const ref = await db.collection(BROADCASTS).add({
         title, message, preset, targetRole: role, topic: pushTopic,
         type: preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL",
+        status: "sent",
+        ...(baseMsgId ? { fcmMessageIds: { default: baseMsgId } } : {}),
         ...(deepLink ? { deepLink } : {}),
         ...(translations ? { translations } : {}),
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
+        sentAt: Timestamp.now()
       });
 
       // Dual delivery: Also deliver in-app inbox & direct push to targeted role users (up to 300)
@@ -169,12 +249,12 @@ export async function POST(request: NextRequest) {
 
     // Specific users: inbox doc + direct push each.
     const now = Date.now();
-    const tokenDocs = await db.getAll(...recipientIds.map((uid) => db.collection(UserTokens.COLLECTION).doc(uid)));
-    const userDocs = await db.getAll(...recipientIds.map((uid) => db.collection("users").doc(uid)));
+    const tokenDocs = await db.getAll(...targetRecipientUids.map((uid) => db.collection(UserTokens.COLLECTION).doc(uid)));
+    const userDocs = await db.getAll(...targetRecipientUids.map((uid) => db.collection("users").doc(uid)));
 
     const notifType = preset === "APP_UPDATE" ? "APP_UPDATE" : "GENERAL";
     const batch = db.batch();
-    recipientIds.forEach((uid) => batch.set(db.collection(Notifications.COLLECTION).doc(), {
+    targetRecipientUids.forEach((uid) => batch.set(db.collection(Notifications.COLLECTION).doc(), {
       [Notifications.RECIPIENT_ID]: uid,
       [Notifications.TITLE]: title,
       [Notifications.BODY]: message,
@@ -184,30 +264,20 @@ export async function POST(request: NextRequest) {
       [Notifications.CREATED_AT]: Timestamp.fromMillis(now),
       [Notifications.EXPIRE_AT]: Timestamp.fromMillis(now + INBOX_TTL_MS)
     }));
-    batch.set(db.collection(BROADCASTS).doc(), {
-      title,
-      message,
-      preset,
-      targetRole: "USERS",
-      recipientCount: recipientIds.length,
-      status: "sent",
-      topic: "direct_users",
-      createdAt: Timestamp.fromMillis(now)
-    });
-    await batch.commit();
 
     const fcmTokens = Array.from(new Set(
-      recipientIds.map((_, idx) => {
+      targetRecipientUids.map((_, idx) => {
         const t1 = String(tokenDocs[idx]?.get(UserTokens.FCM_TOKEN) ?? "").trim();
         const t2 = String(userDocs[idx]?.get("fcmToken") ?? "").trim();
         return t1 || t2;
       }).filter(Boolean)
     ));
 
+    let pushedCount = 0;
     if (fcmTokens.length) {
       for (let i = 0; i < fcmTokens.length; i += 500) {
         const chunk = fcmTokens.slice(i, i + 500);
-        await getFirebaseAdminMessaging().sendEachForMulticast({
+        const res = await getFirebaseAdminMessaging().sendEachForMulticast({
           tokens: chunk,
           notification: { title, body: message },
           data: {
@@ -236,17 +306,32 @@ export async function POST(request: NextRequest) {
             }
           }
         });
+        pushedCount += res.successCount;
       }
     }
 
+    batch.set(db.collection(BROADCASTS).doc(), {
+      title,
+      message,
+      preset,
+      targetRole: "USERS",
+      recipientCount: targetRecipientUids.length,
+      status: pushedCount > 0 ? "sent" : (fcmTokens.length > 0 ? "failed" : "no_tokens"),
+      topic: "direct_users",
+      createdAt: Timestamp.fromMillis(now),
+      sentAt: Timestamp.fromMillis(now),
+      ...(pushedCount > 0 ? { pushedCount } : {})
+    });
+    await batch.commit();
+
     const warning = fcmTokens.length === 0
-      ? "Notice: Recipient has no registered FCM device token in user_tokens or users. In-app inbox was delivered, but system push cannot be delivered until the user opens the updated app to sync their device token."
-      : undefined;
+      ? "Notice: Recipient user has no registered FCM device token in the database. In-app inbox notification was saved, but system background push could not be delivered to the phone tray until the user opens the updated app to sync their token."
+      : (pushedCount === 0 ? "Notice: FCM push attempted but failed to deliver to the device token." : undefined);
 
     return NextResponse.json({
       ok: true,
-      recipientCount: recipientIds.length,
-      pushed: fcmTokens.length,
+      recipientCount: targetRecipientUids.length,
+      pushed: pushedCount,
       ...(warning ? { warning } : {})
     });
   } catch (error) {
