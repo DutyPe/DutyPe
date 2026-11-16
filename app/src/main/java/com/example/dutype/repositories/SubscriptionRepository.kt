@@ -94,15 +94,14 @@ class SubscriptionRepository @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val rows = firestore.collection(AppConfig.COLLECTION).document(AppConfig.DOC_SUBSCRIPTION_PLANS)
             .get().await().get("plans") as? List<Map<String, Any?>>
-        val fetched = rows.orEmpty().mapNotNull { row -> (row["id"] as? String)?.let { Plan.fromMap(it, row) } }.filterNot { it.legacy }
-        
-        // Ensure all 4 standard plans (₹19, ₹49, ₹99, ₹499) are ALWAYS present in the exact order
-        val defaultMap = DEFAULT_PLANS.associateBy { it.id }
-        val mergedStandard = DEFAULT_PLANS.map { def ->
+        val fetched = rows.orEmpty()
+            .mapNotNull { row -> (row["id"] as? String)?.let { Plan.fromMap(it, row) } }
+            .filterNot { it.legacy || it.id in LEGACY_PLAN_IDS }
+
+        // The active offered plans are strictly the 4 standard plans: ₹19, ₹49, ₹99, ₹499
+        DEFAULT_PLANS.map { def ->
             fetched.find { it.id == def.id } ?: def
         }
-        val customOthers = fetched.filter { it.id !in defaultMap.keys }
-        mergedStandard + customOthers
     }.getOrElse {
         Timber.w(it, "subscription plans read failed")
         DEFAULT_PLANS
@@ -230,7 +229,19 @@ class SubscriptionRepository @Inject constructor(
     }
 
     private companion object {
-        /** Same as the server's DEFAULT_PLANS (functions/src/subscriptions.ts): ₹99 without AI, ₹199 / ₹299 with DutyPe AI. */
+        val LEGACY_PLAN_IDS = setOf(
+            "single_job_49",
+            "basic_99",
+            "launch_pass_199",
+            "pro_ai_199",
+            "max_ai_299",
+            "single_49",
+            "starter_99",
+            "growth_149",
+            "premium_299"
+        )
+
+        /** The 4 active plans: ₹19, ₹49, ₹99, ₹499 */
         val DEFAULT_PLANS = listOf(
             Plan("single_job_19", "Single Job", 1_900, 1, 10, 30, "1 job post & 10 worker contact unlocks • DutyPe AI", "Instant Hire", ai = true, aiPerDay = 10),
             Plan("basic_49", "Starter Basic", 4_900, 3, 25, 30, "3 job posts & 25 worker contact unlocks • DutyPe AI", "Value Pack", ai = true, aiPerDay = 25),

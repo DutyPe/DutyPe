@@ -130,6 +130,10 @@ data class Plan(
                 "business_pro_499" -> "Best Value"
                 else -> ""
             }
+            val isLegacyId = id in setOf(
+                "single_job_49", "basic_99", "launch_pass_199",
+                "pro_ai_199", "max_ai_299", "single_49", "starter_99", "growth_149", "premium_299"
+            )
             return Plan(
                 id = id,
                 name = (map["name"] as? String)?.takeIf { it.isNotBlank() } ?: defaultName,
@@ -139,7 +143,7 @@ data class Plan(
                 validityDays = (map["validityDays"] as? Number)?.toInt() ?: 30,
                 description = map["description"] as? String ?: "",
                 tag = (map["tag"] as? String)?.takeIf { it.isNotBlank() } ?: defaultTag,
-                ai = map["ai"] == true || id in setOf("single_job_19", "single_job_49", "basic_49", "basic_99", "launch_pass_99", "launch_pass_199", "business_pro_499"),
+                ai = map["ai"] == true || id in setOf("single_job_19", "basic_49", "launch_pass_99", "business_pro_499"),
                 aiPerDay = (map["aiPerDay"] as? Number)?.toInt() ?: when (id) {
                     "single_job_19", "single_job_49" -> 10
                     "basic_49", "basic_99" -> 25
@@ -147,7 +151,7 @@ data class Plan(
                     "business_pro_499" -> 500
                     else -> 0
                 },
-                legacy = map["legacy"] == true
+                legacy = map["legacy"] == true || isLegacyId
             )
         }
     }

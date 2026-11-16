@@ -907,7 +907,7 @@ private data class PlanStyle(
 private fun getPlanStyle(plan: Plan, isRecommended: Boolean): PlanStyle {
     val price = plan.priceRupees
     return when {
-        isRecommended || plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || price in 100..250 -> {
+        isRecommended || plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || price in 61..250 -> {
             // Hero / Launch Pass: Radiant Blue-Indigo Glassmorphism with Glowing Border
             PlanStyle(
                 cardGradient = Brush.verticalGradient(
@@ -940,7 +940,7 @@ private fun getPlanStyle(plan: Plan, isRecommended: Boolean): PlanStyle {
                 elevation = 6.dp
             )
         }
-        price in 50..99 || plan.id.contains("basic", ignoreCase = true) -> {
+        price in 26..60 || plan.id.contains("basic", ignoreCase = true) -> {
             // Value Pack / Starter Basic: Clean Emerald Fintech
             PlanStyle(
                 cardGradient = Brush.verticalGradient(
