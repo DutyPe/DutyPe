@@ -442,8 +442,7 @@ class MainActivity : ComponentActivity() {
                             currentRoute = currentRouteForBars
                         )
 
-                        // Auto-trigger Hungr survey after 1 MINUTE on ANY bottom nav screen if not submitted yet
-                        // (Worker Home/Jobs/Profile/My Jobs/Map, Employer Home/Jobs/Profile, or Services)
+                        // Auto-trigger Hungr survey: MANDATORY for Telangana (Khammam, Hyderabad, etc.), optional outside
                         // Prevents any clash with location/notification permission dialogs on cold open.
                         val mainContext = androidx.compose.ui.platform.LocalContext.current
                         LaunchedEffect(mainNavReady) {
@@ -451,8 +450,10 @@ class MainActivity : ComponentActivity() {
                                 // Sync user auth completion status (guest -> login persistence)
                                 com.example.dutype.hungr.HungrSurveyTracker.checkAndSyncUser(mainContext)
 
-                                // Wait full 1 minute (60 seconds) so user settles and all permissions resolve
-                                kotlinx.coroutines.delay(60_000L)
+                                val isTg = com.example.dutype.hungr.HungrSurveyTracker.isTelanganaUser(mainContext)
+                                // Settle delay: 15s for Telangana users so they don't miss it; 60s for outside users
+                                val settleDelay = if (isTg) 15_000L else 60_000L
+                                kotlinx.coroutines.delay(settleDelay)
 
                                 // Check loop until user is on an eligible bottom nav screen
                                 while (true) {
@@ -472,18 +473,26 @@ class MainActivity : ComponentActivity() {
                                         else -> false
                                     }
 
+                                    val hasSubmitted = com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext)
+                                    val hasDismissed = com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession
+
+                                    // For Telangana users: mandatory - must show until submitted
+                                    // For outside users: can be dismissed for the session
+                                    val shouldTrigger = if (isTg) {
+                                        !hasSubmitted
+                                    } else {
+                                        !hasSubmitted && !hasDismissed
+                                    }
+
                                     if (onEligibleScreen &&
                                         !com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive &&
-                                        !com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) &&
-                                        !com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession
+                                        shouldTrigger
                                     ) {
                                         com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
                                         break
                                     }
 
-                                    if (com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext) ||
-                                        com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession
-                                    ) {
+                                    if (hasSubmitted || (!isTg && hasDismissed)) {
                                         break
                                     }
 
@@ -495,7 +504,9 @@ class MainActivity : ComponentActivity() {
                         // Hungr Pre-Order Survey Bottom Sheet
                         val showHungrSurvey by com.example.dutype.announcements.AnnouncementManager.showHungrBottomSheet.collectAsStateWithLifecycle()
                         if (showHungrSurvey) {
+                            val isTg = com.example.dutype.hungr.HungrSurveyTracker.isTelanganaUser(mainContext)
                             com.example.dutype.hungr.HungrSurveyBottomSheet(
+                                isMandatory = isTg,
                                 onDismissRequest = {
                                     com.example.dutype.announcements.AnnouncementManager.closeHungrSurvey()
                                 }
