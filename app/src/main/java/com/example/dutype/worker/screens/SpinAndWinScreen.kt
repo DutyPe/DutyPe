@@ -60,6 +60,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
@@ -109,7 +110,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
+import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
@@ -127,6 +130,77 @@ import kotlin.random.Random
 private const val PRODUCTION_REWARDED_AD_UNIT_ID = "ca-app-pub-5503082977524600/2148771632"
 // Google Official Rewarded Video Test Ad Unit ID (Fallback for test devices)
 private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+
+/**
+ * Sliding 1-Hour Window Rate Limiter with 30-Minute Anti-Farming Cooldown for Spin & Win.
+ * - Exactly 5 video ads max per 1-hour rolling window.
+ * - Enforces at least 30-minute cooldown once limit is reached to prevent farming, bot spam, and ad abuse.
+ */
+object SpinAdRateLimiter {
+    private const val PREFS_NAME = "spin_ad_rate_limiter_prefs"
+    private const val KEY_TIMESTAMPS = "video_ad_timestamps_v1"
+    const val MAX_ADS_PER_HOUR = 5
+    private const val ONE_HOUR_MS = 60 * 60 * 1000L // 3,600,000 ms
+    const val COOLDOWN_DURATION_MS = 30 * 60 * 1000L // 30 minutes cooldown to prevent farming/spam
+
+    /**
+     * Retrieves valid timestamps within the last 1 hour, pruning older entries.
+     */
+    fun getValidTimestamps(context: Context): List<Long> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(KEY_TIMESTAMPS, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        val now = System.currentTimeMillis()
+        val valid = raw.split(",")
+            .mapNotNull { it.trim().toLongOrNull() }
+            .filter { now - it in 0..ONE_HOUR_MS }
+
+        if (valid.size != raw.split(",").size) {
+            prefs.edit().putString(KEY_TIMESTAMPS, valid.joinToString(",")).apply()
+        }
+        return valid
+    }
+
+    fun getAdsWatchedInLastHour(context: Context): Int {
+        return getValidTimestamps(context).size
+    }
+
+    fun canShowVideoAd(context: Context): Boolean {
+        return getValidTimestamps(context).size < MAX_ADS_PER_HOUR && !isInCooldown(context)
+    }
+
+    /**
+     * Checks if the 30-minute anti-farming / anti-spam cooldown is active.
+     */
+    fun isInCooldown(context: Context): Boolean {
+        return getRemainingCooldownMs(context) > 0L
+    }
+
+    /**
+     * Calculates the remaining cooldown in milliseconds.
+     * When 5 ads have been reached, a 30-minute waiting time is strictly enforced.
+     */
+    fun getRemainingCooldownMs(context: Context): Long {
+        val timestamps = getValidTimestamps(context).sorted()
+        if (timestamps.size < MAX_ADS_PER_HOUR) return 0L
+        val lastCapAdTimestamp = timestamps.last()
+        val elapsed = System.currentTimeMillis() - lastCapAdTimestamp
+        val remaining = COOLDOWN_DURATION_MS - elapsed
+        return if (remaining > 0L) remaining else 0L
+    }
+
+    fun recordAdShown(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val list = getValidTimestamps(context).toMutableList()
+        list.add(System.currentTimeMillis())
+        prefs.edit().putString(KEY_TIMESTAMPS, list.joinToString(",")).apply()
+    }
+
+    fun getMinutesUntilNextSlot(context: Context): Long {
+        val remainingMs = getRemainingCooldownMs(context)
+        return if (remainingMs > 0) (remainingMs / 60000L).coerceAtLeast(1L) else 0L
+    }
+}
 
 /**
  * Spinner Game Telemetry & Intent Tracking:
@@ -228,12 +302,29 @@ fun SpinAndWinScreen(
     val scope = rememberCoroutineScope()
     val prefs = remember(context) { context.getSharedPreferences("spin_and_win_game_prefs", Context.MODE_PRIVATE) }
 
+    // Resolve effective ad unit ID (Test ID in debug to prevent error 3, production in release)
+    val effectiveRewardedAdUnitId = remember(adMobRewardedAdUnitId) {
+        if (com.dutype.app.BuildConfig.DEBUG) TEST_REWARDED_AD_UNIT_ID else adMobRewardedAdUnitId.ifBlank { PRODUCTION_REWARDED_AD_UNIT_ID }
+    }
+
     // Daily reset check
     val todayDateStr = remember { SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date()) }
     var spinsUsedToday by remember { mutableIntStateOf(0) }
     var totalDummyCoins by remember { mutableIntStateOf(100) }
     var totalDummyCash by remember { mutableIntStateOf(0) }
     var consecutiveSpinCount by remember { mutableIntStateOf(0) }
+    var adsWatchedThisHour by remember { mutableIntStateOf(0) }
+    var remainingCooldownMs by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    val isInCooldown = remainingCooldownMs > 0L
+
+    // Live 1-second ticker for anti-farming 30-min cooldown
+    LaunchedEffect(Unit) {
+        while (true) {
+            remainingCooldownMs = SpinAdRateLimiter.getRemainingCooldownMs(context)
+            adsWatchedThisHour = SpinAdRateLimiter.getAdsWatchedInLastHour(context)
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
 
     LaunchedEffect(Unit) {
         val lastDate = prefs.getString("last_spin_date", "")
@@ -251,12 +342,14 @@ fun SpinAndWinScreen(
     // AdMob Rewarded Ad State
     var mRewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
     var isAdLoading by remember { mutableStateOf(false) }
+    var isWaitingForAdToSpin by remember { mutableStateOf(false) }
 
     fun loadRewardedAd() {
         if (isAdLoading || mRewardedAd != null) return
+        if (!SpinAdRateLimiter.canShowVideoAd(context)) return // Don't preload if hourly limit hit
         isAdLoading = true
         val adRequest = AdRequest.Builder().build()
-        RewardedAd.load(context, adMobRewardedAdUnitId, adRequest, object : RewardedAdLoadCallback() {
+        RewardedAd.load(context, effectiveRewardedAdUnitId, adRequest, object : RewardedAdLoadCallback() {
             override fun onAdFailedToLoad(adError: LoadAdError) {
                 Timber.w("SpinAndWin: Rewarded ad failed to load: ${adError.message}")
                 mRewardedAd = null
@@ -274,7 +367,9 @@ fun SpinAndWinScreen(
     // Preload Rewarded Ad on launch & log view
     LaunchedEffect(Unit) {
         SpinAnalyticsTracker.track(context, "spin_game_opened")
-        loadRewardedAd()
+        if (SpinAdRateLimiter.canShowVideoAd(context)) {
+            loadRewardedAd()
+        }
     }
 
     // Rotation Animatable
@@ -350,37 +445,124 @@ fun SpinAndWinScreen(
                 showResultDialog = true
             }
 
-            // Preload next ad
-            loadRewardedAd()
+            // Preload next ad only if user has remaining hourly quota
+            if (SpinAdRateLimiter.canShowVideoAd(context)) {
+                loadRewardedAd()
+            }
+        }
+    }
+
+    fun showAdAndExecuteSpin(target: Int) {
+        val activity = context as? Activity
+        if (activity == null) {
+            executeSpin(target)
+            return
+        }
+
+        // Check 30-min anti-farming cooldown
+        if (SpinAdRateLimiter.isInCooldown(context)) {
+            val mins = (SpinAdRateLimiter.getRemainingCooldownMs(context) / 60000L).coerceAtLeast(1L)
+            Toast.makeText(context, "Anti-farming cooldown active ($mins min remaining).", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Check 1-hour rate limit: Max 5 video ads per hour
+        if (!SpinAdRateLimiter.canShowVideoAd(context)) {
+            Toast.makeText(context, "Hourly ad limit reached (5/5). 30-min cooldown active.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val ad = mRewardedAd
+        if (ad != null) {
+            mRewardedAd = null
+            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    SpinAdRateLimiter.recordAdShown(context)
+                    adsWatchedThisHour = SpinAdRateLimiter.getAdsWatchedInLastHour(context)
+                    mRewardedAd = null
+                    if (SpinAdRateLimiter.canShowVideoAd(context)) {
+                        loadRewardedAd()
+                    }
+                    executeSpin(target)
+                }
+
+                override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                    Timber.w("SpinAndWin: Rewarded ad failed to show: ${adError.message}")
+                    mRewardedAd = null
+                    if (SpinAdRateLimiter.canShowVideoAd(context)) {
+                        loadRewardedAd()
+                    }
+                    executeSpin(target)
+                }
+            }
+            ad.show(activity) { rewardItem ->
+                Timber.d("SpinAndWin: User earned reward: ${rewardItem.amount}")
+            }
+        } else {
+            // Ad not preloaded yet: load and show immediately
+            isWaitingForAdToSpin = true
+            Toast.makeText(context, "Opening sponsor video...", Toast.LENGTH_SHORT).show()
+            val adRequest = AdRequest.Builder().build()
+            RewardedAd.load(context, effectiveRewardedAdUnitId, adRequest, object : RewardedAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Timber.w("SpinAndWin: Rewarded ad failed to load: ${adError.message}")
+                    isWaitingForAdToSpin = false
+                    Toast.makeText(context, "Ad unavailable, spinning wheel...", Toast.LENGTH_SHORT).show()
+                    executeSpin(target)
+                }
+
+                override fun onAdLoaded(rewardedAd: RewardedAd) {
+                    Timber.d("SpinAndWin: Rewarded ad loaded and showing immediately")
+                    isWaitingForAdToSpin = false
+                    rewardedAd.fullScreenContentCallback = object : FullScreenContentCallback() {
+                        override fun onAdDismissedFullScreenContent() {
+                            SpinAdRateLimiter.recordAdShown(context)
+                            adsWatchedThisHour = SpinAdRateLimiter.getAdsWatchedInLastHour(context)
+                            mRewardedAd = null
+                            if (SpinAdRateLimiter.canShowVideoAd(context)) {
+                                loadRewardedAd()
+                            }
+                            executeSpin(target)
+                        }
+
+                        override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                            Timber.w("SpinAndWin: Rewarded ad failed to show: ${adError.message}")
+                            mRewardedAd = null
+                            if (SpinAdRateLimiter.canShowVideoAd(context)) {
+                                loadRewardedAd()
+                            }
+                            executeSpin(target)
+                        }
+                    }
+                    rewardedAd.show(activity) { rewardItem ->
+                        Timber.d("SpinAndWin: User earned reward: ${rewardItem.amount}")
+                    }
+                }
+            })
         }
     }
 
     fun onSpinButtonClicked() {
         SpinAnalyticsTracker.track(context, "spin_wheel_tapped", mapOf("remaining_spins" to remainingSpins))
+        if (isSpinning || isWaitingForAdToSpin) return
+        if (SpinAdRateLimiter.isInCooldown(context)) {
+            val mins = (SpinAdRateLimiter.getRemainingCooldownMs(context) / 60000L).coerceAtLeast(1L)
+            Toast.makeText(context, "Anti-farming cooldown active. Please wait $mins min before next spin.", Toast.LENGTH_SHORT).show()
+            return
+        }
         if (remainingSpins <= 0) {
             Toast.makeText(context, "Daily limit reached ($maxSpinsPerDay spins/day). Come back tomorrow!", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Every single spin must and should watch an ad as required
-        val activity = context as? Activity
-        if (mRewardedAd != null && activity != null) {
-            mRewardedAd?.show(activity) { _ ->
-                // User completed watching rewarded video ad
-                mRewardedAd = null
-                val nextCount = consecutiveSpinCount + 1
-                // Every 5th consecutive spin awards scratch card, otherwise coins or try again
-                val target = if (nextCount % 5 == 0) {
-                    5 // Lands on Golden Scratch segment!
-                } else {
-                    listOf(1, 3, 4, 6, 7).random() // Coins, Try Again, 2x
-                }
-                executeSpin(target)
-            }
+        val nextCount = consecutiveSpinCount + 1
+        val target = if (nextCount % 5 == 0) {
+            5 // Lands on Golden Scratch segment!
         } else {
-            Toast.makeText(context, "Loading sponsor video ad... please tap again in 2 seconds", Toast.LENGTH_SHORT).show()
-            loadRewardedAd()
+            listOf(1, 3, 4, 6, 7).random() // Coins, Try Again, 2x
         }
+
+        showAdAndExecuteSpin(target)
     }
 
     fun shareToWhatsAppToUnlock() {
@@ -586,7 +768,64 @@ fun SpinAndWinScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            // 30-Minute Anti-Farming & Anti-Spam Protection Card
+            val cooldownMin = (remainingCooldownMs / 1000) / 60
+            val cooldownSec = (remainingCooldownMs / 1000) % 60
+            val cooldownFormatted = String.format("%02d:%02d", cooldownMin, cooldownSec)
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = if (isInCooldown) Color(0xFFFEF2F2).bg() else Color(0xFFF8FAFC).bg(),
+                border = BorderStroke(0.8.dp, if (isInCooldown) Color(0xFFFCA5A5).bd() else Color(0xFFE2E8F0).bd())
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = if (isInCooldown) "⏳" else "🎬", fontSize = 16.sp)
+                        Column {
+                            Text(
+                                text = if (isInCooldown) "Anti-Farming Cooldown Active" else "Video Ads (Max 5/Hour)",
+                                color = if (isInCooldown) Color(0xFFDC2626).fg() else Color(0xFF1E293B).fg(),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (isInCooldown) {
+                                    "30-min rest period to prevent spam: $cooldownFormatted remaining"
+                                } else {
+                                    "Watch video ad to spin. Max 5 ads/hr (30-min cooldown on cap)."
+                                },
+                                color = if (isInCooldown) Color(0xFFB91C1C).fg() else Color(0xFF64748B).fg(),
+                                fontSize = 10.5.sp
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isInCooldown) Color(0xFFFEE2E2).bg() else Color(0xFFE2E8F0).bg()
+                    ) {
+                        Text(
+                            text = if (isInCooldown) cooldownFormatted else "$adsWatchedThisHour / 5 Ads",
+                            color = if (isInCooldown) Color(0xFFDC2626).fg() else Color(0xFF475569).fg(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
 
             // Wheel Container with Pointer Stopper
             Box(
@@ -631,15 +870,15 @@ fun SpinAndWinScreen(
                 Surface(
                     modifier = Modifier
                         .size(76.dp)
-                        .clickable(enabled = !isSpinning, onClick = ::onSpinButtonClicked),
+                        .clickable(enabled = !isSpinning && !isWaitingForAdToSpin && !isInCooldown, onClick = ::onSpinButtonClicked),
                     shape = CircleShape,
-                    color = if (isSpinning) Color(0xFF94A3B8) else Color(0xFFEF4444),
+                    color = if (isSpinning || isWaitingForAdToSpin || isInCooldown) Color(0xFF94A3B8) else Color(0xFFEF4444),
                     shadowElevation = 8.dp,
                     border = BorderStroke(3.dp, Color.White)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = if (isSpinning) "..." else "SPIN",
+                            text = if (isInCooldown) "⏳" else if (isSpinning || isWaitingForAdToSpin) "..." else "SPIN",
                             color = Color.White,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Black
@@ -648,33 +887,75 @@ fun SpinAndWinScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
 
             // Spin Status & Actions
             Text(
-                text = "Remaining Spins Today: $remainingSpins / $maxSpinsPerDay (Watch Ad to Spin)",
-                color = Color(0xFF64748B),
-                fontSize = 13.sp,
+                text = if (isInCooldown) {
+                    "Anti-Farming Cooldown Active: $cooldownFormatted remaining before next spin"
+                } else {
+                    "Remaining Spins Today: $remainingSpins / $maxSpinsPerDay (Watch Video Ad to Spin)"
+                },
+                color = if (isInCooldown) Color(0xFFDC2626).fg() else Color(0xFF64748B).fg(),
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
+
+            // Primary Spin Button
+            Button(
+                onClick = ::onSpinButtonClicked,
+                enabled = !isSpinning && !isWaitingForAdToSpin && remainingSpins > 0 && !isInCooldown,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isInCooldown) Color(0xFF94A3B8) else Color(0xFFEF4444)
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isInCooldown) Icons.Filled.AccessTime else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = when {
+                            isInCooldown -> "COOLDOWN ($cooldownFormatted REMAINING)"
+                            isSpinning -> "SPINNING WHEEL..."
+                            isWaitingForAdToSpin -> "OPENING VIDEO AD..."
+                            else -> "SPIN NOW (Watch Ad)"
+                        },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
 
             // Action Buttons Row
-            // WhatsApp Viral Unlock Button (Center wheel dial triggers rewarded ad + spin directly)
+            // WhatsApp Viral Unlock Button
             Button(
                 onClick = ::shareToWhatsAppToUnlock,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .height(48.dp),
+                    .height(46.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Filled.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(text = stringResource(R.string.share_unlock_spins), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(text = stringResource(R.string.share_unlock_spins), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
 

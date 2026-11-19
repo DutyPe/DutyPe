@@ -83,6 +83,8 @@ import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -146,6 +148,9 @@ fun WorkerNotificationScreen(
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
+    val scope = rememberCoroutineScope()
+
     // If the user previously denied POST_NOTIFICATIONS, landing on this screen is a
     // strong signal that they want notifications — re-prompt the system dialog.
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -154,6 +159,13 @@ fun WorkerNotificationScreen(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
         Timber.d("🔔 WorkerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
+        if (granted) {
+            scope.launch {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                }.onFailure { Timber.w(it, "Failed to register FCM token for worker after permission") }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -164,6 +176,14 @@ fun WorkerNotificationScreen(
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!granted) {
                 showNotificationBottomSheet = true
+            } else {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                }
+            }
+        } else {
+            runCatching {
+                fcmTokenManager.registerTokenWithRole("WORKER", force = true)
             }
         }
     }

@@ -358,35 +358,25 @@ fun HungrSurveyBottomSheet(
         }
     }
 
-    // Intercept back navigation: if mandatory, go to previous step or prevent leaving without completing
-    BackHandler(enabled = isMandatory && !isSuccess) {
+    // Intercept back navigation: go to previous step or dismiss cleanly so touch is never blocked
+    BackHandler(enabled = !isSuccess) {
         if (currentStep > 1) {
             errorMessage = null
             currentStep -= 1
         } else {
-            Toast.makeText(
-                context,
-                if (isTelugu) "దయచేసి ఈ చిన్న హంగర్ సర్వేను పూర్తి చేయండి (కేవలం 30 సెకన్లు మాత్రమే)!"
-                else "Please complete this quick 30-sec Hungr survey to continue!",
-                Toast.LENGTH_SHORT
-            ).show()
+            HungrSurveyTracker.hasDismissedThisSession = true
+            scope.launch { sheetState.hide() }.invokeOnCompletion {
+                onDismissRequest()
+                AnnouncementManager.closeHungrSurvey()
+            }
         }
     }
 
     ModalBottomSheet(
         onDismissRequest = {
-            if (!isMandatory) {
-                HungrSurveyTracker.hasDismissedThisSession = true
-                onDismissRequest()
-                AnnouncementManager.closeHungrSurvey()
-            } else {
-                Toast.makeText(
-                    context,
-                    if (isTelugu) "దయచేసి హంగర్ సర్వే పూర్తి చేయండి — కేవలం 30 సెకన్లు మాత్రమే!"
-                    else "Please complete this quick 30-sec survey to continue!",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+            HungrSurveyTracker.hasDismissedThisSession = true
+            onDismissRequest()
+            AnnouncementManager.closeHungrSurvey()
         },
         sheetState = sheetState,
         containerColor = Color.White,
@@ -490,8 +480,8 @@ fun HungrSurveyBottomSheet(
                         }
                     }
 
-                    // Close Button: ONLY available for outside non-mandatory users
-                    if (!isMandatory && !isSuccess) {
+                    // Close Button: Always available so user can dismiss cleanly and never be blocked
+                    if (!isSuccess) {
                         IconButton(
                             onClick = {
                                 HungrSurveyTracker.hasDismissedThisSession = true
@@ -506,22 +496,6 @@ fun HungrSurveyBottomSheet(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = "Close",
                                 tint = Color(0xFF64748B)
-                            )
-                        }
-                    } else if (isMandatory && !isSuccess) {
-                        // Subtle Mandatory / Telangana Special Badge
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFEF3C7))
-                                .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 7.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = if (isTelugu) "తెలంగాణ" else "TG Hub",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFB45309)
                             )
                         }
                     }

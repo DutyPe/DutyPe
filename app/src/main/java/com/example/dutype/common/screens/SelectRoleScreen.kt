@@ -140,16 +140,30 @@ fun SelectRoleScreen(
         val scope = rememberCoroutineScope()
         val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel =
             androidx.hilt.navigation.compose.hiltViewModel()
+        val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
 
         var selectedRole by remember { mutableStateOf("WORKER") }
         var showLanguageBottomSheet by remember { mutableStateOf(false) }
         var isNavigating by remember { mutableStateOf(false) }
 
-        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+) so guests receive engagement notifications
+        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+) so guests and users receive engagement notifications
         val permissionLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             Timber.d("SelectRoleScreen: POST_NOTIFICATIONS permission result: $isGranted")
+            if (isGranted) {
+                scope.launch {
+                    runCatching {
+                        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        val roleStr = if (selectedRole == "EMPLOYER") "EMPLOYER" else "WORKER"
+                        if (user != null) {
+                            fcmTokenManager.registerTokenWithRole(roleStr, force = true)
+                        } else {
+                            fcmTokenManager.registerGuestToken()
+                        }
+                    }.onFailure { Timber.w(it, "SelectRoleScreen: Failed to register FCM token after permission") }
+                }
+            }
         }
 
         LaunchedEffect(Unit) {
@@ -192,12 +206,14 @@ fun SelectRoleScreen(
             scope.launch {
                 profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
                 runCatching {
-                    val topic = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER)
-                        com.example.dutype.services.FCMTokenManager.TOPIC_EMPLOYERS
-                    else
-                        com.example.dutype.services.FCMTokenManager.TOPIC_WORKERS
-                    com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic(topic)
-                }
+                    val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    val roleStr = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER) "EMPLOYER" else "WORKER"
+                    if (user != null) {
+                        fcmTokenManager.registerTokenWithRole(roleStr, force = true)
+                    } else {
+                        fcmTokenManager.registerGuestToken()
+                    }
+                }.onFailure { Timber.w(it, "SelectRoleScreen: Failed to sync FCM token with role $role") }
             }
             if (!asGuest) {
                 navController.safeNavigate("${Routes.ENHANCED_LOGIN}?role=$role")

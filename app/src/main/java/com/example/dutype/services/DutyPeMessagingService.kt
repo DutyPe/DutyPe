@@ -121,6 +121,14 @@ class DutyPeMessagingService : FirebaseMessagingService() {
 
         Timber.d("🔔 New FCM token: ${token.take(20)}...")
 
+        // Always cache latest FCM token immediately so it is preserved across login/auth state transitions
+        runCatching {
+            getSharedPreferences("fcm_token_state", Context.MODE_PRIVATE)
+                .edit()
+                .putString("latest_fcm_token", token)
+                .apply()
+        }
+
         // Save token to Firestore
         saveFCMToken(token)
     }
@@ -137,7 +145,23 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         val userId = runCatching { auth.currentUser?.uid }.getOrNull()
 
         if (userId == null) {
-            Timber.w("🔔 Cannot save FCM token - user not authenticated")
+            // Save to guest_tokens so unauthenticated guest users receive broadcast updates
+            runCatching {
+                val prefs = getSharedPreferences("fcm_token_state", Context.MODE_PRIVATE)
+                var guestId = prefs.getString("guest_id", null)
+                if (guestId.isNullOrBlank()) {
+                    guestId = "guest_" + java.util.UUID.randomUUID().toString().take(12)
+                    prefs.edit().putString("guest_id", guestId).apply()
+                }
+                firestore.collection("guest_tokens").document(guestId).set(
+                    mapOf(
+                        "fcmToken" to token,
+                        "language" to LocaleHelper.getLanguage(this),
+                        "updatedAt" to Timestamp.now()
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+            }
             return
         }
 

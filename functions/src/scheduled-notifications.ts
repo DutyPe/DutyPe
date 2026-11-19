@@ -16,7 +16,7 @@ import {
   NOTIFICATION_TEMPLATES, SE_EMPLOYER_POOL, SE_GUEST_POOL, SE_WORKER_POOL, SE_REFERRAL_POOL, SUPPORTED_LOCALES, DEFAULT_LOCALE,
   localizedTopic, tBody, tTitle,
 } from "./notification-i18n";
-import { Applications, Jobs, Values, WorkerCards } from "./schema";
+import { Applications, EmployerProfiles, Jobs, Values, WorkerCards, WorkerProfiles } from "./schema";
 
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
@@ -267,5 +267,93 @@ export const reEngageInactiveWorkers = schedule("0 */6 * * *").onRun(async () =>
       role: Values.Role.WORKER,
     })));
   }
+  return null;
+});
+
+/**
+ * Incomplete Profile Follow-up Cron Job:
+ * Triggers every 2 hours during active daytime (10:00 - 20:00 IST).
+ * Finds employers & workers who opened the app, registered/logged in between 1h and 48h ago,
+ * but closed the app before completing their profile (missing skills, location, or name).
+ * Sends a high-priority push notification with a 1-tap deep link to complete setup.
+ * Spam-capped to at most 1 reminder per 12 hours per user.
+ */
+export const remindIncompleteProfiles = schedule("0 */2 * * *").onRun(async () => {
+  if (isQuietHours()) return null;
+  const now = Date.now();
+  const windowStart = Timestamp.fromMillis(now - 48 * HOUR_MS);
+  const windowEnd = Timestamp.fromMillis(now - 1 * HOUR_MS);
+
+  // 1. Remind workers with incomplete profiles
+  try {
+    const workerSnap = await db.collection(WorkerProfiles.COLLECTION)
+      .where(WorkerProfiles.CREATED_AT, ">=", windowStart)
+      .where(WorkerProfiles.CREATED_AT, "<=", windowEnd)
+      .limit(200)
+      .get();
+
+    for (const doc of workerSnap.docs) {
+      const data = doc.data();
+      const skills = (data[WorkerProfiles.SKILLS] as string[]) || [];
+      const lat = Number(data[WorkerProfiles.LAT] || 0);
+      const lng = Number(data[WorkerProfiles.LNG] || 0);
+      const address = String(data[WorkerProfiles.ADDRESS] || data[WorkerProfiles.AREA] || "").trim();
+      const name = String(data[WorkerProfiles.NAME] || "").trim();
+
+      const isIncomplete = skills.length === 0 || (lat === 0 && lng === 0 && !address) || name === "User" || name.length < 3;
+      if (isIncomplete) {
+        const lastReminded = data.lastProfileReminderAt ? (data.lastProfileReminderAt as FirebaseFirestore.Timestamp).toMillis() : 0;
+        if (now - lastReminded > 12 * HOUR_MS) {
+          await notify(doc.id, {
+            type: "PROFILE_REMINDER",
+            templateId: "WORKER_INCOMPLETE_PROFILE",
+            params: { recipient: name && name !== "User" ? name : "" },
+            data: { action: "complete_worker_profile", deepLink: "dutype://profile-setup" },
+            role: Values.Role.WORKER,
+          });
+          await doc.ref.update({ lastProfileReminderAt: Timestamp.now() }).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    functions.logger.warn("Worker incomplete profile reminder failed", err);
+  }
+
+  // 2. Remind employers with incomplete profiles
+  try {
+    const employerSnap = await db.collection(EmployerProfiles.COLLECTION)
+      .where(EmployerProfiles.CREATED_AT, ">=", windowStart)
+      .where(EmployerProfiles.CREATED_AT, "<=", windowEnd)
+      .limit(200)
+      .get();
+
+    for (const doc of employerSnap.docs) {
+      const data = doc.data();
+      const lat = Number(data[EmployerProfiles.LAT] || 0);
+      const lng = Number(data[EmployerProfiles.LNG] || 0);
+      const address = String(data[EmployerProfiles.ADDRESS] || data[EmployerProfiles.AREA] || "").trim();
+      const ownerName = String(data[EmployerProfiles.OWNER_NAME] || "").trim();
+      const isCompany = data[EmployerProfiles.EMPLOYER_TYPE] === Values.EmployerType.COMPANY;
+      const businessName = String(data[EmployerProfiles.BUSINESS_NAME] || "").trim();
+
+      const isIncomplete = (lat === 0 && lng === 0 && !address) || ownerName.length < 3 || ownerName === "User" || (isCompany && !businessName);
+      if (isIncomplete) {
+        const lastReminded = data.lastProfileReminderAt ? (data.lastProfileReminderAt as FirebaseFirestore.Timestamp).toMillis() : 0;
+        if (now - lastReminded > 12 * HOUR_MS) {
+          await notify(doc.id, {
+            type: "PROFILE_REMINDER",
+            templateId: "EMPLOYER_INCOMPLETE_PROFILE",
+            params: { recipient: ownerName && ownerName !== "User" ? ownerName : "" },
+            data: { action: "complete_employer_profile", deepLink: "dutype://profile-setup" },
+            role: Values.Role.EMPLOYER,
+          });
+          await doc.ref.update({ lastProfileReminderAt: Timestamp.now() }).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    functions.logger.warn("Employer incomplete profile reminder failed", err);
+  }
+
   return null;
 });

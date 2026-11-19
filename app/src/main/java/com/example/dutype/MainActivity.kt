@@ -74,6 +74,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -233,32 +234,80 @@ class MainActivity : ComponentActivity() {
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
 
-        // Launch promo + launcher icon are driven by the cached, versioned launch config
-        // (com.example.dutype.promo). Nothing is fetched or applied here: the WorkManager job is
-        // scheduled from onResume (background, delayed) and the icon is applied from onStop.
+        // Prompt for Android 13+ POST_NOTIFICATIONS runtime permission on launch so system tray notifications are permitted
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (!notificationPermissionManager.isNotificationPermissionGranted()) {
+                notificationPermissionManager.requestNotificationPermission({ isGranted ->
+                    Timber.i("MainActivity: POST_NOTIFICATIONS granted: $isGranted")
+                    if (isGranted) {
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                val user = FirebaseAuth.getInstance().currentUser
+                                if (user != null) {
+                                    val role = profileSetupStateManager.getUserRole()
+                                    when (role) {
+                                        com.example.dutype.models.UserRole.EMPLOYER -> fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
+                                        com.example.dutype.models.UserRole.WORKER -> fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                                        else -> fcmTokenManager.registerToken(force = true)
+                                    }
+                                } else {
+                                    fcmTokenManager.registerGuestToken()
+                                }
+                            }
+                        }
+                    }
+                })
+            }
+        }
 
-        // Guest engagement notifications.
-        // PERF: Run off the main thread — FirebaseAuth.currentUser triggers a token
-        // store disk read, FirebaseMessaging.getInstance() does first-call I/O, and
-        // subscribeToTopic queues to disk-backed Pending Topic Operations prefs.
-        lifecycleScope.launch(Dispatchers.IO) {
-            runCatching {
-                if (FirebaseAuth.getInstance().currentUser == null) {
-                    fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
-                    fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-                    fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_ALL_USERS)
-                    fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_ALL_USERS)
-                } else {
-                    fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
-                    fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-                }
-            }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
+        // Continuous Auth State & FCM Token Sync:
+        // Automatically syncs device token whenever Firebase restores the user session from disk
+        // (crucial for existing users updating the app who are already logged in) and on login/logout/role switch.
+        FirebaseAuth.getInstance().addAuthStateListener { auth ->
+            val user = auth.currentUser
+            lifecycleScope.launch(Dispatchers.IO) {
+                runCatching {
+                    if (user != null) {
+                        val token = runCatching { fcmTokenManager.getOrFetchToken() }.getOrNull()
+                        if (!token.isNullOrBlank()) {
+                            val fs = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            val now = com.google.firebase.Timestamp.now()
+                            val lang = LocaleHelper.getLanguage(this@MainActivity)
+                            fs.collection("user_tokens").document(user.uid).set(
+                                mapOf("fcmToken" to token, "language" to lang, "updatedAt" to now),
+                                com.google.firebase.firestore.SetOptions.merge()
+                            )
+                            fs.collection("users").document(user.uid).set(
+                                mapOf("fcmToken" to token, "updatedAt" to now),
+                                com.google.firebase.firestore.SetOptions.merge()
+                            )
+                        }
+
+                        var role = profileSetupStateManager.getUserRole()
+                        if (role == null) {
+                            val claimRole = runCatching {
+                                user.getIdToken(false).await().claims["role"] as? String
+                            }.getOrNull()
+                            if (claimRole != null) {
+                                role = runCatching { com.example.dutype.models.UserRole.valueOf(claimRole.uppercase()) }.getOrNull()
+                            }
+                        }
+                        when (role) {
+                            com.example.dutype.models.UserRole.EMPLOYER -> fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
+                            com.example.dutype.models.UserRole.WORKER -> fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                            else -> fcmTokenManager.registerToken(force = true)
+                        }
+                    } else {
+                        fcmTokenManager.registerGuestToken()
+                    }
+                }.onFailure { Timber.w(it, "FCM token sync in AuthStateListener failed") }
+            }
         }
 
         // Initialize AdMob asynchronously using applicationContext off the startup critical path
         // to prevent binder transaction lock contention and main thread stalls on Android 16/OnePlus.
         lifecycleScope.launch(Dispatchers.IO) {
-            delay(3000L)
+            delay(150L)
             if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(applicationContext)) {
                 runCatching {
                     com.google.android.gms.ads.MobileAds.initialize(applicationContext) {}
@@ -476,13 +525,8 @@ class MainActivity : ComponentActivity() {
                                     val hasSubmitted = com.example.dutype.hungr.HungrSurveyTracker.hasSubmitted(mainContext)
                                     val hasDismissed = com.example.dutype.hungr.HungrSurveyTracker.hasDismissedThisSession
 
-                                    // For Telangana users: mandatory - must show until submitted
-                                    // For outside users: can be dismissed for the session
-                                    val shouldTrigger = if (isTg) {
-                                        !hasSubmitted
-                                    } else {
-                                        !hasSubmitted && !hasDismissed
-                                    }
+                                    // Show survey if not yet submitted and not yet dismissed this session
+                                    val shouldTrigger = !hasSubmitted && !hasDismissed
 
                                     if (onEligibleScreen &&
                                         !com.example.dutype.components.FullScreenLaunchPromoTracker.isCurrentlyActive &&
@@ -492,7 +536,7 @@ class MainActivity : ComponentActivity() {
                                         break
                                     }
 
-                                    if (hasSubmitted || (!isTg && hasDismissed)) {
+                                    if (hasSubmitted || hasDismissed) {
                                         break
                                     }
 
@@ -702,10 +746,12 @@ class MainActivity : ComponentActivity() {
                 if (user != null) {
                     val role = profileSetupStateManager.getUserRole()
                     when (role) {
-                        com.example.dutype.models.UserRole.EMPLOYER -> fcmTokenManager.registerTokenWithRole("EMPLOYER")
-                        com.example.dutype.models.UserRole.WORKER -> fcmTokenManager.registerTokenWithRole("WORKER")
-                        else -> fcmTokenManager.registerToken()
+                        com.example.dutype.models.UserRole.EMPLOYER -> fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
+                        com.example.dutype.models.UserRole.WORKER -> fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                        else -> fcmTokenManager.registerToken(force = true)
                     }
+                } else {
+                    fcmTokenManager.registerGuestToken()
                 }
             }.onFailure { error ->
                 Timber.w(error, "FCM token refresh on app open failed")

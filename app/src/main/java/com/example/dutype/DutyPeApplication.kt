@@ -138,6 +138,62 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
+
+            // Pre-warm FCM device token asynchronously and sync to Firestore
+            runCatching {
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val token = task.result
+                            if (!token.isNullOrBlank()) {
+                                getSharedPreferences("fcm_token_state", Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putString("latest_fcm_token", token)
+                                    .apply()
+                                Timber.d("🔔 FCM token pre-warmed in DutyPeApplication: ${token.take(15)}...")
+
+                                // Direct background sync if user is already authenticated
+                                val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                                if (!currentUid.isNullOrBlank()) {
+                                    val fs = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                    val now = com.google.firebase.Timestamp.now()
+                                    val lang = com.example.dutype.utils.LocaleHelper.getLanguage(this@DutyPeApplication)
+                                    fs.collection("user_tokens").document(currentUid).set(
+                                        mapOf("fcmToken" to token, "language" to lang, "updatedAt" to now),
+                                        com.google.firebase.firestore.SetOptions.merge()
+                                    )
+                                    fs.collection("users").document(currentUid).set(
+                                        mapOf("fcmToken" to token, "updatedAt" to now),
+                                        com.google.firebase.firestore.SetOptions.merge()
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                // Global AuthStateListener: automatically syncs token to Firestore as soon as existing user's session restores
+                com.google.firebase.auth.FirebaseAuth.getInstance().addAuthStateListener { auth ->
+                    val uid = auth.currentUser?.uid
+                    if (!uid.isNullOrBlank()) {
+                        val token = getSharedPreferences("fcm_token_state", Context.MODE_PRIVATE)
+                            .getString("latest_fcm_token", null)?.takeIf { it.isNotBlank() }
+                        if (token != null) {
+                            val fs = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            val now = com.google.firebase.Timestamp.now()
+                            val lang = com.example.dutype.utils.LocaleHelper.getLanguage(this@DutyPeApplication)
+                            fs.collection("user_tokens").document(uid).set(
+                                mapOf("fcmToken" to token, "language" to lang, "updatedAt" to now),
+                                com.google.firebase.firestore.SetOptions.merge()
+                            )
+                            fs.collection("users").document(uid).set(
+                                mapOf("fcmToken" to token, "updatedAt" to now),
+                                com.google.firebase.firestore.SetOptions.merge()
+                            )
+                        }
+                    }
+                }
+            }
+
             if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(this@DutyPeApplication) &&
                 com.example.dutype.utils.AppLifecycleTracker.isAppInForeground()
             ) {

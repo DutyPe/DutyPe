@@ -114,7 +114,7 @@ class OtpViewModel @Inject constructor(
     private fun registerFcmInBackground(role: String) {
         backgroundScope.launch {
             try {
-                fcmTokenManager.registerTokenWithRole(role)
+                fcmTokenManager.registerTokenWithRole(role, force = true)
             } catch (e: Exception) {
                 Timber.w(e, "Background FCM registration failed")
             }

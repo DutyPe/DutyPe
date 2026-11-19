@@ -281,7 +281,8 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Firebase Component Discovery: Register FirebaseIidRegistrar to provide FirebaseInstanceIdInternal -->
+
+        <!-- Firebase Component Discovery: Register FirebaseIidRegistrar to provide FirebaseInstanceIdInternal for Cloud Functions -->
         <service
             android:name="com.google.firebase.components.ComponentDiscoveryService"
             android:exported="false">
@@ -289,6 +290,7 @@
                 android:name="com.google.firebase.components:com.example.dutype.di.FirebaseIidRegistrar"
                 android:value="com.google.firebase.components.ComponentRegistrar" />
         </service>
+
         <!-- Truecaller one-tap login: hosts the SDK consent sheet, transparent, closes itself -->
         <activity
             android:name="com.example.dutype.auth.TruecallerActivity"

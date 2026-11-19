@@ -274,8 +274,10 @@ fun EmployerHomeScreen(
             viewModel.loadMyJobs()
             instantHelpViewModel.loadEmployerUrgentNeeds()
             applicationViewModel.loadEmployerApplications()
+            fcmTokenManager.registerTokenWithRoleAsync("EMPLOYER", force = true)
         } else {
             Timber.i("EMPLOYER_HOME: User is guest employer, staying on home screen with guest capabilities")
+            fcmTokenManager.registerTokenWithRoleAsync("EMPLOYER", force = false)
         }
     }
 
@@ -292,6 +294,7 @@ fun EmployerHomeScreen(
                         viewModel.loadMyJobs()
                         instantHelpViewModel.loadEmployerUrgentNeeds()
                         applicationViewModel.loadEmployerApplications()
+                        fcmTokenManager.registerTokenWithRoleAsync("EMPLOYER", force = false)
                     }
                 }
             }
@@ -451,7 +454,7 @@ fun EmployerHomeScreen(
         if (isGranted) {
             coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching {
-                    fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                    fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
                 }.onFailure { Timber.w(it, "Failed to register FCM token for employer after permission") }
             }
         }
@@ -461,7 +464,7 @@ fun EmployerHomeScreen(
     LaunchedEffect(employerId) {
         coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
-                fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
             }.onFailure { Timber.w(it, "Failed to register FCM token for employer on screen entry") }
         }
     }
@@ -642,7 +645,7 @@ fun EmployerHomeScreen(
                 }
                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     runCatching {
-                        fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                        fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
                     }.onFailure { Timber.w(it, "Failed to register FCM token for employer on enable notifications") }
                 }
             },

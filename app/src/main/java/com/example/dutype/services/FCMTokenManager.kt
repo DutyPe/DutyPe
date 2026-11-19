@@ -8,8 +8,13 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -84,31 +89,57 @@ class FCMTokenManager @Inject constructor(
     }
 
     /**
-     * Register FCM token for the current user
-     * Call this after successful login/signup
+     * Safely fetch the FCM token:
+     * 1. Query FirebaseMessaging with a 25-second timeout so it never hangs indefinitely.
+     * 2. Cache token in SharedPreferences so it's resilient across offline cold starts.
+     * 3. Fallback to cached token if Play Services is slow or network times out.
      */
-    suspend fun registerToken(): Result<String> {
+    suspend fun getOrFetchToken(): String {
+        val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val cachedToken = prefs.getString("latest_fcm_token", null)?.takeIf { it.isNotBlank() }
+
+        return try {
+            withTimeout(25_000L) {
+                val fresh = FirebaseMessaging.getInstance().token.await()
+                if (!fresh.isNullOrBlank()) {
+                    prefs.edit().putString("latest_fcm_token", fresh).apply()
+                    fresh
+                } else {
+                    cachedToken ?: throw Exception("FCM token returned blank")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "FCMTokenManager: Token fetch from Google Play Services timed out/failed, using cached token if present")
+            cachedToken ?: throw e
+        }
+    }
+
+    /**
+     * Register FCM token for the current user
+     * Call this after successful login/signup or on app launch
+     */
+    suspend fun registerToken(force: Boolean = false): Result<String> {
         return try {
             val userId = auth.currentUser?.uid
             if (userId == null) {
-                Timber.w("FCMTokenManager: No authenticated user, cannot register token")
-                return Result.failure(Exception("User not authenticated"))
+                Timber.w("FCMTokenManager: No authenticated user, registering as guest")
+                return registerGuestToken()
             }
 
-            // P0-B: Retry FCM token fetch + Firestore save with exponential backoff.
-            // First-install on flaky networks frequently fails here without retries.
             val token = retryWithBackoff("getToken") {
-                FirebaseMessaging.getInstance().token.await()
+                getOrFetchToken()
             }
             Timber.d("FCMTokenManager: Got FCM token: ${token.take(20)}...")
 
             retryWithBackoff("saveToken") {
-                saveTokenToFirestore(userId, token)
+                saveTokenToFirestore(userId, token, force = force)
             }
 
             // Subscribe to all_users topic by default (legacy + language-specific).
             subscribeToTopic(TOPIC_ALL_USERS)
             subscribeToLanguageTopic(TOPIC_ALL_USERS)
+            subscribeToTopic(TOPIC_APP_UPDATES)
+            subscribeToLanguageTopic(TOPIC_APP_UPDATES)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
 
             Result.success(token)
@@ -120,24 +151,23 @@ class FCMTokenManager @Inject constructor(
 
     /**
      * Register FCM token with role-based topic subscription
-     * Call this after profile setup when role is known
+     * Call this after profile setup or on resume when role is known
      */
-    suspend fun registerTokenWithRole(role: String): Result<String> {
+    suspend fun registerTokenWithRole(role: String, force: Boolean = false): Result<String> {
         return try {
             val userId = auth.currentUser?.uid
             if (userId == null) {
-                Timber.w("FCMTokenManager: No authenticated user, cannot register token")
-                return Result.failure(Exception("User not authenticated"))
+                Timber.w("FCMTokenManager: No authenticated user, registering as guest")
+                return registerGuestToken()
             }
 
-            // P0-B: Same exponential backoff as registerToken().
             val token = retryWithBackoff("getToken[role=$role]") {
-                FirebaseMessaging.getInstance().token.await()
+                getOrFetchToken()
             }
             Timber.d("FCMTokenManager: Got FCM token: ${token.take(20)}...")
 
             retryWithBackoff("saveTokenWithRole[role=$role]") {
-                saveTokenToFirestoreWithRole(userId, token, role)
+                saveTokenToFirestoreWithRole(userId, token, role, force = force)
             }
 
             // Subscribe to role-based topics
@@ -147,6 +177,57 @@ class FCMTokenManager @Inject constructor(
             Result.success(token)
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Failed to register FCM token with role after retries")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Non-blocking, un-cancellable background registration that survives Composable navigation and teardown.
+     */
+    fun registerTokenWithRoleAsync(role: String, force: Boolean = true) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+            runCatching {
+                registerTokenWithRole(role, force = force)
+            }.onFailure { Timber.w(it, "registerTokenWithRoleAsync failed for role: $role") }
+        }
+    }
+
+    /**
+     * Register FCM token for guest/unauthenticated users so they can receive broadcast push notifications
+     */
+    suspend fun registerGuestToken(): Result<String> {
+        return try {
+            val token = getOrFetchToken()
+            val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            var guestId = prefs.getString("guest_id", null)
+            if (guestId.isNullOrBlank()) {
+                guestId = "guest_" + java.util.UUID.randomUUID().toString().take(12)
+                prefs.edit().putString("guest_id", guestId).apply()
+            }
+
+            val language = LocaleHelper.getLanguage(appContext)
+            runCatching {
+                firestore.collection("guest_tokens").document(guestId).set(
+                    mapOf(
+                        "fcmToken" to token,
+                        "language" to language,
+                        "updatedAt" to Timestamp.now()
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                ).await()
+            }
+
+            subscribeToTopic(TOPIC_GUEST_USERS)
+            subscribeToLanguageTopic(TOPIC_GUEST_USERS)
+            subscribeToTopic(TOPIC_ALL_USERS)
+            subscribeToLanguageTopic(TOPIC_ALL_USERS)
+            subscribeToTopic(TOPIC_APP_UPDATES)
+            subscribeToLanguageTopic(TOPIC_APP_UPDATES)
+
+            Timber.i("FCMTokenManager: Guest token registered for $guestId")
+            Result.success(token)
+        } catch (e: Exception) {
+            Timber.w(e, "FCMTokenManager: Failed to register guest token")
             Result.failure(e)
         }
     }
@@ -202,7 +283,7 @@ class FCMTokenManager @Inject constructor(
      * Saves user_tokens/{uid} {fcmToken, language, updatedAt} and users/{uid}.fcmToken.
      * Skips writing only if the same fingerprint was synced within the last 24 hours.
      */
-    suspend fun saveTokenToFirestore(userId: String, token: String) {
+    suspend fun saveTokenToFirestore(userId: String, token: String, force: Boolean = false) {
         if (token.isBlank() || userId.isBlank()) {
             Timber.w("FCMTokenManager: Token or userId is blank, skipping save")
             return
@@ -213,9 +294,11 @@ class FCMTokenManager @Inject constructor(
         val prefs = appContext.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
         val lastSync = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
         val isFresh = (System.currentTimeMillis() - lastSync) < RESYNC_INTERVAL_MS
-        if (prefs.getString(KEY_SAVED, null) == fingerprint && isFresh) return
+        if (!force && prefs.getString(KEY_SAVED, null) == fingerprint && isFresh) return
         val tokenRef = firestore.collection(T.COLLECTION).document(userId)
 
+        // 1. Save to user_tokens collection
+        var userTokensSaved = false
         try {
             tokenRef.set(
                 mapOf(
@@ -225,27 +308,14 @@ class FCMTokenManager @Inject constructor(
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
-            prefs.edit()
-                .putString(KEY_SAVED, fingerprint)
-                .putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis())
-                .apply()
+            userTokensSaved = true
             Timber.i("FCMTokenManager: Token saved for user: $userId")
-        } catch (e: FirebaseFirestoreException) {
-            when (e.code) {
-                FirebaseFirestoreException.Code.PERMISSION_DENIED -> {
-                    Timber.w("FCMTokenManager: permission denied saving token for user: $userId")
-                }
-                FirebaseFirestoreException.Code.NOT_FOUND -> {
-                    Timber.w("FCMTokenManager: token doc not found during token save for user: $userId")
-                }
-                else -> {
-                    Timber.e(e, "FCMTokenManager: Error saving token to Firestore")
-                    throw e
-                }
-            }
+        } catch (e: Exception) {
+            Timber.w(e, "FCMTokenManager: Failed writing to user_tokens collection for $userId, will continue to users doc")
         }
 
-        // Dual sync: Also save fcmToken in users/{userId} for redundancy
+        // 2. Dual sync: Also save fcmToken in users/{userId} for redundancy
+        var usersDocSaved = false
         runCatching {
             firestore.collection("users").document(userId).set(
                 mapOf(
@@ -254,13 +324,26 @@ class FCMTokenManager @Inject constructor(
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
+            usersDocSaved = true
+            Timber.i("FCMTokenManager: Token saved to users/$userId")
+        }.onFailure { e ->
+            Timber.w(e, "FCMTokenManager: Failed writing to users collection for $userId")
+        }
+
+        if (userTokensSaved || usersDocSaved) {
+            prefs.edit()
+                .putString(KEY_SAVED, fingerprint)
+                .putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis())
+                .apply()
+        } else {
+            throw Exception("FCMTokenManager: Failed writing token to both user_tokens and users for $userId")
         }
     }
 
     /**
      * Save FCM token with role information
      */
-    suspend fun saveTokenToFirestoreWithRole(userId: String, token: String, role: String) {
+    suspend fun saveTokenToFirestoreWithRole(userId: String, token: String, role: String, force: Boolean = false) {
         if (token.isBlank() || userId.isBlank()) {
             Timber.w("FCMTokenManager: Token or userId is blank, skipping save with role")
             return
@@ -271,9 +354,11 @@ class FCMTokenManager @Inject constructor(
         val prefs = appContext.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
         val lastSync = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
         val isFresh = (System.currentTimeMillis() - lastSync) < RESYNC_INTERVAL_MS
-        if (prefs.getString(KEY_SAVED_WITH_ROLE, null) == fingerprint && isFresh) return
+        if (!force && prefs.getString(KEY_SAVED_WITH_ROLE, null) == fingerprint && isFresh) return
         val tokenRef = firestore.collection(T.COLLECTION).document(userId)
 
+        // 1. Save to user_tokens collection with role
+        var userTokensSaved = false
         try {
             tokenRef.set(
                 mapOf(
@@ -284,32 +369,27 @@ class FCMTokenManager @Inject constructor(
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
-            prefs.edit()
-                .putString(KEY_SAVED_WITH_ROLE, fingerprint)
-                .putString(KEY_SAVED, "$userId|$token|$language")
-                .putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis())
-                .apply()
+            userTokensSaved = true
             Timber.i("FCMTokenManager: Token with role saved for user: $userId, role: $role")
-        } catch (e: FirebaseFirestoreException) {
-            when (e.code) {
-                FirebaseFirestoreException.Code.PERMISSION_DENIED -> {
-                    Timber.w("FCMTokenManager: permission denied saving token with role for user: $userId, falling back without role")
-                    saveTokenToFirestore(userId, token)
-                }
-                FirebaseFirestoreException.Code.NOT_FOUND -> {
-                    Timber.w("FCMTokenManager: token doc not found during token with role save for user: $userId")
-                }
-                else -> {
-                    Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
-                    throw e
-                }
-            }
         } catch (e: Exception) {
-            Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")
-            throw e
+            Timber.w(e, "FCMTokenManager: Error saving token with role to user_tokens, trying without role")
+            runCatching {
+                tokenRef.set(
+                    mapOf(
+                        T.FCM_TOKEN to token,
+                        T.LANGUAGE to language,
+                        T.UPDATED_AT to Timestamp.now()
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                ).await()
+                userTokensSaved = true
+            }.onFailure { fsErr ->
+                Timber.w(fsErr, "FCMTokenManager: user_tokens fallback also failed, continuing to users doc")
+            }
         }
 
-        // Dual sync: Also save fcmToken in users/{userId} for redundancy
+        // 2. Dual sync: Also save fcmToken in users/{userId} for redundancy
+        var usersDocSaved = false
         runCatching {
             firestore.collection("users").document(userId).set(
                 mapOf(
@@ -318,6 +398,20 @@ class FCMTokenManager @Inject constructor(
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
             ).await()
+            usersDocSaved = true
+            Timber.i("FCMTokenManager: Token with role saved to users/$userId")
+        }.onFailure { e ->
+            Timber.w(e, "FCMTokenManager: Failed writing fcmToken to users/$userId")
+        }
+
+        if (userTokensSaved || usersDocSaved) {
+            prefs.edit()
+                .putString(KEY_SAVED_WITH_ROLE, fingerprint)
+                .putString(KEY_SAVED, "$userId|$token|$language")
+                .putLong(KEY_LAST_SYNC_TIME, System.currentTimeMillis())
+                .apply()
+        } else {
+            throw Exception("FCMTokenManager: Failed writing token with role to both user_tokens and users for $userId")
         }
     }
 

@@ -3,7 +3,7 @@ import { Timestamp } from "firebase-admin/firestore";
 
 import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
-import { getFirebaseAdminDb, getFirebaseAdminMessaging } from "@/lib/firebase/admin-server";
+import { getFirebaseAdminAuth, getFirebaseAdminDb, getFirebaseAdminMessaging } from "@/lib/firebase/admin-server";
 import { Notifications, UserTokens } from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
   try {
     // Resolve recipient IDs (supports Auth UIDs and 10-digit phone numbers like 8019151847 or +918019151847)
     const resolvedUids: string[] = [];
+    const adminAuth = getFirebaseAdminAuth();
     for (const rawId of recipientIds) {
       const clean = rawId.trim();
       if (!clean) continue;
@@ -89,12 +90,50 @@ export async function POST(request: NextRequest) {
         const last10 = digits.slice(-10);
         const phoneVariants = [`+91${last10}`, last10, `91${last10}`];
         let foundUid: string | null = null;
+
+        // 1. Check canonical phoneRoles collection (O(1) lookup by phone key)
         for (const p of phoneVariants) {
-          const snap = await db.collection("users").where("phoneNumber", "==", p).limit(1).get();
-          if (!snap.empty) { foundUid = snap.docs[0].id; break; }
-          const snap2 = await db.collection("users").where("phone", "==", p).limit(1).get();
-          if (!snap2.empty) { foundUid = snap2.docs[0].id; break; }
+          try {
+            const prDoc = await db.collection("phoneRoles").doc(p).get();
+            if (prDoc.exists && prDoc.get("uid")) {
+              foundUid = String(prDoc.get("uid"));
+              break;
+            }
+          } catch (_) {}
         }
+
+        // 2. Check Firebase Authentication by standard E.164 phone number
+        if (!foundUid) {
+          try {
+            const userRec = await adminAuth.getUserByPhoneNumber(`+91${last10}`);
+            if (userRec?.uid) foundUid = userRec.uid;
+          } catch (_) {}
+        }
+
+        // 3. Check worker_profiles and employer_profiles
+        if (!foundUid) {
+          for (const p of phoneVariants) {
+            try {
+              const wSnap = await db.collection("worker_profiles").where("phone", "==", p).limit(1).get();
+              if (!wSnap.empty) { foundUid = wSnap.docs[0].id; break; }
+              const eSnap = await db.collection("employer_profiles").where("phone", "==", p).limit(1).get();
+              if (!eSnap.empty) { foundUid = eSnap.docs[0].id; break; }
+            } catch (_) {}
+          }
+        }
+
+        // 4. Check users collection
+        if (!foundUid) {
+          for (const p of phoneVariants) {
+            try {
+              const snap = await db.collection("users").where("phoneNumber", "==", p).limit(1).get();
+              if (!snap.empty) { foundUid = snap.docs[0].id; break; }
+              const snap2 = await db.collection("users").where("phone", "==", p).limit(1).get();
+              if (!snap2.empty) { foundUid = snap2.docs[0].id; break; }
+            } catch (_) {}
+          }
+        }
+
         if (foundUid) {
           resolvedUids.push(foundUid);
         } else {

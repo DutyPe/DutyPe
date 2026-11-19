@@ -442,6 +442,34 @@ exports.NOTIFICATION_TEMPLATES = {
         te: { title: "📈 చిన్న అడుగులు, పెద్ద అవకాశాలు", body: "మీ ప్రొఫైల్‌ను చురుకుగా ఉంచండి — యజమానులు స్థిరత్వాన్ని గమనిస్తారు." },
         hi: { title: "📈 छोटे कदम, बड़े अवसर", body: "अपनी प्रोफ़ाइल सक्रिय रखें — नियोक्ता नियमितता नोट करते हैं।" },
     },
+    WORKER_INCOMPLETE_PROFILE: {
+        en: {
+            title: "💼 Complete your DutyPe profile!",
+            body: "Hi {recipient}, you're almost done! Complete your worker profile to start getting high-paying jobs near you.",
+        },
+        te: {
+            title: "💼 మీ డ్యూటీపే ప్రొఫైల్‌ను పూర్తి చేయండి!",
+            body: "నమస్కారం {recipient}, మీ సమీపంలోని మంచి జీతంతో ఉద్యోగాలను పొందడానికి మీ ప్రొఫైల్‌ను పూర్తి చేయండి.",
+        },
+        hi: {
+            title: "💼 अपनी DutyPe प्रोफ़ाइल पूरी करें!",
+            body: "नमस्ते {recipient}, अपने आस-पास अच्छी नौकरी पाने के लिए अपनी प्रोफ़ाइल अभी पूरी करें।",
+        },
+    },
+    EMPLOYER_INCOMPLETE_PROFILE: {
+        en: {
+            title: "👷 Finish setting up your employer profile!",
+            body: "Hi {recipient}, complete your profile to post jobs and hire verified local workers in minutes.",
+        },
+        te: {
+            title: "👷 మీ యజమాని ప్రొఫైల్‌ను పూర్తి చేయండి!",
+            body: "నమస్కారం {recipient}, ఉద్యోగాలను పోస్ట్ చేయడానికి మరియు తక్షణమే వర్కర్లను నియమించుకోవడానికి మీ ప్రొఫైల్ పూర్తి చేయండి.",
+        },
+        hi: {
+            title: "👷 अपनी नियोक्ता प्रोफ़ाइल पूरी करें!",
+            body: "नमस्ते {recipient}, नौकरियाँ पोस्ट करने और तुरंत कर्मचारी खोजने के लिए अपनी प्रोफ़ाइल पूरी करें।",
+        },
+    },
     SE_WORKER_STAND_OUT: {
         en: { title: "🏆 Stand out from other applicants", body: "Complete your profile to rank higher in search results." },
         te: { title: "🏆 ఇతర దరఖాస్తుదారుల నుండి ప్రత్యేకంగా నిలవండి", body: "శోధన ఫలితాల్లో పైకి రావడానికి మీ ప్రొఫైల్‌ను పూర్తి చేయండి." },

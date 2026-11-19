@@ -83,6 +83,14 @@ service cloud.firestore {
         optString(request.resource.data, 'role', 20);
     }
 
+    match /guest_tokens/{guestId} {
+      allow create, update: if
+        request.resource.data.keys().hasOnly(['fcmToken', 'language', 'updatedAt']) &&
+        request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096 &&
+        optString(request.resource.data, 'language', 5);
+      allow get: if isAdmin();
+    }
+
     match /users/{uid} {
       allow get: if signedIn();
       allow create, update: if isSelf(uid);

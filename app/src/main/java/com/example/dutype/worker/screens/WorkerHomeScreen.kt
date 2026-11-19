@@ -287,12 +287,17 @@ fun WorkerHomeScreen(
                     isLocationLoading = true
                 }
                 jobViewModel.loadJobsSummaryForHome()
+                fcmTokenManager.registerTokenWithRoleAsync("WORKER", force = false)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
+
+    LaunchedEffect(Unit) {
+        fcmTokenManager.registerTokenWithRoleAsync("WORKER", force = true)
     }
 
     // Bottom sheet state - declare before permission launchers
@@ -449,7 +454,7 @@ fun WorkerHomeScreen(
         if (isGranted) {
             scope.launch(Dispatchers.IO) {
                 runCatching {
-                    fcmTokenManager.registerTokenWithRole("WORKER")
+                    fcmTokenManager.registerTokenWithRole("WORKER", force = true)
                 }.onFailure { Timber.w(it, "Failed to register FCM token for worker after permission") }
             }
         }
@@ -459,7 +464,7 @@ fun WorkerHomeScreen(
     LaunchedEffect(currentUser?.uid) {
         scope.launch(Dispatchers.IO) {
             runCatching {
-                fcmTokenManager.registerTokenWithRole("WORKER")
+                fcmTokenManager.registerTokenWithRole("WORKER", force = true)
             }.onFailure { Timber.w(it, "Failed to register FCM token for worker on screen entry") }
         }
     }
@@ -1616,7 +1621,7 @@ fun WorkerHomeScreen(
                 }
                 scope.launch(Dispatchers.IO) {
                     runCatching {
-                        fcmTokenManager.registerTokenWithRole("WORKER")
+                        fcmTokenManager.registerTokenWithRole("WORKER", force = true)
                     }.onFailure { Timber.w(it, "Failed to register FCM token for worker on enable notifications") }
                 }
             },

@@ -1039,6 +1039,15 @@ fun HomeSectionsContent(
             }
         }
 
+        // Section: In-Feed Sponsored Native Ad Card in Worker Home Feed
+        if (hasLocationPermission && !showEmptyJobsState && nearestJobs.isNotEmpty()) {
+            item(key = "worker_home_infeed_ad") {
+                com.example.dutype.ads.DutyPeInFeedAdCard(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                )
+            }
+        }
+
         // Section: Today's Earning Potential (High Demand work card)
         // User rule: Only show after location permission given AND when there are jobs in their location
         if (hasLocationPermission && !showEmptyJobsState && availableJobs.isNotEmpty()) {

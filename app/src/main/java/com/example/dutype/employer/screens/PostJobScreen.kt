@@ -1132,6 +1132,7 @@ fun PostJobScreen(
         onStatusBarColorChange?.invoke(statusBarColorToken)
     }
     val scope = rememberCoroutineScope()
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
     val employerJobViewModel: EmployerJobsViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
@@ -1177,7 +1178,14 @@ fun PostJobScreen(
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) {
+    ) { isGranted ->
+        if (isGranted) {
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
+                }.onFailure { Timber.w(it, "PostJobScreen: Failed to register FCM token for employer after permission") }
+            }
+        }
         c.navigateAfterJobPosted(c.pendingNavJobId)
     }
     c.requestNotificationPermission = {

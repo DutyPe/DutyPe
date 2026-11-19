@@ -216,6 +216,12 @@ fun JobDescriptionScreen(
     var fetchedEmployerPhone by remember { mutableStateOf<String?>(null) }
     var isFetchingPhone by remember { mutableStateOf(false) }
 
+    // Enterprise AdMob pre-warming: preloads banner/video ad immediately on screen entry
+    // so scrolling down renders the sponsor creative instantly with 0ms delay.
+    val prewarmedAdView = com.example.dutype.ads.rememberDutyPePrewarmedAd(
+        adUnitId = com.example.dutype.ads.AdMobConfig.BANNER_AD_UNIT_ID
+    )
+
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
     val reviewTriggerService = com.example.dutype.di.rememberInAppReviewTriggerService()
@@ -248,11 +254,19 @@ fun JobDescriptionScreen(
     val authNavController = rootNavController ?: navController
 
     // Notification permission prompt on saving jobs
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
     var showSaveJobNotificationPrompt by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) {
+    ) { isGranted ->
         showSaveJobNotificationPrompt = false
+        if (isGranted) {
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                }.onFailure { Timber.w(it, "JobDescriptionScreen: Failed to register FCM token for worker after permission") }
+            }
+        }
     }
 
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
@@ -603,7 +617,8 @@ fun JobDescriptionScreen(
                                 onApplyClick = handleApplyClick,
                                 onLoginRequired = handleLoginRequired,
                             )
-                        }
+                        },
+                        prewarmedAdView = prewarmedAdView
                     )
                 }
             }
@@ -1088,6 +1103,7 @@ private fun JobDetailsContent(
     hasApplied: Boolean = false,
     onJobClick: (String) -> Unit = {},
     inlineActions: (@Composable RowScope.() -> Unit)? = null,
+    prewarmedAdView: com.google.android.gms.ads.AdView? = null,
 ) {
     val context = LocalContext.current
     val heroImageUrl = remember(job.photoUrl) {
@@ -1417,9 +1433,9 @@ private fun JobDetailsContent(
             }
         }
 
-        // Sponsored Video Ad Card (clean slot replacing map, without location card wrapper)
+        // Sponsored Video / Featured Partner Card (clean slot with 0ms pre-warmed instant render)
         item {
-            com.example.dutype.ads.DutyPeVideoAdCard()
+            com.example.dutype.ads.DutyPeVideoAdCard(prewarmedAdView = prewarmedAdView)
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }

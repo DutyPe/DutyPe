@@ -551,14 +551,16 @@ fun MandatoryEmployerProfileSetupScreen(
                                 userId = currentUser.uid,
                                 userRole = "EMPLOYER"
                             )
-                            fcmTokenManager.registerTokenWithRole("EMPLOYER")
-                        }.onFailure { Timber.e(it, "Notification/FCM background register failed") }
+                        }.onFailure { Timber.e(it, "Notification background register failed") }
                     }
                     val activity = context as? Activity
                     if (activity != null) {
                         reviewTriggerService.onEmployerProfileCompleted(activity)
                     }
                 }
+
+                // Force background FCM token registration with role that survives Composable navigation
+                fcmTokenManager.registerTokenWithRoleAsync("EMPLOYER", force = true)
 
                 // Navigate to next screen
                 if (returnRoute != null) {

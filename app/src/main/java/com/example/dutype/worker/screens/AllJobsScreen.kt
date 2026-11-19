@@ -788,8 +788,8 @@ private fun JobsList(
                     }
                 }
 
-                // Native in-feed ad banner inserted every 6th job card
-                if ((index + 1) % 6 == 0 && index < jobs.size - 1) {
+                // Native in-feed ad banner inserted every 4th job card for optimal fill & visibility
+                if ((index + 1) % 4 == 0 && index < jobs.size - 1) {
                     item(key = "infeed_ad_${index + 1}", contentType = "infeed_ad") {
                         com.example.dutype.ads.DutyPeInFeedAdCard()
                     }

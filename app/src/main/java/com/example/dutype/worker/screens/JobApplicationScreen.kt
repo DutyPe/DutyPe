@@ -634,6 +634,8 @@ private fun ApplicationSentSuccess(
     )
 
     val context = LocalContext.current
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
+    val scope = rememberCoroutineScope()
 
     val hasNotificationPermission = remember {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -654,6 +656,11 @@ private fun ApplicationSentSuccess(
         showNotificationCard = false
         if (isGranted) {
             Toast.makeText(context, context.getString(R.string.apply_notif_enabled_toast), Toast.LENGTH_SHORT).show()
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("WORKER", force = true)
+                }.onFailure { Timber.w(it, "JobApplicationScreen: Failed to register FCM token for worker after permission") }
+            }
         }
     }
 

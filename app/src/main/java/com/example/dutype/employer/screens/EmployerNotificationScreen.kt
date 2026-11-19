@@ -53,6 +53,7 @@ import com.example.dutype.navigation.Routes
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.res.stringResource
@@ -70,6 +71,9 @@ fun EmployerNotificationScreen(
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
+    val fcmTokenManager = com.example.dutype.di.rememberFCMTokenManager()
+    val scope = rememberCoroutineScope()
+
     // If the user previously denied POST_NOTIFICATIONS, opening this screen is a
     // strong signal they want notifications — re-prompt the system dialog.
     val context = LocalContext.current
@@ -78,6 +82,13 @@ fun EmployerNotificationScreen(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
         Timber.d("🔔 EmployerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
+        if (granted) {
+            scope.launch {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
+                }.onFailure { Timber.w(it, "Failed to register FCM token for employer after permission") }
+            }
+        }
     }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -87,6 +98,14 @@ fun EmployerNotificationScreen(
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!granted) {
                 showNotificationBottomSheet = true
+            } else {
+                runCatching {
+                    fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
+                }
+            }
+        } else {
+            runCatching {
+                fcmTokenManager.registerTokenWithRole("EMPLOYER", force = true)
             }
         }
     }

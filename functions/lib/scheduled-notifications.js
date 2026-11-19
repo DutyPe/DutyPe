@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reEngageInactiveWorkers = exports.reEngageInactiveDay2 = exports.reEngageInactiveDay1 = exports.remindPendingApplications = exports.remindExpiringJobs = exports.engagementNightReferral = exports.engagementEvening = exports.engagementAfternoon = exports.engagementMorning = void 0;
+exports.remindIncompleteProfiles = exports.reEngageInactiveWorkers = exports.reEngageInactiveDay2 = exports.reEngageInactiveDay1 = exports.remindPendingApplications = exports.remindExpiringJobs = exports.engagementNightReferral = exports.engagementEvening = exports.engagementAfternoon = exports.engagementMorning = void 0;
 /**
  * Scheduled reminders, built to cost the same at 1k or 1M users:
  *
@@ -247,6 +247,89 @@ exports.reEngageInactiveWorkers = schedule("0 */6 * * *").onRun(async () => {
             data: { action: "view_jobs" },
             role: schema_1.Values.Role.WORKER,
         })));
+    }
+    return null;
+});
+/**
+ * Incomplete Profile Follow-up Cron Job:
+ * Triggers every 2 hours during active daytime (10:00 - 20:00 IST).
+ * Finds employers & workers who opened the app, registered/logged in between 1h and 48h ago,
+ * but closed the app before completing their profile (missing skills, location, or name).
+ * Sends a high-priority push notification with a 1-tap deep link to complete setup.
+ * Spam-capped to at most 1 reminder per 12 hours per user.
+ */
+exports.remindIncompleteProfiles = schedule("0 */2 * * *").onRun(async () => {
+    if (isQuietHours())
+        return null;
+    const now = Date.now();
+    const windowStart = Timestamp.fromMillis(now - 48 * HOUR_MS);
+    const windowEnd = Timestamp.fromMillis(now - 1 * HOUR_MS);
+    // 1. Remind workers with incomplete profiles
+    try {
+        const workerSnap = await db.collection(schema_1.WorkerProfiles.COLLECTION)
+            .where(schema_1.WorkerProfiles.CREATED_AT, ">=", windowStart)
+            .where(schema_1.WorkerProfiles.CREATED_AT, "<=", windowEnd)
+            .limit(200)
+            .get();
+        for (const doc of workerSnap.docs) {
+            const data = doc.data();
+            const skills = data[schema_1.WorkerProfiles.SKILLS] || [];
+            const lat = Number(data[schema_1.WorkerProfiles.LAT] || 0);
+            const lng = Number(data[schema_1.WorkerProfiles.LNG] || 0);
+            const address = String(data[schema_1.WorkerProfiles.ADDRESS] || data[schema_1.WorkerProfiles.AREA] || "").trim();
+            const name = String(data[schema_1.WorkerProfiles.NAME] || "").trim();
+            const isIncomplete = skills.length === 0 || (lat === 0 && lng === 0 && !address) || name === "User" || name.length < 3;
+            if (isIncomplete) {
+                const lastReminded = data.lastProfileReminderAt ? data.lastProfileReminderAt.toMillis() : 0;
+                if (now - lastReminded > 12 * HOUR_MS) {
+                    await (0, notify_1.notify)(doc.id, {
+                        type: "PROFILE_REMINDER",
+                        templateId: "WORKER_INCOMPLETE_PROFILE",
+                        params: { recipient: name && name !== "User" ? name : "" },
+                        data: { action: "complete_worker_profile", deepLink: "dutype://profile-setup" },
+                        role: schema_1.Values.Role.WORKER,
+                    });
+                    await doc.ref.update({ lastProfileReminderAt: Timestamp.now() }).catch(() => { });
+                }
+            }
+        }
+    }
+    catch (err) {
+        functions.logger.warn("Worker incomplete profile reminder failed", err);
+    }
+    // 2. Remind employers with incomplete profiles
+    try {
+        const employerSnap = await db.collection(schema_1.EmployerProfiles.COLLECTION)
+            .where(schema_1.EmployerProfiles.CREATED_AT, ">=", windowStart)
+            .where(schema_1.EmployerProfiles.CREATED_AT, "<=", windowEnd)
+            .limit(200)
+            .get();
+        for (const doc of employerSnap.docs) {
+            const data = doc.data();
+            const lat = Number(data[schema_1.EmployerProfiles.LAT] || 0);
+            const lng = Number(data[schema_1.EmployerProfiles.LNG] || 0);
+            const address = String(data[schema_1.EmployerProfiles.ADDRESS] || data[schema_1.EmployerProfiles.AREA] || "").trim();
+            const ownerName = String(data[schema_1.EmployerProfiles.OWNER_NAME] || "").trim();
+            const isCompany = data[schema_1.EmployerProfiles.EMPLOYER_TYPE] === schema_1.Values.EmployerType.COMPANY;
+            const businessName = String(data[schema_1.EmployerProfiles.BUSINESS_NAME] || "").trim();
+            const isIncomplete = (lat === 0 && lng === 0 && !address) || ownerName.length < 3 || ownerName === "User" || (isCompany && !businessName);
+            if (isIncomplete) {
+                const lastReminded = data.lastProfileReminderAt ? data.lastProfileReminderAt.toMillis() : 0;
+                if (now - lastReminded > 12 * HOUR_MS) {
+                    await (0, notify_1.notify)(doc.id, {
+                        type: "PROFILE_REMINDER",
+                        templateId: "EMPLOYER_INCOMPLETE_PROFILE",
+                        params: { recipient: ownerName && ownerName !== "User" ? ownerName : "" },
+                        data: { action: "complete_employer_profile", deepLink: "dutype://profile-setup" },
+                        role: schema_1.Values.Role.EMPLOYER,
+                    });
+                    await doc.ref.update({ lastProfileReminderAt: Timestamp.now() }).catch(() => { });
+                }
+            }
+        }
+    }
+    catch (err) {
+        functions.logger.warn("Employer incomplete profile reminder failed", err);
     }
     return null;
 });
