@@ -140,11 +140,11 @@ object AnnouncementManager {
                 trimmed.startsWith("dutype://") -> {
                     val path = trimmed.removePrefix("dutype://").lowercase()
                     when (path) {
-                        "services", "service" -> navController.navigate(Routes.SERVICES)
+                        "services", "service" -> navController.navigate(Routes.WORKER_ALL_JOBS)
                         "jobs", "browse_jobs" -> navController.navigate(Routes.WORKER_ALL_JOBS)
                         "post-job", "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
                         "refer", "referral" -> navController.navigate(Routes.WORKER_REFER_EARN)
-                        "partner-apply", "partner" -> navController.navigate(Routes.PARTNER)
+                        "partner-apply", "partner" -> navController.navigate(Routes.WORKER_REFER_EARN)
                         "profile" -> navController.navigate(Routes.WORKER_PROFILE_DETAILS)
                         else -> {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmed))
@@ -156,7 +156,7 @@ object AnnouncementManager {
                 else -> {
                     // Direct route name
                     val resolved = when (trimmed.lowercase()) {
-                        "services" -> Routes.SERVICES
+                        "services" -> Routes.WORKER_ALL_JOBS
                         "jobs" -> Routes.WORKER_ALL_JOBS
                         "post-job", "post_job" -> Routes.EMPLOYER_POST_JOB
                         "refer" -> Routes.WORKER_REFER_EARN

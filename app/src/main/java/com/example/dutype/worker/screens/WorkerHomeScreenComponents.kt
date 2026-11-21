@@ -655,6 +655,8 @@ fun HomeSectionsContent(
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
+    showcases: List<com.example.dutype.models.PromoShowcase> = emptyList(),
+    onShowcaseClick: (String) -> Unit = {},
     onDismissAnnouncement: (String) -> Unit = {},
     birthdayService: BirthdayService,
     instantRequests: List<InstantRequest> = emptyList(),
@@ -680,8 +682,6 @@ fun HomeSectionsContent(
     onRequestLocationPermission: () -> Unit = {},
     onMapClick: () -> Unit = {},
     onCategoryTap: (String) -> Unit = {},
-    showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
-    onShowcaseClick: (String) -> Unit = {},
     onOpenStory: ((Int) -> Unit)? = null,
     headerContent: @Composable () -> Unit = {}
 ) {
@@ -778,25 +778,10 @@ fun HomeSectionsContent(
         onLocationBarAlphaChange(locationBarAlpha)
     }
 
-    val currentCity = currentLocation?.city.orEmpty().trim().ifBlank { currentLocation?.area.orEmpty().trim() }
-    val filteredShowcases = remember(showcases, currentCity) {
-        showcases.filter { sc ->
-            sc.active && (sc.scope.equals("NATIONAL", ignoreCase = true) ||
-                    sc.district.isBlank() ||
-                    sc.district.equals("ALL", ignoreCase = true) ||
-                    (currentCity.isNotBlank() && (
-                        sc.district.contains(currentCity, ignoreCase = true) ||
-                        currentCity.contains(sc.district, ignoreCase = true) ||
-                        sc.address.contains(currentCity, ignoreCase = true)
-                    )) ||
-                    currentCity.isBlank())
-        }
-    }
-
     // Promotional Carousel matching top banner requirement - shows live announcements & brand showcases dynamically
-    val dynamicPromoSlides = remember(announcements, filteredShowcases) {
+    val dynamicPromoSlides = remember(announcements, showcases) {
         val announcementSlides = announcements.map { com.example.dutype.components.announcementToSlide(it) }
-        val showcaseSlides = filteredShowcases.map { com.example.dutype.components.showcaseToSlide(it) }
+        val showcaseSlides = showcases.map { com.example.dutype.components.showcaseToSlide(it) }
         announcementSlides + showcaseSlides
     }
 
@@ -829,34 +814,27 @@ fun HomeSectionsContent(
                 }
             } else {
             // Promotional / announcement carousel: rendered at top of feed matching Employer Home
-            item(key = "worker_home_promo_carousel") {
-                Box(modifier = Modifier.cascadeEnter(0)) {
-                    com.example.dutype.components.PromotionalBannerCarousel(
-                        isWorker = true,
-                        customSlides = dynamicPromoSlides,
-                        onAction = { target ->
-                            when {
-                                target == "partner" || target == "partner_services" || target.contains("partner") -> {
-                                    rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER)
+            if (dynamicPromoSlides.isNotEmpty()) {
+                item(key = "worker_home_promo_carousel") {
+                    Box(modifier = Modifier.cascadeEnter(0)) {
+                        com.example.dutype.components.PromotionalBannerCarousel(
+                            isWorker = true,
+                            customSlides = dynamicPromoSlides,
+                            onAction = { target ->
+                                when {
+                                    target.startsWith("showcase") -> DeepLinkHandler.handleAnnouncementAction(target, navController, context)
+                                    target == "jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
+                                    target == "profile" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.PROFILE)
+                                    target == "refer_earn" -> navController.navigate(Routes.WORKER_REFER_EARN)
+                                    target == "spin_and_win" || target == "spin" -> navController.navigate(com.example.dutype.navigation.Routes.SPIN_AND_WIN)
+                                    else -> DeepLinkHandler.handleAnnouncementAction(target, navController, context)
                                 }
-                                target == "services" -> {
-                                    rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES)
-                                }
-                                target.startsWith("dutype://") || target.contains("://") || target.startsWith("showcase") ||
-                                        target == "promote_business" || target.contains("promote-business") -> {
-                                    DeepLinkHandler.handleAnnouncementAction(target, navController, context)
-                                }
-                                target == "jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
-                                target == "profile" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.PROFILE)
-                                target == "refer_earn" -> navController.navigate(Routes.WORKER_REFER_EARN)
-                                target == "spin_and_win" || target == "spin" -> navController.navigate(com.example.dutype.navigation.Routes.SPIN_AND_WIN)
-                                else -> DeepLinkHandler.handleAnnouncementAction(target, navController, context)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -1052,7 +1030,7 @@ fun HomeSectionsContent(
         // User rule: Only show after location permission given AND when there are jobs in their location
         if (hasLocationPermission && !showEmptyJobsState && availableJobs.isNotEmpty()) {
             item(key = "worker_home_earning_potential") {
-                val districtName = currentCity.ifBlank { "Khammam" }
+                val districtName = (currentLocation?.city.orEmpty().ifBlank { currentLocation?.area.orEmpty() }).ifBlank { "Khammam" }
                 val context = LocalContext.current
                 val currentLang = LocaleHelper.getLanguage(context)
                 val isTelugu = currentLang == LocaleHelper.LANGUAGE_TELUGU

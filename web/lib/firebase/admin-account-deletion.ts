@@ -133,7 +133,6 @@ export async function deleteAccountCompletely(userId: string, phones: string[] =
     db.collection(UserTokens.COLLECTION).doc(userId),
     db.collection(Wallets.COLLECTION).doc(userId),
     db.collection(Referrals.COLLECTION).doc(userId),
-    db.collection("service_partners").doc(userId),
     db.collection("worker_locations").doc(userId),
     db.collection("saved_work_locations").doc(userId),
     ...(code ? [db.collection(ReferralCodes.COLLECTION).doc(code)] : [])
@@ -185,8 +184,6 @@ export async function deleteAccountCompletely(userId: string, phones: string[] =
     db.collection(JobDetails.COLLECTION).where(JobDetails.EMPLOYER_ID, "==", userId),
     db.collection("withdrawal_requests").where("uid", "==", userId),
     db.collection("withdrawal_requests").where("userId", "==", userId),
-    db.collection("service_bookings").where("customerId", "==", userId),
-    db.collection("service_bookings").where("workerId", "==", userId),
     db.collection("ratings").where("raterId", "==", userId),
     db.collection("ratings").where("targetId", "==", userId),
     db.collection("wallet_ledger").where("uid", "==", userId)

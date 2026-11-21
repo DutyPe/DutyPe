@@ -16,17 +16,17 @@ import { isCallerAdmin } from "./app-config";
 import { fail, obj, str } from "./lib/input";
 import { istDayKey } from "./lib/phone-otp";
 import {
-  PROMO_GAP_DAYS_DEFAULT, PROMO_MAX_PER_RUN, WHATSAPP_TOKEN_SECRET, langList, promoDue, sendWaTemplate, sendWaText, serviceTemplates, waLang, waReady,
+  PROMO_GAP_DAYS_DEFAULT, PROMO_MAX_PER_RUN, WHATSAPP_TOKEN_SECRET, langList, promoDue, sendWaTemplate, sendWaText, waLang, waReady,
 } from "./lib/whatsapp";
 import {
-  EmployerProfiles, JobContacts, Jobs, OtpDaily, ServiceBookings as BK, ServicePartners, UserTokens, Values, WhatsappCampaigns as WC,
+  EmployerProfiles, JobContacts, Jobs, OtpDaily, UserTokens, Values, WhatsappCampaigns as WC,
   WhatsappPrefs as WP, WorkerProfiles,
 } from "./schema";
 
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const AUDIENCES = ["ALL", Values.Role.WORKER, Values.Role.EMPLOYER, "PARTNER"];
+const AUDIENCES = ["ALL", Values.Role.WORKER, Values.Role.EMPLOYER];
 
 const ms = (v: unknown) => (v as admin.firestore.Timestamp | undefined)?.toMillis?.() ?? 0;
 
@@ -47,109 +47,6 @@ async function reserveDaily(field: string, n: number, cap: number): Promise<bool
   });
 }
 
-// ─────────────────────────── service updates (UTILITY) ───────────────────────────
-
-/**
- * "Partner found" to the customer ({{1}} partner, {{2}} service, {{3}} partner phone) and "Job
- * confirmed" to the partner ({{1}} service, {{2}} customer, {{3}} customer phone, {{4}} address).
- * Best effort: a failure never affects the booking (the app and push already carry the same info).
- */
-export async function whatsappServiceAssigned(b: FirebaseFirestore.DocumentData): Promise<number> {
-  const t = serviceTemplates();
-  if (!t) return 0;
-  const jobs: Array<{ uid: string; phone: string; template: string; params: unknown[] }> = [];
-  if (t.customer && b[BK.CUSTOMER_PHONE]) {
-    jobs.push({ uid: String(b[BK.CUSTOMER_ID]), phone: String(b[BK.CUSTOMER_PHONE]), template: t.customer,
-      params: [b[BK.PARTNER_NAME], b[BK.SERVICE_NAME], b[BK.PARTNER_PHONE]] });
-  }
-  if (t.partner && b[BK.PARTNER_PHONE]) {
-    const where = [b[BK.ADDRESS_TEXT], b[BK.AREA]].filter((x) => x).join(", ");
-    jobs.push({ uid: String(b[BK.PARTNER_ID]), phone: String(b[BK.PARTNER_PHONE]), template: t.partner,
-      params: [b[BK.SERVICE_NAME], b[BK.CUSTOMER_NAME], b[BK.CUSTOMER_PHONE], where] });
-  }
-  if (!jobs.length) return 0;
-  try {
-    if (!(await reserveDaily(OtpDaily.UTILITY_COUNT, jobs.length, Number(process.env.WHATSAPP_UTILITY_DAILY_CAP || 500)))) {
-      functions.logger.warn("WhatsApp service updates: daily cap reached");
-      return 0;
-    }
-    const results = await Promise.all(jobs.map(async (j) => {
-      const r = await sendWaTemplate(j.phone, j.template, waLang(await languageOf(j.uid), t.langs), j.params);
-      if (!r.ok) functions.logger.warn(`WhatsApp service update ${j.template} failed`, r.error);
-      return r.ok;
-    }));
-    return results.filter(Boolean).length;
-  } catch (e) {
-    functions.logger.warn("WhatsApp service updates failed", e);
-    return 0;
-  }
-}
-
-export const DUTYPE_ADMIN_SUPPORT_PHONE = "+918019151847";
-
-/**
- * Sends a WhatsApp notification to DutyPe admin/support (+918019151847)
- * immediately whenever any customer books a home service.
- */
-export async function whatsappNotifyAdminNewBooking(b: FirebaseFirestore.DocumentData): Promise<boolean> {
-  const serviceName = String(b[BK.SERVICE_NAME] || "Home Service");
-  const customerName = String(b[BK.CUSTOMER_NAME] || "Customer");
-  const customerPhone = String(b[BK.CUSTOMER_PHONE] || "N/A");
-  const area = String(b[BK.AREA] || "");
-  const address = String(b[BK.ADDRESS_TEXT] || "");
-  const where = [area, address].filter(Boolean).join(", ") || "Khammam";
-  const total = Number(b[BK.TOTAL] || b[BK.PRICE] || 0);
-  const fee = Number(b[BK.BOOKING_FEE] || 0);
-  const bookingId = String(b.id || b.bookingId || "");
-  const when = String(b[BK.WHEN] || "now");
-
-  const messageText = [
-    `🚨 *New DutyPe Service Booking!*`,
-    ``,
-    `🛠 *Service:* ${serviceName}`,
-    `👤 *Customer:* ${customerName}`,
-    `📞 *Phone:* ${customerPhone}`,
-    `📍 *Location:* ${where}`,
-    `💰 *Service Total:* ₹${total}`,
-    `🏷 *Platform Fee:* ₹${fee}`,
-    `⏰ *Timing:* ${when === "scheduled" ? "Scheduled" : "Instant (Now)"}`,
-    `🆔 *Booking ID:* #${bookingId.slice(0, 8).toUpperCase()}`,
-    ``,
-    `👉 Open Admin Panel to view live tracking and assign partners.`
-  ].join("\n");
-
-  try {
-    // Attempt 1: Direct text message to support number
-    const textRes = await sendWaText(DUTYPE_ADMIN_SUPPORT_PHONE, messageText);
-    if (textRes.ok) {
-      functions.logger.info(`Admin WhatsApp alert sent successfully for booking ${bookingId}`);
-      return true;
-    }
-
-    functions.logger.warn(`Admin WhatsApp text alert failed: ${textRes.error}. Trying template fallback.`);
-
-    // Attempt 2: Fallback to approved UTILITY template (dutype_service_job_confirmed)
-    const t = serviceTemplates();
-    if (t?.partner) {
-      const tmplRes = await sendWaTemplate(
-        DUTYPE_ADMIN_SUPPORT_PHONE,
-        t.partner,
-        "en",
-        [serviceName, customerName, customerPhone, where.slice(0, 60)]
-      );
-      if (tmplRes.ok) {
-        functions.logger.info(`Admin WhatsApp template fallback sent successfully for booking ${bookingId}`);
-        return true;
-      }
-      functions.logger.warn(`Admin WhatsApp template fallback failed: ${tmplRes.error}`);
-    }
-  } catch (err) {
-    functions.logger.warn(`whatsappNotifyAdminNewBooking failed for ${bookingId}:`, err);
-  }
-
-  return false;
-}
-
 // ─────────────────────────────── offers (MARKETING) ───────────────────────────────
 
 async function phoneOf(uid: string, token: Record<string, unknown>): Promise<string> {
@@ -160,15 +57,13 @@ async function phoneOf(uid: string, token: Record<string, unknown>): Promise<str
 }
 
 async function rolesOf(uid: string): Promise<string[]> {
-  const [w, e, p] = await Promise.all([
+  const [w, e] = await Promise.all([
     db.collection(WorkerProfiles.COLLECTION).doc(uid).get(),
     db.collection(EmployerProfiles.COLLECTION).doc(uid).get(),
-    db.collection(ServicePartners.COLLECTION).doc(uid).get(),
   ]);
   return [
     ...(w.exists ? [Values.Role.WORKER] : []),
     ...(e.exists ? [Values.Role.EMPLOYER] : []),
-    ...(p.exists && p.get(ServicePartners.STATUS) === "APPROVED" ? ["PARTNER"] : []),
   ];
 }
 

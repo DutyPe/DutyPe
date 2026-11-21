@@ -698,12 +698,6 @@ fun WorkerProfileScreen(
                                 rootNavController.navigate(Routes.loginRoute(role = "WORKER", returnRoute = Routes.WORKER_REFER_EARN))
                             }
                         },
-                        onBookServices = {
-                            rootNavController.navigate(Routes.SERVICES)
-                        },
-                        onServicesBookings = {
-                            rootNavController.navigate(Routes.SERVICES_BOOKINGS)
-                        },
                         onGuidelines = {
                             val route = Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.WORKER)
                             localNavController?.navigate(route) ?: rootNavController.navigate(route)
@@ -1195,8 +1189,6 @@ private fun ProfileSettingsCard(
     onEarnings: () -> Unit,
     onSpinWin: () -> Unit = {},
     onReferEarn: () -> Unit,
-    onBookServices: () -> Unit = {},
-    onServicesBookings: () -> Unit = {},
     onGuidelines: () -> Unit = {},
     onRateApp: () -> Unit,
     onJoinCommunity: () -> Unit,

@@ -216,10 +216,10 @@ fun JobDescriptionScreen(
     var fetchedEmployerPhone by remember { mutableStateOf<String?>(null) }
     var isFetchingPhone by remember { mutableStateOf(false) }
 
-    // Enterprise AdMob pre-warming: preloads banner/video ad immediately on screen entry
-    // so scrolling down renders the sponsor creative instantly with 0ms delay.
-    val prewarmedAdView = com.example.dutype.ads.rememberDutyPePrewarmedAd(
-        adUnitId = com.example.dutype.ads.AdMobConfig.BANNER_AD_UNIT_ID
+    // Enterprise AdMob video pre-warming: preloads medium rectangle video ad immediately on screen entry
+    // so scrolling down renders the video ad creative instantly with 0ms delay.
+    val prewarmedAdView = com.example.dutype.ads.rememberDutyPeVideoAd(
+        adUnitId = com.example.dutype.ads.AdMobConfig.EARNINGS_AD_UNIT_ID
     )
 
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)

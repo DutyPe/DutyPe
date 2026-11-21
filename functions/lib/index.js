@@ -39,7 +39,6 @@ __exportStar(require("./ai-hiring"), exports);
 __exportStar(require("./dutype-ai"), exports);
 __exportStar(require("./feedback"), exports);
 __exportStar(require("./phone-login"), exports);
-__exportStar(require("./services"), exports);
 __exportStar(require("./whatsapp-messages"), exports);
 var field_leads_1 = require("./field-leads");
 Object.defineProperty(exports, "submitFieldLead", { enumerable: true, get: function () { return field_leads_1.submitFieldLead; } });

@@ -99,8 +99,7 @@ fun DynamicLaunchPromoDialog(
     val isEligibleScreen = when (targetAudience) {
         "WORKER" -> currentRoute == Routes.WORKER_HOME
         "EMPLOYER" -> currentRoute == Routes.EMPLOYER_HOME
-        "SERVICES" -> currentRoute == Routes.SERVICES
-        else -> currentRoute in listOf(Routes.WORKER_HOME, Routes.EMPLOYER_HOME, Routes.SERVICES)
+        else -> currentRoute in listOf(Routes.WORKER_HOME, Routes.EMPLOYER_HOME)
     }
 
     LaunchedEffect(isEnabled, imageUrl, isEligibleScreen) {
@@ -352,12 +351,12 @@ private fun handleInAppNavigation(context: Context, navController: NavHostContro
             val resolvedRoute = when (target.lowercase().trim()) {
                 "dynamic_campaign", "campaign", "dynamic_screen", "promo_screen", "ad" -> Routes.promoShowcaseRoute("active_campaign")
                 "spin", "spin_win", "spin_and_win", "game" -> Routes.SPIN_AND_WIN
-                "services", "service" -> Routes.SERVICES
+                "services", "service" -> Routes.WORKER_ALL_JOBS
                 "refer", "refer_earn", "referral" -> Routes.WORKER_REFER_EARN
                 "earnings", "wallet" -> Routes.WORKER_EARNINGS
                 "jobs", "browse_jobs" -> Routes.WORKER_ALL_JOBS
                 "post_job", "post-job" -> Routes.EMPLOYER_POST_JOB
-                "partner", "partner-apply" -> Routes.PARTNER
+                "partner", "partner-apply" -> Routes.WORKER_REFER_EARN
                 "hungr", "hungr-survey" -> {
                     com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
                     return

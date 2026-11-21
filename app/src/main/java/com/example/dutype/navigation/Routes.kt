@@ -58,7 +58,6 @@ object Routes {
     const val EMPLOYER_HISTORY_WITH_TAB = "employer_history?tab={tab}"
     const val CONTACT_US = "contact_us"
     const val EMPLOYER_SUBSCRIPTION = "employer_subscription"
-    const val SERVICE_WALLET = "service_wallet"
     
     // History Routes
     const val WORKER_HISTORY = "worker_history"
@@ -154,34 +153,12 @@ object Routes {
         }
     }
 
-    // ── DutyPe Services (homeservices package) ──
-    /** Customer: categories and fixed-price services. Deep link: dutype://services */
-    const val SERVICES = "services"
-    const val SERVICES_BOOK = "services/book/{serviceId}"
-    const val SERVICES_BOOKINGS = "services/bookings"
-    /** Deep link: dutype://services/booking/{bookingId} */
-    const val SERVICES_BOOKING = "services/booking/{bookingId}"
-    /** Partner dashboard (apply, online, credits, jobs). Deep link: dutype://partner */
-    const val PARTNER = "partner"
-    const val PARTNER_TOPUP = "partner/topup"
-    /** Deep link: dutype://partner/offer/{bookingId} */
-    const val PARTNER_OFFER = "partner/offer/{bookingId}"
-    /** Deep link: dutype://partner/job/{bookingId} */
-    const val PARTNER_JOB = "partner/job/{bookingId}"
-
-    /** Safety & code of conduct; role = partner | worker | employer. */
+    /** Safety & code of conduct; role = worker | employer. */
     const val GUIDELINES = "guidelines/{role}"
     fun guidelinesRoute(role: String): String = "guidelines/$role"
 
-    fun servicesBookRoute(serviceId: String): String = "services/book/$serviceId"
-    fun servicesBookingRoute(bookingId: String): String = "services/booking/$bookingId"
-    const val SERVICES_CATEGORY = "services/category/{categoryId}"
-    fun servicesCategoryRoute(categoryId: String): String = "services/category/$categoryId"
-    fun partnerOfferRoute(bookingId: String): String = "partner/offer/$bookingId"
-    fun partnerJobRoute(bookingId: String): String = "partner/job/$bookingId"
-
-    const val PROMO_SHOWCASE = "promo_showcase/{showcaseId}"
-    fun promoShowcaseRoute(showcaseId: String): String = "promo_showcase/${android.net.Uri.encode(showcaseId)}"
-
     const val SPIN_AND_WIN = "spin_and_win"
+    const val PROMO_SHOWCASE = "promo_showcase/{showcaseId}"
+    fun promoShowcaseRoute(showcaseId: String): String =
+        "promo_showcase/${java.net.URLEncoder.encode(showcaseId.ifBlank { "active_campaign" }, "UTF-8")}"
 }

@@ -87,11 +87,12 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     override fun onCreate() {
         super.onCreate()
 
-        // PERF: Warm the start-destination SharedPreferences file on a background thread so the
-        // first-frame routing read in AppStartupViewModel doesn't pay the disk load on main (unlocked state only).
+        // PERF: Warm the start-destination SharedPreferences file and MobileAds SDK on a background thread so the
+        // first-frame routing read and ad requests don't pay any disk or initialization delay.
         if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(this)) {
             applicationScope.launch(Dispatchers.IO) {
                 runCatching { com.example.dutype.navigation.StartDestinationCache.read(this@DutyPeApplication) }
+                runCatching { com.google.android.gms.ads.MobileAds.initialize(this@DutyPeApplication) {} }
             }
         }
 

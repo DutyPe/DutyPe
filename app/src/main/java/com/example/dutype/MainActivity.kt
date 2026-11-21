@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -304,10 +307,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Initialize AdMob asynchronously using applicationContext off the startup critical path
-        // to prevent binder transaction lock contention and main thread stalls on Android 16/OnePlus.
+        // Initialize AdMob immediately on background thread off the startup critical path
+        // to pre-warm the SDK and prevent any delays in serving in-feed or video ads.
         lifecycleScope.launch(Dispatchers.IO) {
-            delay(150L)
             if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(applicationContext)) {
                 runCatching {
                     com.google.android.gms.ads.MobileAds.initialize(applicationContext) {}
@@ -491,6 +493,25 @@ class MainActivity : ComponentActivity() {
                             currentRoute = currentRouteForBars
                         )
 
+                        // In-App Realtime Announcement Floating Banner (Role targeted, rich actions)
+                        val showInAppBanner = currentRouteForBars in setOf(
+                            com.example.dutype.navigation.Routes.WORKER_HOME,
+                            com.example.dutype.navigation.Routes.WORKER_ALL_JOBS,
+                            com.example.dutype.navigation.Routes.EMPLOYER_HOME,
+                            com.example.dutype.navigation.Routes.EMPLOYER_DASHBOARD
+                        )
+                        if (showInAppBanner) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+                            ) {
+                                com.example.dutype.announcements.InAppAnnouncementBanner(
+                                    navController = navController
+                                )
+                            }
+                        }
+
                         // Auto-trigger Hungr survey: MANDATORY for Telangana (Khammam, Hyderabad, etc.), optional outside
                         // Prevents any clash with location/notification permission dialogs on cold open.
                         val mainContext = androidx.compose.ui.platform.LocalContext.current
@@ -516,9 +537,7 @@ class MainActivity : ComponentActivity() {
                                         com.example.dutype.navigation.Routes.EMPLOYER_DASHBOARD,
                                         com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS,
                                         com.example.dutype.navigation.Routes.EMPLOYER_PROFILE,
-                                        com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS,
-                                        com.example.dutype.navigation.Routes.SERVICES,
-                                        com.example.dutype.navigation.Routes.SERVICES_BOOKINGS -> true
+                                        com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS -> true
                                         else -> false
                                     }
 

@@ -98,7 +98,6 @@ private class EmpProfileActions(
     val onSubscription: () -> Unit,
     val onHistory: () -> Unit,
     val onRefer: () -> Unit,
-    val onWallet: () -> Unit = {},
     val onGuidelines: () -> Unit = {},
     val onRateApp: () -> Unit = {},
     val onSettings: () -> Unit = {},
@@ -502,12 +501,8 @@ fun EmployerProfileScreen(
     var isUploadingImage by remember { mutableStateOf(false) }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
-    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
     val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
     val isOnline by connectivityViewModel.isOnline.collectAsState()
-    val wallet by homeServicesViewModel.wallet.collectAsState()
-    val walletBalanceRupees = (wallet?.balancePaise ?: 0L) / 100
-    var showWalletTopupSheet by remember { mutableStateOf(false) }
     val subState by subscriptionViewModel.activeSubscription.collectAsState()
     val plans by subscriptionViewModel.plans.collectAsState()
     val context = LocalContext.current
@@ -677,8 +672,7 @@ fun EmployerProfileScreen(
             pct = pct,
             hint = hint,
             pill = empPillText(subState, planName),
-            isLoggedIn = isLoggedIn,
-            walletBalanceRupees = walletBalanceRupees
+            isLoggedIn = isLoggedIn
         )
 
         val actions = EmpProfileActions(
@@ -709,7 +703,6 @@ fun EmployerProfileScreen(
             onSubscription = { go(Routes.EMPLOYER_SUBSCRIPTION, "subscription") },
             onHistory = { go(Routes.EMPLOYER_HISTORY, "job_posts") },
             onRefer = { go(Routes.EMPLOYER_REFER_EARN, "refer_earn") },
-            onWallet = { go(Routes.SERVICE_WALLET, "wallet") },
             onGuidelines = { nav.navigate(Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.EMPLOYER)) },
             onRateApp = { openPlayStoreListing(context) },
             onSettings = { rootNavController.navigate(Routes.SETTINGS) },
@@ -786,18 +779,6 @@ fun EmployerProfileScreen(
     //         onDismiss = { showThemeBottomSheet = false },
     //     )
     // }
-
-    // DutyPe Micro-Wallet Deposit Bottom Sheet
-    if (showWalletTopupSheet) {
-        com.example.dutype.homeservices.MicroWalletTopupSheet(
-            currentBalanceRupees = walletBalanceRupees,
-            requiredFeeRupees = 9,
-            onDismiss = { showWalletTopupSheet = false },
-            onTopupSuccess = { showWalletTopupSheet = false },
-            navController = localNavController ?: rootNavController,
-            viewModel = homeServicesViewModel
-        )
-    }
 
     com.example.dutype.components.ImagePickerBottomSheet(
         isVisible = showPhotoOptionSheet,

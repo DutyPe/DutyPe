@@ -342,14 +342,6 @@ class DutyPeAiViewModel @Inject constructor(
             urgent.setResponseStatusById(arg(a, "requestId"), arg(a, "workerId"), "rejected", arg(a, "reason")).getOrThrow()
             context.getString(R.string.dutype_ai_done_urgent_removed)
         }
-        "book_service" -> {
-            _state.update { it.copy(openRoute = com.example.dutype.navigation.Routes.servicesBookRoute(arg(a, "serviceId"))) }
-            context.getString(R.string.dutype_ai_done_service)
-        }
-        "open_service_booking" -> {
-            _state.update { it.copy(openRoute = com.example.dutype.navigation.Routes.servicesBookingRoute(arg(a, "bookingId"))) }
-            context.getString(R.string.dutype_ai_done_opening)
-        }
         else -> error(context.getString(R.string.dutype_ai_error))
     }
 }

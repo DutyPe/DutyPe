@@ -6,9 +6,9 @@ import com.example.dutype.models.AnnouncementPriority
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.flow.callbackFlow
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -57,17 +57,27 @@ class AnnouncementService @Inject constructor(
     private val dismissedIds = mutableSetOf<String>()
     
     /**
-     * Get active announcements for current user
+     * Get active announcements for current user with real-time updates.
+     * When an announcement is added, paused, or deleted in the admin webapp,
+     * this flow emits immediately so user devices stay synchronized.
      */
-    fun getActiveAnnouncements(userRole: String): Flow<List<Announcement>> = flow {
-        val now = Timestamp.now()
+    fun getActiveAnnouncements(userRole: String): Flow<List<Announcement>> = callbackFlow {
+        val query = firestore.collection(COLLECTION_ANNOUNCEMENTS)
+            .whereEqualTo(com.example.dutype.firestore.FirestoreSchema.Announcements.ACTIVE, true)
 
-        try {
-            val snapshot = firestore.collection(COLLECTION_ANNOUNCEMENTS)
-                .whereEqualTo(com.example.dutype.firestore.FirestoreSchema.Announcements.ACTIVE, true)
-                .get()
-                .await()
+        val registration = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Timber.e(error, "Error listening to announcements")
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
 
+            if (snapshot == null) {
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
+
+            val now = Timestamp.now()
             val announcements = snapshot.documents.mapNotNull { doc ->
                 try {
                     mapAnnouncement(doc)
@@ -96,11 +106,10 @@ class AnnouncementService @Inject constructor(
                 }.thenByDescending { it.createdAt }
             )
 
-            emit(announcements)
-        } catch (e: Exception) {
-            Timber.e(e, "Error fetching announcements")
-            emit(emptyList())
+            trySend(announcements)
         }
+
+        awaitClose { registration.remove() }
     }
     
     /**

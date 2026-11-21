@@ -192,13 +192,6 @@ fun SelectRoleScreen(
             }
             isNavigating = true
             Timber.d("🔍 Role selected: $role, asGuest: $asGuest")
-            if (role == "SERVICES") {
-                navController.safeNavigate(Routes.SERVICES) {
-                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                    launchSingleTop = true
-                }
-                return
-            }
             val targetRole = if (role == "EMPLOYER")
                 com.example.dutype.models.UserRole.EMPLOYER
             else

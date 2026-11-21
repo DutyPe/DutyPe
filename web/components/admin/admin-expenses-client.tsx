@@ -113,7 +113,6 @@ export function AdminExpensesClient() {
   const [loading, setLoading] = useState(true);
   const [totalUsers, setTotalUsers] = useState(0);
   const [subscriptionRevenue, setSubscriptionRevenue] = useState(0);
-  const [serviceRevenue, setServiceRevenue] = useState(0);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -205,23 +204,6 @@ export function AdminExpensesClient() {
     return () => unsubscribe();
   }, [services]);
 
-  // 4. Listen for home services revenue
-  useEffect(() => {
-    if (!services?.db) return;
-    const q = query(collection(services.db, "service_bookings"), limit(500));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let sum = 0;
-      snapshot.forEach((docSnap) => {
-        const d = docSnap.data();
-        if (d.status === "COMPLETED" || d.status === "PAID" || d.status === "CONFIRMED") {
-          sum += Number(d.finalPrice || d.price || d.totalAmount || 0);
-        }
-      });
-      setServiceRevenue(sum);
-    });
-    return () => unsubscribe();
-  }, [services]);
-
   // Financial calculations
   const totalSpent = useMemo(
     () => expenses.reduce((acc, curr) => acc + curr.amount, 0),
@@ -229,8 +211,8 @@ export function AdminExpensesClient() {
   );
 
   const totalRevenue = useMemo(
-    () => subscriptionRevenue + serviceRevenue,
-    [subscriptionRevenue, serviceRevenue]
+    () => subscriptionRevenue,
+    [subscriptionRevenue]
   );
 
   const netROI = useMemo(() => totalRevenue - totalSpent, [totalRevenue, totalSpent]);
@@ -494,7 +476,7 @@ export function AdminExpensesClient() {
           </div>
           <div className="adm-metric-value">{formatINR(totalRevenue)}</div>
           <div className="adm-metric-sub">
-            <span>₹{subscriptionRevenue.toLocaleString("en-IN")} subs · ₹{serviceRevenue.toLocaleString("en-IN")} svcs</span>
+            <span>₹{subscriptionRevenue.toLocaleString("en-IN")} subscriptions</span>
           </div>
         </div>
 

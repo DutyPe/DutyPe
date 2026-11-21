@@ -626,7 +626,7 @@ function whatsappTemplates(lang: Lang, x: Ctx, link: string, code: string): Arra
 export function AdminMarketingKit() {
   const services = useMemo(() => getFirebaseServices(), []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [audience, setAudience] = useState<Audience>("customers");
+  const [audience, setAudience] = useState<Audience>("employers");
   const [format, setFormat] = useState<Format>("feed");
   const [lang, setLang] = useState<Lang>("te");
   const [theme, setTheme] = useState<ThemeKey | "auto">("auto");
@@ -640,29 +640,6 @@ export function AdminMarketingKit() {
   const [coupons, setCoupons] = useState<CouponLite[]>([]);
   const [qr, setQr] = useState<HTMLImageElement | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-
-  // Live prices, partner fee and offers from the services config.
-  useEffect(() => {
-    if (!services) return;
-    void (async () => {
-      try {
-        const res = await httpsCallable(services.functions, "getServiceCatalog")({});
-        const d = res.data as {
-          city?: string; partnerFee?: number; firstBookingFeeFree?: boolean;
-          offers?: CouponLite[]; services?: Array<{ category: string; price: number; inspection?: boolean }>;
-        };
-        const from: Record<string, number> = {};
-        for (const s of d.services || []) {
-          if (s.inspection) continue;
-          from[s.category] = Math.min(from[s.category] ?? Infinity, s.price);
-        }
-        setCoupons(d.offers || []);
-        setCtx((c) => ({ ...c, city: d.city || c.city, partnerFee: d.partnerFee ?? c.partnerFee, firstFree: d.firstBookingFeeFree !== false, from }));
-      } catch {
-        // Offline / not deployed: the kit still works with defaults.
-      }
-    })();
-  }, [services]);
 
   const coupon = coupons.find((c) => c.code === couponCode) || null;
   const x: Ctx = { ...ctx, coupon };
@@ -746,7 +723,7 @@ export function AdminMarketingKit() {
       <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <b style={{ width: 90 }}>For</b>
-          {([["customers", "Home-service customers"], ["employers", "Employers"], ["workers", "Workers"], ["students", "Students (part-time)"], ["partners", "Service partners"], ["festive", "Festive offer"]] as Array<[Audience, string]>).map(([k, l]) => (
+          {([["employers", "Employers"], ["workers", "Workers"], ["students", "Students (part-time)"]] as Array<[Audience, string]>).map(([k, l]) => (
             <button key={k} style={btn(audience === k)} onClick={() => setAudience(k)}>{l}</button>
           ))}
         </div>

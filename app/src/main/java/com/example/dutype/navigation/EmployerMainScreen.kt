@@ -142,8 +142,6 @@ fun EmployerMainScreen(
         Routes.ABOUT_US,
         Routes.EMPLOYER_ABOUT,
         Routes.EMPLOYER_SUBSCRIPTION,
-        Routes.SERVICE_WALLET,
-        "service_wallet",
         Routes.EMPLOYER_HELP,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_HISTORY,
@@ -151,8 +149,6 @@ fun EmployerMainScreen(
         "employer_history",
         Routes.EMPLOYER_REFER_EARN,
         Routes.GUIDELINES,
-        Routes.PROMO_SHOWCASE,
-        "promo_showcase",
     )
     
     // Check if current route should hide bottom bar
@@ -397,21 +393,6 @@ fun EmployerMainScreen(
                             requestId = requestId
                         )
                     }
-                    composable(Routes.SERVICES) {
-                        com.example.dutype.homeservices.ServicesHomeScreen(
-                            navController = navController,
-                            rootNavController = rootNavController
-                        )
-                    }
-                    composable(
-                        route = Routes.SERVICES_CATEGORY,
-                        arguments = listOf(androidx.navigation.navArgument("categoryId") { type = androidx.navigation.NavType.StringType })
-                    ) { backStackEntry ->
-                        com.example.dutype.homeservices.CategoryServicesScreen(
-                            categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty(),
-                            navController = rootNavController ?: navController
-                        )
-                    }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(
                             rootNavController = rootNavController,
@@ -434,12 +415,6 @@ fun EmployerMainScreen(
                             navController = navController,
                             rootNavController = rootNavController,
                             startListening = backStackEntry.arguments?.getBoolean("listen") == true
-                        )
-                    }
-                    composable(Routes.SERVICE_WALLET) {
-                        com.example.dutype.homeservices.ServiceWalletScreen(
-                            navController = navController,
-                            rootNavController = rootNavController
                         )
                     }
                     composable(Routes.EMPLOYER_SUBSCRIPTION) {
@@ -661,17 +636,25 @@ fun EmployerMainScreen(
                         )
                     }
 
-                    // Promo Showcase Microsite
+                    // Promotional Showcase / Brand microsite
                     composable(
                         route = Routes.PROMO_SHOWCASE,
-                        arguments = listOf(navArgument("showcaseId") { type = NavType.StringType })
+                        arguments = listOf(
+                            navArgument("showcaseId") {
+                                type = NavType.StringType
+                                defaultValue = "active_campaign"
+                            }
+                        ),
+                        deepLinks = listOf(
+                            androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/promo_showcase/{showcaseId}" },
+                            androidx.navigation.navDeepLink { uriPattern = "dutype://promo_showcase/{showcaseId}" },
+                            androidx.navigation.navDeepLink { uriPattern = "dutype://showcase/{showcaseId}" }
+                        )
                     ) { backStackEntry ->
-                        val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
-                        val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
+                        val showcaseId = backStackEntry.arguments?.getString("showcaseId") ?: "active_campaign"
                         com.example.dutype.components.PromoShowcaseScreen(
                             showcaseId = showcaseId,
-                            navController = navController,
-                            repository = repo
+                            navController = navController
                         )
                     }
                 }

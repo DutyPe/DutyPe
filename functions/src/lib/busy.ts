@@ -9,15 +9,12 @@
  */
 import * as admin from "firebase-admin";
 import { AUTO_COMPLETE_RULES } from "../auto-complete-rules";
-import { Applications, InstantRequests, ServiceBookings, ServicePartners, Values, WorkerProfiles } from "../schema";
+import { Applications, InstantRequests, Values, WorkerProfiles } from "../schema";
 
-export type BusyWith = "urgent" | "service" | "job";
-
-const ACTIVE_SERVICE = ["ASSIGNED", "ON_THE_WAY", "STARTED"];
+export type BusyWith = "urgent" | "job";
 
 export const BUSY_MESSAGE: Record<BusyWith, string> = {
   urgent: "Finish your current urgent job first. You can apply for new jobs after it is completed.",
-  service: "Finish your current DutyPe Services job first. You can apply for new jobs after it is completed.",
   job: "You were just hired for a job. You can apply for new jobs after it is completed.",
 };
 
@@ -40,14 +37,6 @@ export async function busyWith(
     const S = Values.InstantStatus;
     if (r.exists && [S.OPEN, S.FILLED].includes(r.get(InstantRequests.STATUS)) &&
       ((r.get(InstantRequests.SELECTED_WORKER_IDS) || []) as string[]).includes(uid)) return "urgent";
-  }
-
-  const partner = await read(db.collection(ServicePartners.COLLECTION).doc(uid));
-  const bookingId = String(partner.get(ServicePartners.ACTIVE_BOOKING_ID) || "");
-  if (bookingId) {
-    const b = await read(db.collection(ServiceBookings.COLLECTION).doc(bookingId));
-    if (b.exists && b.get(ServiceBookings.PARTNER_ID) === uid &&
-      ACTIVE_SERVICE.includes(String(b.get(ServiceBookings.STATUS)))) return "service";
   }
 
   const since = admin.firestore.Timestamp.fromMillis(Date.now() - AUTO_COMPLETE_RULES.STANDARD_GRACE_MS);

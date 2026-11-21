@@ -73,7 +73,6 @@ fun EmployerReferEarnScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
-    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -83,7 +82,6 @@ fun EmployerReferEarnScreen(
         .sumOf { it.amountPaise }
     val balanceRupees = (uiState.wallet?.balancePaise ?: 0L) / 100.0
 
-    var showWalletTopupSheet by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var isCheckingProfileStatus by remember { mutableStateOf(true) }
     var isProfileCompleted by remember { mutableStateOf(false) }
@@ -268,13 +266,11 @@ fun EmployerReferEarnScreen(
                         )
                     }
 
-                    // DutyPe Balance & Usage Card (Credits for job posts and services)
+                    // DutyPe Balance & Usage Card
                     item {
                         EmployerCreditsUsageCard(
                             availableBalance = balanceRupees,
-                            onTopup = { showWalletTopupSheet = true },
-                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                            onBookService = { navController.navigate(com.example.dutype.navigation.Routes.SERVICES) }
+                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) }
                         )
                     }
 
@@ -317,21 +313,6 @@ fun EmployerReferEarnScreen(
                 }
             }
         }
-    }
-
-    // DutyPe Micro-Wallet Deposit Bottom Sheet
-    if (showWalletTopupSheet) {
-        com.example.dutype.homeservices.MicroWalletTopupSheet(
-            currentBalanceRupees = balanceRupees.toLong(),
-            requiredFeeRupees = 9,
-            onDismiss = { showWalletTopupSheet = false },
-            onTopupSuccess = {
-                showWalletTopupSheet = false
-                viewModel.loadReferralData()
-            },
-            navController = navController,
-            viewModel = homeServicesViewModel
-        )
     }
 }
 
@@ -674,9 +655,7 @@ private fun EmployerStatItem(title: String, value: String, icon: ImageVector, co
 @Composable
 private fun EmployerCreditsUsageCard(
     availableBalance: Double,
-    onTopup: () -> Unit,
-    onPostJob: () -> Unit,
-    onBookService: () -> Unit
+    onPostJob: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -720,25 +699,11 @@ private fun EmployerCreditsUsageCard(
                         )
                     )
                 }
-
-                Button(
-                    onClick = onTopup,
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "+ Top Up",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
             }
 
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "Referral earnings are credited to your DutyPe balance. Use your balance anytime to post jobs or book home services on DutyPe.",
+                text = "Referral earnings are credited to your DutyPe balance. Use your balance anytime to post jobs and hire verified workers on DutyPe.",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = EmployerColors.TextSecondary,
                     lineHeight = 17.sp
@@ -747,27 +712,13 @@ private fun EmployerCreditsUsageCard(
 
             Spacer(Modifier.height(16.dp))
 
-            Row(
+            Button(
+                onClick = onPostJob,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Button(
-                    onClick = onPostJob,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("⚡ ${stringResource(R.string.post_job)}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                }
-
-                OutlinedButton(
-                    onClick = onBookService,
-                    modifier = Modifier.weight(1f),
-                    border = BorderStroke(1.dp, EmployerColors.Primary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("🛠️ ${stringResource(R.string.bottom_nav_services)}", color = EmployerColors.Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                }
+                Text("⚡ ${stringResource(R.string.post_job)}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             }
         }
     }

@@ -14,10 +14,8 @@ exports.busyWith = busyWith;
 const admin = require("firebase-admin");
 const auto_complete_rules_1 = require("../auto-complete-rules");
 const schema_1 = require("../schema");
-const ACTIVE_SERVICE = ["ASSIGNED", "ON_THE_WAY", "STARTED"];
 exports.BUSY_MESSAGE = {
     urgent: "Finish your current urgent job first. You can apply for new jobs after it is completed.",
-    service: "Finish your current DutyPe Services job first. You can apply for new jobs after it is completed.",
     job: "You were just hired for a job. You can apply for new jobs after it is completed.",
 };
 /**
@@ -34,14 +32,6 @@ async function busyWith(uid, worker, tx, ignoreUrgentId = "") {
         if (r.exists && [S.OPEN, S.FILLED].includes(r.get(schema_1.InstantRequests.STATUS)) &&
             (r.get(schema_1.InstantRequests.SELECTED_WORKER_IDS) || []).includes(uid))
             return "urgent";
-    }
-    const partner = await read(db.collection(schema_1.ServicePartners.COLLECTION).doc(uid));
-    const bookingId = String(partner.get(schema_1.ServicePartners.ACTIVE_BOOKING_ID) || "");
-    if (bookingId) {
-        const b = await read(db.collection(schema_1.ServiceBookings.COLLECTION).doc(bookingId));
-        if (b.exists && b.get(schema_1.ServiceBookings.PARTNER_ID) === uid &&
-            ACTIVE_SERVICE.includes(String(b.get(schema_1.ServiceBookings.STATUS))))
-            return "service";
     }
     const since = admin.firestore.Timestamp.fromMillis(Date.now() - auto_complete_rules_1.AUTO_COMPLETE_RULES.STANDARD_GRACE_MS);
     const q = db.collection(schema_1.Applications.COLLECTION)

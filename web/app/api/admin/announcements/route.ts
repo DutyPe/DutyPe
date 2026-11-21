@@ -1,4 +1,4 @@
-import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
+import { cachedAdminGet, invalidateAdminResponseCache } from "@/lib/firebase/admin-response-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 
@@ -101,6 +101,8 @@ export async function POST(request: NextRequest) {
       expiresAt: Timestamp.fromDate(endDateValue)
     });
 
+    invalidateAdminResponseCache();
+
     return NextResponse.json({ ok: true, announcementId: created.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create announcement.";
@@ -142,6 +144,8 @@ export async function PATCH(request: NextRequest) {
       { merge: true }
     );
 
+    invalidateAdminResponseCache();
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update announcement.";
@@ -176,6 +180,9 @@ export async function DELETE(request: NextRequest) {
   try {
     const db = getFirebaseAdminDb();
     await db.collection("announcements").doc(announcementId).delete();
+
+    invalidateAdminResponseCache();
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete announcement.";

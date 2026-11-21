@@ -195,7 +195,9 @@ fun WorkerHomeScreen(
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val appConfigViewModel: AppConfigViewModel = hiltViewModel()
+    val promoShowcaseViewModel: com.example.dutype.viewmodels.PromoShowcaseViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
+    val showcases by promoShowcaseViewModel.showcases.collectAsStateWithLifecycle()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val referralConfig by appConfigViewModel.referralConfig.collectAsStateWithLifecycle()
     val appUpdateConfig by appConfigViewModel.appUpdateConfig.collectAsStateWithLifecycle()
@@ -211,8 +213,6 @@ fun WorkerHomeScreen(
     val locationService = jobViewModel.locationService
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
-    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
-    val showcases by homeServicesViewModel.showcases.collectAsStateWithLifecycle()
 
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     var workerRating by remember { mutableStateOf(0f) }
@@ -745,244 +745,21 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Real-time home service bookings (cleaning, repair, etc.)
-    // Real-time home service bookings (cleaning, repair, etc.)
-    var searchingServiceRequests by remember { mutableStateOf<List<com.example.dutype.models.InstantRequest>>(emptyList()) }
-    var assignedServiceRequests by remember { mutableStateOf<List<com.example.dutype.models.InstantRequest>>(emptyList()) }
-
-    DisposableEffect(currentUser?.uid) {
-        val uid = currentUser?.uid
-        if (uid == null) {
-            searchingServiceRequests = emptyList()
-            assignedServiceRequests = emptyList()
-            return@DisposableEffect onDispose {}
-        }
-
-        // Only listen for approved, live SEARCHING bookings. Bookings in PAYMENT_PENDING stay hidden until admin approves UTR.
-        val reg = com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("service_bookings")
-            .whereEqualTo("status", "SEARCHING")
-            .limit(10)
-            .addSnapshotListener { snap, err ->
-                if (err != null) {
-                    timber.log.Timber.e(err, "service_bookings SEARCHING snapshot listener error")
-                    return@addSnapshotListener
-                }
-                if (snap == null) return@addSnapshotListener
-                val now = System.currentTimeMillis()
-                searchingServiceRequests = snap.documents.mapNotNull { doc ->
-                    runCatching {
-                        val expRaw = doc.get("expiresAt")
-                        val exp = when (expRaw) {
-                            is com.google.firebase.Timestamp -> expRaw.toDate().time
-                            is Number -> expRaw.toLong()
-                            is java.util.Date -> expRaw.time
-                            else -> now + 30 * 60 * 1000L
-                        }
-                        if (exp <= now) return@mapNotNull null
-                        val cat = doc.getString("category").orEmpty()
-                        val svcName = doc.getString("serviceName").orEmpty().ifBlank { cat }
-                        val priceRaw = doc.get("price")
-                        val price = when (priceRaw) {
-                            is Number -> priceRaw.toDouble()
-                            is String -> priceRaw.toDoubleOrNull() ?: 0.0
-                            else -> 0.0
-                        }
-                        val addr = doc.getString("addressText").orEmpty()
-                        val area = doc.getString("area").orEmpty()
-                        val bStatus = doc.getString("status").orEmpty()
-                        val desc = doc.getString("note").orEmpty().ifBlank { "Customer requested $svcName in ${area.ifBlank { addr }}" }
-                        val latRaw = doc.get("lat")
-                        val lat = when (latRaw) {
-                            is Number -> latRaw.toDouble()
-                            is String -> latRaw.toDoubleOrNull() ?: 0.0
-                            else -> 0.0
-                        }
-                        val lngRaw = doc.get("lng")
-                        val lng = when (lngRaw) {
-                            is Number -> lngRaw.toDouble()
-                            is String -> lngRaw.toDoubleOrNull() ?: 0.0
-                            else -> 0.0
-                        }
-                        val createdRaw = doc.get("createdAt")
-                        val createdTime = when (createdRaw) {
-                            is com.google.firebase.Timestamp -> createdRaw.toDate().time
-                            is Number -> createdRaw.toLong()
-                            is java.util.Date -> createdRaw.time
-                            else -> now
-                        }
-                        com.example.dutype.models.InstantRequest(
-                            requestId = "svc_${doc.id}",
-                            employerId = doc.getString("customerId").orEmpty(),
-                            employerName = doc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
-                            title = "Home Service: $svcName",
-                            description = desc,
-                            category = cat.ifBlank { "Services" },
-                            perPersonPayment = price,
-                            workersNeeded = 1,
-                            status = "open",
-                            addressText = addr.ifBlank { area },
-                            lat = lat,
-                            lng = lng,
-                            expiresAt = exp,
-                            createdAt = createdTime
-                        )
-                    }.onFailure {
-                        timber.log.Timber.w(it, "Error parsing searching service_booking ${doc.id}")
-                    }.getOrNull()
-                }
-            }
-
-        // Single-field query on partnerId avoids any Firestore composite index requirement.
-        val assignedReg = com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("service_bookings")
-            .whereEqualTo("partnerId", uid)
-            .limit(10)
-            .addSnapshotListener { snap, err ->
-                if (err != null) {
-                    timber.log.Timber.e(err, "service_bookings assigned snapshot listener error")
-                    return@addSnapshotListener
-                }
-                if (snap == null) return@addSnapshotListener
-                val now = System.currentTimeMillis()
-                assignedServiceRequests = snap.documents.filter { doc ->
-                    val bStatus = doc.getString("status").orEmpty()
-                    bStatus in listOf("ASSIGNED", "ON_THE_WAY", "STARTED")
-                }.mapNotNull { doc ->
-                    runCatching {
-                        val cat = doc.getString("category").orEmpty()
-                        val svcName = doc.getString("serviceName").orEmpty().ifBlank { cat }
-                        val priceRaw = doc.get("price")
-                        val price = when (priceRaw) {
-                            is Number -> priceRaw.toDouble()
-                            is String -> priceRaw.toDoubleOrNull() ?: 0.0
-                            else -> 0.0
-                        }
-                        val addr = doc.getString("addressText").orEmpty()
-                        val area = doc.getString("area").orEmpty()
-                        val bStatus = doc.getString("status").orEmpty()
-                        val statusLabel = when (bStatus) {
-                            "ON_THE_WAY" -> "On The Way"
-                            "STARTED" -> "In Progress"
-                            else -> "Assigned to You"
-                        }
-                        val latRaw = doc.get("lat")
-                        val lat = when (latRaw) {
-                            is Number -> latRaw.toDouble()
-                            is String -> latRaw.toDoubleOrNull() ?: 0.0
-                            else -> 0.0
-                        }
-                        val lngRaw = doc.get("lng")
-                        val lng = when (lngRaw) {
-                            is Number -> lngRaw.toDouble()
-                            is String -> lngRaw.toDoubleOrNull() ?: 0.0
-                            else -> 0.0
-                        }
-                        val createdRaw = doc.get("createdAt")
-                        val createdTime = when (createdRaw) {
-                            is com.google.firebase.Timestamp -> createdRaw.toDate().time
-                            is Number -> createdRaw.toLong()
-                            is java.util.Date -> createdRaw.time
-                            else -> now
-                        }
-                        val isAssignedPending = bStatus == "ASSIGNED"
-                        val desc = if (isAssignedPending) "⚡ Admin Assigned to You • Tap to Open & Start Job" else "⚡ Status: $statusLabel • Tap to open and start job"
-                        com.example.dutype.models.InstantRequest(
-                            requestId = "svc_${doc.id}",
-                            employerId = doc.getString("customerId").orEmpty(),
-                            employerName = doc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
-                            title = "Service Job: $svcName",
-                            description = desc,
-                            category = cat.ifBlank { "Services" },
-                            perPersonPayment = price,
-                            workersNeeded = 1,
-                            status = if (isAssignedPending) "assigned" else "accepted",
-                            workerResponseStatus = if (isAssignedPending) "assigned" else "accepted",
-                            addressText = addr.ifBlank { area },
-                            lat = lat,
-                            lng = lng,
-                            expiresAt = now + 24 * 60 * 60 * 1000L,
-                            createdAt = createdTime
-                        )
-                    }.onFailure {
-                        timber.log.Timber.w(it, "Error parsing assigned service_booking ${doc.id}")
-                    }.getOrNull()
-                }
-            }
-
-        // Redundancy: Also listen to partner profile activeBookingId when admin directly assigns from panel
-        val partnerDocReg = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            .collection("service_partners").document(uid)
-            .addSnapshotListener { pSnap, pErr ->
-                if (pErr != null || pSnap == null || !pSnap.exists()) return@addSnapshotListener
-                val activeId = pSnap.getString("activeBookingId").orEmpty()
-                if (activeId.isNotBlank()) {
-                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        .collection("service_bookings").document(activeId).get()
-                        .addOnSuccessListener { bDoc ->
-                            if (bDoc != null && bDoc.exists()) {
-                                val bStatus = bDoc.getString("status").orEmpty()
-                                if (bStatus in listOf("ASSIGNED", "ON_THE_WAY", "STARTED")) {
-                                    val cat = bDoc.getString("category").orEmpty()
-                                    val svcName = bDoc.getString("serviceName").orEmpty().ifBlank { cat }
-                                    val price = (bDoc.get("price") as? Number)?.toDouble() ?: 0.0
-                                    val addr = bDoc.getString("addressText").orEmpty()
-                                    val area = bDoc.getString("area").orEmpty()
-                                    val statusLabel = if (bStatus == "ON_THE_WAY") "On The Way" else if (bStatus == "STARTED") "In Progress" else "Assigned to You"
-                                    val isAssignedPending = bStatus == "ASSIGNED"
-                                    val desc = if (isAssignedPending) "⚡ Admin Assigned to You • Tap to Open & Start Job" else "⚡ Status: $statusLabel • Tap to open and start job"
-                                    val req = com.example.dutype.models.InstantRequest(
-                                        requestId = "svc_${bDoc.id}",
-                                        employerId = bDoc.getString("customerId").orEmpty(),
-                                        employerName = bDoc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
-                                        title = "Service Job: $svcName",
-                                        description = desc,
-                                        category = cat.ifBlank { "Services" },
-                                        perPersonPayment = price,
-                                        workersNeeded = 1,
-                                        status = if (isAssignedPending) "assigned" else "accepted",
-                                        workerResponseStatus = if (isAssignedPending) "assigned" else "accepted",
-                                        addressText = addr.ifBlank { area },
-                                        lat = (bDoc.get("lat") as? Number)?.toDouble() ?: 0.0,
-                                        lng = (bDoc.get("lng") as? Number)?.toDouble() ?: 0.0,
-                                        expiresAt = System.currentTimeMillis() + 24 * 60 * 60 * 1000L,
-                                        createdAt = System.currentTimeMillis()
-                                    )
-                                    assignedServiceRequests = (listOf(req) + assignedServiceRequests).distinctBy { it.requestId }
-                                }
-                            }
-                        }
-                }
-            }
-
-        onDispose {
-            reg.remove()
-            assignedReg.remove()
-            partnerDocReg.remove()
-        }
-    }
-
-    // Urgent job audio & vibration alert: rings when urgent jobs or home services arrive in worker's location.
+    // Urgent job audio & vibration alert: rings when urgent jobs arrive in worker's location.
     // If worker ignores/dismisses, it will NOT play sound again for those jobs.
     var ignoredInstantRequestIds by remember { mutableStateOf(setOf<String>()) }
 
-    // Service bookings combined with urgent requests (assigned orders first!)
-    val combinedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests, searchingServiceRequests, assignedServiceRequests) {
-        (assignedServiceRequests + instantHelpState.instantRequests + searchingServiceRequests).distinctBy { it.requestId }
-    }
-
-    val activeWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
-        combinedWorkerRequests.filter { req ->
+    val activeWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests, ignoredInstantRequestIds) {
+        instantHelpState.instantRequests.filter { req ->
             if (req.requestId in ignoredInstantRequestIds) return@filter false
-            // Active service bookings stay visible on the screen even if sound was silenced
-            if (req.requestId.startsWith("svc_")) true
-            else !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, req.requestId)
+            !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, req.requestId)
         }
     }
 
-    val skippedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
-        combinedWorkerRequests.filter { req ->
+    val skippedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests, ignoredInstantRequestIds) {
+        instantHelpState.instantRequests.filter { req ->
             if (req.requestId in ignoredInstantRequestIds) return@filter true
-            if (req.requestId.startsWith("svc_")) false
-            else com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, req.requestId)
+            com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, req.requestId)
         }
     }
 
@@ -1176,14 +953,6 @@ fun WorkerHomeScreen(
                                         navController.navigate(Routes.jobDetailRoute(jobId))
                                     },
                                     onOpenStory = { idx -> activeStoryIndex = idx },
-                                    showcases = showcases,
-                                    onShowcaseClick = { showcaseId ->
-                                        runCatching {
-                                            navController.navigate(Routes.promoShowcaseRoute(showcaseId))
-                                        }.onFailure {
-                                            rootNavController.navigate(Routes.promoShowcaseRoute(showcaseId))
-                                        }
-                                    },
                                     currentLocation = currentLocation,
                                     onLocationChipSelected = onLocationChipSelected,
                                     userName = currentUser?.displayName ?: "",
@@ -1215,6 +984,10 @@ fun WorkerHomeScreen(
                                     },
                                     appliedJobsCount = applicationStats.appliedApplications,
                                     announcements = announcements,
+                                    showcases = showcases,
+                                    onShowcaseClick = { showcaseId ->
+                                        rootNavController.navigate(Routes.promoShowcaseRoute(showcaseId))
+                                    },
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
                                     instantRequests = activeWorkerRequests,
@@ -1254,31 +1027,6 @@ fun WorkerHomeScreen(
                                     onApplyInstantRequest = { request ->
                                         if (isGuestUser) {
                                             rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
-                                        } else if (request.requestId.startsWith("svc_")) {
-                                            val bId = request.requestId.removePrefix("svc_")
-                                            val statusLower = request.status.trim().lowercase()
-                                            val workerStatusLower = request.workerResponseStatus.trim().lowercase()
-                                            if (statusLower in setOf("assigned", "accepted") ||
-                                                workerStatusLower in setOf("assigned", "applied", "accepted", "called", "completed")
-                                            ) {
-                                                navController.navigate(com.example.dutype.navigation.Routes.partnerJobRoute(bId))
-                                            } else {
-                                                scope.launch {
-                                                    homeServicesViewModel.accept(bId)
-                                                        .onSuccess { r ->
-                                                            if (r.result == "accepted") {
-                                                                android.widget.Toast.makeText(context, "Order accepted successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                                                navController.navigate(com.example.dutype.navigation.Routes.partnerJobRoute(bId))
-                                                            } else {
-                                                                val msg = if (r.result == "busy") "You are currently busy on another active job." else "This order is no longer available."
-                                                                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        }
-                                                        .onFailure {
-                                                            navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
-                                                        }
-                                                }
-                                            }
                                         } else {
                                             // Same full-screen offer as the notification: Accept / Skip.
                                             navController.navigate(com.example.dutype.navigation.Routes.urgentOfferRoute(request.requestId))
@@ -1287,17 +1035,6 @@ fun WorkerHomeScreen(
                                     onCallInstantRequest = { request ->
                                         if (isGuestUser) {
                                             rootNavController.navigate(Routes.loginRoute(role = "WORKER"))
-                                        } else if (request.requestId.startsWith("svc_")) {
-                                            val bId = request.requestId.removePrefix("svc_")
-                                            val statusLower = request.status.trim().lowercase()
-                                            val workerStatusLower = request.workerResponseStatus.trim().lowercase()
-                                            if (statusLower in setOf("assigned", "accepted") ||
-                                                workerStatusLower in setOf("assigned", "applied", "accepted", "called", "completed")
-                                            ) {
-                                                navController.navigate(com.example.dutype.navigation.Routes.partnerJobRoute(bId))
-                                            } else {
-                                                navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
-                                            }
                                         } else {
                                             openWorkerUrgentDialer(
                                                 context,

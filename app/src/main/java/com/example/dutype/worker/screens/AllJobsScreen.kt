@@ -732,6 +732,9 @@ private fun JobsList(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
+    val prewarmedInFeedAd = com.example.dutype.ads.rememberDutyPePrewarmedAd(
+        adUnitId = com.example.dutype.ads.AdMobConfig.BANNER_AD_UNIT_ID
+    )
     val inputs by rememberUpdatedState(
         LoadMoreInputs(
             itemCount = jobs.size,
@@ -791,7 +794,8 @@ private fun JobsList(
                 // Native in-feed ad banner inserted every 4th job card for optimal fill & visibility
                 if ((index + 1) % 4 == 0 && index < jobs.size - 1) {
                     item(key = "infeed_ad_${index + 1}", contentType = "infeed_ad") {
-                        com.example.dutype.ads.DutyPeInFeedAdCard()
+                        val adToUse = if (index + 1 == 4) prewarmedInFeedAd else null
+                        com.example.dutype.ads.DutyPeInFeedAdCard(prewarmedAdView = adToUse)
                     }
                 }
             }

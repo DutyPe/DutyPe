@@ -31,7 +31,7 @@ import android.widget.Toast
 import androidx.compose.material.icons.filled.Campaign
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.dutype.homeservices.PromoShowcase
+import com.example.dutype.models.PromoShowcase
 
 /**
  * Reusable horizontal Showcase section for Local Brands, Restaurants, Malls & Shops in Khammam.

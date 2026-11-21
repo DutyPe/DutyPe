@@ -160,12 +160,6 @@ fun WorkerMainScreen(
         Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
         Routes.JOB_APPLICATION, "job_application", // Hide bottom bar on apply for job screen
         Routes.URGENT_OFFER, "urgent_offer", // Hide bottom bar on urgent offer / voice talking screen
-        Routes.PROMO_SHOWCASE, "promo_showcase", // Hide bottom bar on promo showcase screen
-        Routes.PARTNER_JOB, "partner/job", // Hide bottom bar on active partner job screen
-        Routes.PARTNER_OFFER, "partner/offer", // Hide bottom bar on partner offer screen
-        Routes.PARTNER_TOPUP, "partner/topup", // Hide bottom bar on partner topup screen
-        Routes.SERVICES_BOOKING, "services/booking", // Hide bottom bar on customer booking detail
-        Routes.SERVICES_BOOK, "services/book", // Hide bottom bar on booking checkout
         Routes.SPIN_AND_WIN, "spin_and_win" // Hide bottom bar on Spin & Win game screen
     )
 
@@ -174,7 +168,7 @@ fun WorkerMainScreen(
         currentRoute == null -> true
         routesWithoutBottomBar.any { hiddenRoute ->
             val clean = hiddenRoute.substringBefore("?").substringBefore("{").trimEnd('/')
-            currentRoute == hiddenRoute || currentRoute.startsWith(clean) || currentRoute.contains("promo_showcase")
+            currentRoute == hiddenRoute || currentRoute.startsWith(clean)
         } -> false
         else -> isBottomBarVisible // Use scroll-aware visibility
     }

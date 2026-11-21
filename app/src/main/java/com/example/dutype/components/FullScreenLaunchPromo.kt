@@ -193,12 +193,12 @@ private fun handlePromoNavigation(context: Context, navController: NavHostContro
         } else {
             val resolvedRoute = when (target.lowercase().trim()) {
                 "dynamic_campaign", "campaign", "dynamic_screen", "promo_screen", "ad" -> Routes.promoShowcaseRoute("active_campaign")
-                "services", "service" -> Routes.SERVICES
+                "services", "service" -> Routes.WORKER_ALL_JOBS
                 "refer", "refer_earn", "referral" -> Routes.WORKER_REFER_EARN
                 "earnings", "wallet" -> Routes.WORKER_EARNINGS
                 "jobs", "browse_jobs" -> Routes.WORKER_ALL_JOBS
                 "post_job", "post-job" -> Routes.EMPLOYER_POST_JOB
-                "partner", "partner-apply" -> Routes.PARTNER
+                "partner", "partner-apply" -> Routes.WORKER_REFER_EARN
                 "hungr", "hungr-survey" -> {
                     com.example.dutype.announcements.AnnouncementManager.openHungrSurvey()
                     return

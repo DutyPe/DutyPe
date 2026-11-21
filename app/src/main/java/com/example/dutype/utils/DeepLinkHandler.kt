@@ -123,32 +123,11 @@ object DeepLinkHandler {
                 safeNavigate(navController, Routes.SPIN_AND_WIN, "spin-and-win")
                 return true
             }
-            trimmed == "dynamic_campaign" || trimmed == "campaign" || trimmed == "dynamic_screen" || trimmed == "promo_screen" || trimmed == "ad" -> {
-                safeNavigate(navController, Routes.promoShowcaseRoute("active_campaign"), "dynamic-campaign")
-                return true
-            }
-            trimmed.startsWith("dynamic_campaign/") -> {
-                val scId = trimmed.removePrefix("dynamic_campaign/")
-                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "dynamic-campaign-$scId")
-                return true
-            }
-            trimmed.startsWith("campaign/") -> {
-                val scId = trimmed.removePrefix("campaign/")
-                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "campaign-$scId")
-                return true
-            }
-            trimmed.startsWith("promo_showcase/") -> {
-                safeNavigate(navController, trimmed, "showcase")
-                return true
-            }
-            trimmed.startsWith("showcase:") -> {
-                val scId = trimmed.removePrefix("showcase:")
-                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "showcase-$scId")
-                return true
-            }
-            trimmed.startsWith("showcase/") -> {
-                val scId = trimmed.removePrefix("showcase/")
-                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "showcase-$scId")
+            trimmed.startsWith("showcase:") || trimmed == "dynamic_campaign" || trimmed.startsWith("promo_showcase") -> {
+                val id = if (trimmed.startsWith("showcase:")) trimmed.removePrefix("showcase:").trim()
+                         else if (trimmed.startsWith("promo_showcase/")) trimmed.removePrefix("promo_showcase/").trim()
+                         else "active_campaign"
+                safeNavigate(navController, Routes.promoShowcaseRoute(id), "promo-showcase")
                 return true
             }
             trimmed == "promote_business" ||
@@ -189,21 +168,6 @@ object DeepLinkHandler {
         Timber.d("🔗 DEEP LINK: Path segments: ${data.pathSegments}")
         
         return when {
-            // DutyPe Services: dutype://services, dutype://services/booking/{id},
-            // dutype://partner, dutype://partner/offer/{id}, dutype://partner/job/{id}
-            data.scheme == SCHEME && (data.host == "services" || data.host == "partner") -> {
-                val segments = data.pathSegments
-                val route = when {
-                    data.host == "services" && segments.size >= 2 && segments[0] == "booking" ->
-                        com.example.dutype.navigation.Routes.servicesBookingRoute(segments[1])
-                    data.host == "services" -> com.example.dutype.navigation.Routes.SERVICES
-                    segments.size >= 2 && segments[0] == "offer" -> com.example.dutype.navigation.Routes.partnerOfferRoute(segments[1])
-                    segments.size >= 2 && segments[0] == "job" -> com.example.dutype.navigation.Routes.partnerJobRoute(segments[1])
-                    else -> com.example.dutype.navigation.Routes.PARTNER
-                }
-                runCatching { navController.navigate(route) { launchSingleTop = true } }.isSuccess
-            }
-
             // App scheme: dutype://job/123 or dutype://job/123/apply
             data.scheme == SCHEME && data.host == HOST_JOB -> {
                 val segments = data.pathSegments
@@ -428,17 +392,8 @@ object DeepLinkHandler {
                 true
             }
 
-            // App scheme: dutype://showcase/{id} or dutype://promo_showcase/{id}
-            data.scheme == SCHEME && (data.host == "showcase" || data.host == "promo_showcase") -> {
-                val showcaseId = data.pathSegments.firstOrNull() ?: data.lastPathSegment
-                if (!showcaseId.isNullOrBlank()) {
-                    safeNavigate(navController, Routes.promoShowcaseRoute(showcaseId), "showcase-$showcaseId")
-                    true
-                } else false
-            }
-
-            // App scheme: dutype://promote-business or dutype://partner
-            data.scheme == SCHEME && (data.host == "promote-business" || data.host == "promote_business" || data.host == "partner") -> {
+            // App scheme: dutype://promote-business
+            data.scheme == SCHEME && (data.host == "promote-business" || data.host == "promote_business") -> {
                 runCatching {
                     val intent = Intent(
                         Intent.ACTION_VIEW,
@@ -548,20 +503,6 @@ object DeepLinkHandler {
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() in setOf("help", "support") -> {
                 navigateToHelp(navController)
                 true
-            }
-
-            // Android App Link: https://dutype.in/services or https://dutype.in/partner
-            data.host == WEB_DOMAIN && (data.pathSegments.firstOrNull() == "services" || data.pathSegments.firstOrNull() == "partner") -> {
-                val segments = data.pathSegments
-                val route = when {
-                    segments.firstOrNull() == "services" && segments.size >= 3 && segments[1] == "booking" ->
-                        com.example.dutype.navigation.Routes.servicesBookingRoute(segments[2])
-                    segments.firstOrNull() == "services" -> com.example.dutype.navigation.Routes.SERVICES
-                    segments.size >= 3 && segments[1] == "offer" -> com.example.dutype.navigation.Routes.partnerOfferRoute(segments[2])
-                    segments.size >= 3 && segments[1] == "job" -> com.example.dutype.navigation.Routes.partnerJobRoute(segments[2])
-                    else -> com.example.dutype.navigation.Routes.PARTNER
-                }
-                runCatching { navController.navigate(route) { launchSingleTop = true } }.isSuccess
             }
 
             // Android App Link: https://dutype.in/contact

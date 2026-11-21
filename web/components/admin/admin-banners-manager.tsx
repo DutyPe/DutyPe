@@ -203,7 +203,7 @@ export const PRESET_SHOWCASES: PromoShowcaseDef[] = [
   }
 ];
 
-export type BannerSurface = "services" | "worker" | "employer";
+export type BannerSurface = "worker" | "employer";
 
 export const COLOR_PRESETS = [
   { label: "Midnight Slate", start: "#0F172A", end: "#1E3A8A" },
@@ -217,56 +217,6 @@ export const COLOR_PRESETS = [
 ];
 
 const PRESET_BANNERS_BY_SURFACE: Record<BannerSurface, Array<{ label: string; banner: Omit<PromoBannerDef, "id"> }>> = {
-  services: [
-    {
-      label: "❄️ AC Mega Service (Khammam Summer)",
-      banner: {
-        headline: "Khammam AC Deep Clean ⚡ Flat ₹499",
-        subheadline: "Foam jet service & gas leak check in 59 mins",
-        cta: "Book AC Service",
-        bgStartColor: "#0F172A",
-        bgEndColor: "#0369A1",
-        targetCategoryId: "AC",
-        active: true,
-      }
-    },
-    {
-      label: "✨ Festive Home Deep Cleaning",
-      banner: {
-        headline: "Sparkling Home Deep Cleaning · 25% Off",
-        subheadline: "Kitchen, bathroom & sofa sanitization by pros",
-        cta: "Book Cleaning",
-        bgStartColor: "#022C22",
-        bgEndColor: "#065F46",
-        targetCategoryId: "CLEANING",
-        active: true,
-      }
-    },
-    {
-      label: "⚡ 60-Second Instant Worker Dispatch",
-      banner: {
-        headline: "Need Urgent Worker? Dispatched in 60s",
-        subheadline: "Helpers, technicians & drivers on demand in Khammam",
-        cta: "Hire Instantly",
-        bgStartColor: "#451A03",
-        bgEndColor: "#9A3412",
-        targetCategoryId: "HOME_HELP",
-        active: true,
-      }
-    },
-    {
-      label: "🏪 Partner With Us (Promote Shop / Brand)",
-      banner: {
-        headline: "Promote Your Shop or Brand on DutyPe",
-        subheadline: "Reach 5,000+ local customers in your district. Tap to partner with us.",
-        cta: "Partner With Us",
-        bgStartColor: "#0F172A",
-        bgEndColor: "#1D4ED8",
-        targetCategoryId: "promote_business",
-        active: true,
-      }
-    }
-  ],
   worker: [
     {
       label: "⚡ Zero Commission (100% Earnings)",
@@ -369,7 +319,7 @@ const PRESET_BANNERS_BY_SURFACE: Record<BannerSurface, Array<{ label: string; ba
   ]
 };
 
-const PRESET_BANNERS = PRESET_BANNERS_BY_SURFACE.services;
+const PRESET_BANNERS = PRESET_BANNERS_BY_SURFACE.worker;
 
 export interface BannerOptimizationResult {
   file: File;
@@ -486,7 +436,7 @@ export function AdminBannersManager({
 } = {}) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [mainTab, setMainTab] = useState<"banners" | "showcases">("banners");
-  const [surface, setSurface] = useState<BannerSurface>("services");
+  const [surface, setSurface] = useState<BannerSurface>("worker");
   const [banners, setBanners] = useState<PromoBannerDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -528,20 +478,18 @@ export function AdminBannersManager({
     void (async () => {
       setLoading(true);
       try {
-        const targetDoc = surface === "services" ? "services" : "dynamic_features";
+        const targetDoc = "dynamic_features";
         const snap = await getDoc(doc(services.db, "app_config", targetDoc));
         const data = (snap.data() || {}) as Record<string, unknown>;
         setRawConfig(data);
-        const listField = surface === "services"
-          ? (data.promoBanners ?? data.banners)
-          : surface === "worker"
-            ? data.promoBanners
-            : data.employerPromoBanners;
+        const listField = surface === "worker"
+          ? data.promoBanners
+          : data.employerPromoBanners;
         const list = listField as PromoBannerDef[] | undefined;
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) {
           setBanners(list);
         } else {
-          const presets = PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.services;
+          const presets = PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.worker;
           setBanners(presets.map((p, i) => ({ id: `banner_${surface}_${i + 1}`, ...p.banner })));
         }
         setSelectedIdx(0);
@@ -571,7 +519,7 @@ export function AdminBannersManager({
     setSelectedIdx(banners.length);
   }
 
-  function addPreset(preset: typeof PRESET_BANNERS_BY_SURFACE.services[0]) {
+  function addPreset(preset: typeof PRESET_BANNERS_BY_SURFACE.worker[0]) {
     const newId = `banner_${Date.now().toString(36)}`;
     const newB: PromoBannerDef = { id: newId, ...preset.banner };
     setBanners([...banners, newB]);
@@ -729,21 +677,16 @@ export function AdminBannersManager({
         active: b.active !== false
       }));
 
-      const targetDoc = surface === "services" ? "services" : "dynamic_features";
-      const fieldName = surface === "services"
+      const targetDoc = "dynamic_features";
+      const fieldName = surface === "worker"
         ? "promoBanners"
-        : surface === "worker"
-          ? "promoBanners"
-          : "employerPromoBanners";
+        : "employerPromoBanners";
 
       const updatePayload: Record<string, unknown> = {
         ...rawConfig,
         [fieldName]: cleanBanners,
         updatedAt: Date.now()
       };
-      if (surface === "services") {
-        updatePayload.banners = cleanBanners;
-      }
 
       await setDoc(doc(services.db, "app_config", targetDoc), updatePayload, { merge: true });
       onSaved?.(
@@ -1007,7 +950,6 @@ export function AdminBannersManager({
             {/* Target Surface Selector */}
             <div style={{ marginTop: 14, display: "flex", gap: 10, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               {([
-                ["services", "🛠️ DutyPe Home Services"],
                 ["worker", "👷 Worker Home Screen"],
                 ["employer", "🏢 Employer Home Screen"]
               ] as const).map(([s, label]) => (
@@ -1035,7 +977,7 @@ export function AdminBannersManager({
             {/* Quick Presets */}
             <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>One-Click Templates:</span>
-              {(PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.services).map((p, i) => (
+              {(PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.worker).map((p, i) => (
                 <button
                   key={i}
                   type="button"

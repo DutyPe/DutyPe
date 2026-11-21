@@ -251,13 +251,18 @@ export function AdminAnnouncementsClient() {
   }
 
   async function handleToggle(announcement: AnnouncementRow) {
+    const nextState = !announcement.isActive;
+    // Optimistic UI update: immediately change badge and button state
+    setAnnouncements((prev) =>
+      prev.map((item) => (item.id === announcement.id ? { ...item, isActive: nextState } : item))
+    );
     try {
       const response = await adminApiFetch("/api/admin/announcements", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           announcementId: announcement.id,
-          isActive: !announcement.isActive
+          isActive: nextState
         })
       });
 
@@ -266,12 +271,19 @@ export function AdminAnnouncementsClient() {
 
       await loadAnnouncements();
     } catch (toggleError) {
+      // Revert optimistic update on failure
+      setAnnouncements((prev) =>
+        prev.map((item) => (item.id === announcement.id ? { ...item, isActive: announcement.isActive } : item))
+      );
       setError(toggleError instanceof Error ? toggleError.message : "Failed to update announcement.");
     }
   }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    const previous = announcements;
+    // Optimistic UI update: immediately remove from table
+    setAnnouncements((prev) => prev.filter((item) => item.id !== id));
     try {
       const response = await adminApiFetch("/api/admin/announcements", {
         method: "DELETE",
@@ -282,6 +294,7 @@ export function AdminAnnouncementsClient() {
       if (!response.ok) throw new Error(payload.error || "Failed to delete announcement.");
       await loadAnnouncements();
     } catch (deleteError) {
+      setAnnouncements(previous);
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete announcement.");
     }
   }

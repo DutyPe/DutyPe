@@ -58,8 +58,7 @@ fun WorkerNavGraph(
             base == WorkerBottomRoutes.HOME -> 0
             base == Routes.WORKER_ALL_JOBS || base.startsWith(Routes.WORKER_ALL_JOBS) -> 1
             base == WorkerBottomRoutes.MY_JOBS || base.startsWith(WorkerBottomRoutes.MY_JOBS) -> 2
-            base == WorkerBottomRoutes.SERVICES || base == Routes.SERVICES || base.startsWith("services") -> 3
-            base == WorkerBottomRoutes.PROFILE || base == "profile" || base.startsWith("worker_profile") -> 4
+            base == WorkerBottomRoutes.PROFILE || base == "profile" || base.startsWith("worker_profile") -> 3
             else -> -1
         }
     }
@@ -192,14 +191,6 @@ fun WorkerNavGraph(
             )
         }
 
-        // Services Tab (Home Services)
-        composable(WorkerBottomRoutes.SERVICES) {
-            com.example.dutype.homeservices.ServicesHomeScreen(
-                navController = navController,
-                rootNavController = rootNavController
-            )
-        }
-        
         // Profile Tab
         composable(WorkerBottomRoutes.PROFILE) {
             val context = LocalContext.current
@@ -283,35 +274,6 @@ fun WorkerNavGraph(
                 requestId = backStackEntry.arguments?.getString("requestId").orEmpty(),
                 navController = navController
             )
-        }
-
-        // Home Service partner offer (from worker home screen instant requests or notifications)
-        composable(
-            route = Routes.PARTNER_OFFER,
-            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/offer/{bookingId}" })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.PartnerOfferScreen(
-                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
-                navController = navController
-            )
-        }
-
-        // Home Service active job (accepted booking with customer address, directions, OTP)
-        composable(
-            route = Routes.PARTNER_JOB,
-            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/job/{bookingId}" })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.PartnerJobScreen(
-                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
-                navController = navController
-            )
-        }
-
-        // Partner wallet topup (credits recharge for accepting service bookings)
-        composable(Routes.PARTNER_TOPUP) {
-            com.example.dutype.homeservices.PartnerTopupScreen(navController = navController)
         }
 
         // Job Application Screen
@@ -500,20 +462,6 @@ fun WorkerNavGraph(
             com.example.dutype.common.screens.SettingsScreen(navController = rootNavController)
         }
 
-        // Promo Showcase Microsite
-        composable(
-            route = Routes.PROMO_SHOWCASE,
-            arguments = listOf(navArgument("showcaseId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
-            val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
-            com.example.dutype.components.PromoShowcaseScreen(
-                showcaseId = showcaseId,
-                navController = navController,
-                repository = repo
-            )
-        }
-
         // Spin & Win Viral Wheel - Playful Zoom Entrance
         composable(
             route = Routes.SPIN_AND_WIN,
@@ -542,6 +490,28 @@ fun WorkerNavGraph(
                 navController = navController
             )
         }
+
+        // Promotional Showcase / Brand microsite
+        composable(
+            route = Routes.PROMO_SHOWCASE,
+            arguments = listOf(
+                androidx.navigation.navArgument("showcaseId") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = "active_campaign"
+                }
+            ),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/promo_showcase/{showcaseId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://promo_showcase/{showcaseId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://showcase/{showcaseId}" }
+            )
+        ) { backStackEntry ->
+            val showcaseId = backStackEntry.arguments?.getString("showcaseId") ?: "active_campaign"
+            com.example.dutype.components.PromoShowcaseScreen(
+                showcaseId = showcaseId,
+                navController = navController
+            )
+        }
     }
 }
 
@@ -551,7 +521,6 @@ fun WorkerNavGraph(
 object WorkerBottomRoutes {
     const val HOME = "home"
     const val JOBS = "${Routes.WORKER_ALL_JOBS}?filter=All Jobs"
-    const val SERVICES = Routes.SERVICES
     const val MAP = Routes.WORKER_JOB_MAP
     const val MY_JOBS = "myjobs"
     const val PROFILE = "profile"

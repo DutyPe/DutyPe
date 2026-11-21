@@ -35,9 +35,10 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.dutype.homeservices.HomeServicesRepository
-import com.example.dutype.homeservices.PromoShowcase
-import com.example.dutype.homeservices.PromoShowcaseButton
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.dutype.models.PromoShowcase
+import com.example.dutype.models.PromoShowcaseButton
+import com.example.dutype.viewmodels.PromoShowcaseViewModel
 import kotlinx.coroutines.launch
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -50,7 +51,7 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 fun PromoShowcaseScreen(
     showcaseId: String,
     navController: NavController,
-    repository: HomeServicesRepository
+    viewModel: PromoShowcaseViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -74,7 +75,7 @@ fun PromoShowcaseScreen(
 
     LaunchedEffect(showcaseId) {
         loading = true
-        val data = repository.getShowcase(showcaseId)
+        val data = viewModel.getShowcase(showcaseId)
         if (data != null) {
             showcase = data
         } else {

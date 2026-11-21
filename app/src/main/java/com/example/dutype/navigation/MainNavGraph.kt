@@ -589,6 +589,28 @@ fun MainNavGraph(
             )
         }
 
+        // Root-level handling for Promo Showcase / Brand microsites
+        composable(
+            route = Routes.PROMO_SHOWCASE,
+            arguments = listOf(
+                androidx.navigation.navArgument("showcaseId") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = "active_campaign"
+                }
+            ),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "android-app://androidx.navigation/promo_showcase/{showcaseId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://promo_showcase/{showcaseId}" },
+                androidx.navigation.navDeepLink { uriPattern = "dutype://showcase/{showcaseId}" }
+            )
+        ) { backStackEntry ->
+            val showcaseId = backStackEntry.arguments?.getString("showcaseId") ?: "active_campaign"
+            com.example.dutype.components.PromoShowcaseScreen(
+                showcaseId = showcaseId,
+                navController = navController
+            )
+        }
+
         // Root-level handling for job application screen to prevent IllegalArgumentException when deep links
         // or notifications arrive at root graph or while on select_role.
         composable(
@@ -683,87 +705,6 @@ fun MainNavGraph(
             com.example.dutype.guidelines.GuidelinesScreen(
                 role = entry.arguments?.getString("role").orEmpty(),
                 navController = navController
-            )
-        }
-
-        // ── DutyPe Services (root level so notification deep links open them from anywhere) ──
-        composable(
-            route = Routes.SERVICES,
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://services" })
-        ) {
-            com.example.dutype.homeservices.ServicesHomeScreen(navController = navController)
-        }
-        composable(
-            route = Routes.SERVICES_CATEGORY,
-            arguments = listOf(navArgument("categoryId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.CategoryServicesScreen(
-                categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty(),
-                navController = navController
-            )
-        }
-        composable(
-            route = Routes.SERVICES_BOOK,
-            arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.BookServiceScreen(
-                serviceId = backStackEntry.arguments?.getString("serviceId").orEmpty(),
-                navController = navController
-            )
-        }
-        composable(Routes.SERVICES_BOOKINGS) {
-            com.example.dutype.homeservices.MyBookingsScreen(navController = navController)
-        }
-        composable(
-            route = Routes.SERVICES_BOOKING,
-            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://services/booking/{bookingId}" })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.BookingDetailScreen(
-                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
-                navController = navController
-            )
-        }
-        composable(
-            route = Routes.PARTNER,
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner" })
-        ) {
-            com.example.dutype.homeservices.PartnerHomeScreen(navController = navController)
-        }
-        composable(Routes.PARTNER_TOPUP) {
-            com.example.dutype.homeservices.PartnerTopupScreen(navController = navController)
-        }
-        composable(
-            route = Routes.PARTNER_OFFER,
-            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/offer/{bookingId}" })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.PartnerOfferScreen(
-                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
-                navController = navController
-            )
-        }
-        composable(
-            route = Routes.PARTNER_JOB,
-            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/job/{bookingId}" })
-        ) { backStackEntry ->
-            com.example.dutype.homeservices.PartnerJobScreen(
-                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
-                navController = navController
-            )
-        }
-        composable(
-            route = Routes.PROMO_SHOWCASE,
-            arguments = listOf(navArgument("showcaseId") { type = NavType.StringType }),
-            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://showcase/{showcaseId}" })
-        ) { backStackEntry ->
-            val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
-            val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
-            com.example.dutype.components.PromoShowcaseScreen(
-                showcaseId = showcaseId,
-                navController = navController,
-                repository = repo
             )
         }
 
@@ -884,12 +825,6 @@ fun MainNavGraph(
         }
         composable(Routes.EMPLOYER_COMPANY_DETAILS) {
             EmployerCompanyDetailsScreen(navController = navController)
-        }
-        composable(Routes.SERVICE_WALLET) {
-            com.example.dutype.homeservices.ServiceWalletScreen(
-                navController = navController,
-                rootNavController = navController
-            )
         }
         composable(Routes.EMPLOYER_SUBSCRIPTION) {
             EmployerSubscriptionScreen(navController = navController)

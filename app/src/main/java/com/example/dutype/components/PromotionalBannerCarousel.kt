@@ -90,121 +90,36 @@ fun announcementToSlide(announcement: com.example.dutype.models.Announcement): H
     )
 }
 
-fun showcaseToSlide(showcase: com.example.dutype.homeservices.PromoShowcase): HomePromoSlide {
-    val offerOrTagline = showcase.discountOfferTitle.ifBlank { showcase.tagline.ifBlank { showcase.address } }
-    val ctaText = if (showcase.discountOfferCode.isNotBlank()) "Code: ${showcase.discountOfferCode}" else "View Special"
-    val badge = if (showcase.categoryBadge.isNotBlank()) "🏪 ${showcase.categoryBadge}" else "🏪 LOCAL SPECIAL"
+fun showcaseToSlide(showcase: com.example.dutype.models.PromoShowcase): HomePromoSlide {
+    val tag = if (showcase.categoryBadge.isNotBlank()) {
+        "🌟 ${showcase.categoryBadge.uppercase()}"
+    } else {
+        "🌟 BRAND LAUNCH"
+    }
+    val cta = if (showcase.discountOfferCode.isNotBlank()) {
+        "Offer: ${showcase.discountOfferCode}"
+    } else {
+        "Explore"
+    }
     return HomePromoSlide(
-        tag = badge,
+        tag = tag,
         tagBgColor = Color(0xFFF59E0B),
-        headline = showcase.title,
-        subheadline = offerOrTagline,
-        cta = ctaText,
+        headline = showcase.title.ifBlank { "DutyPe Showcase" },
+        subheadline = showcase.tagline.ifBlank { showcase.aboutDescription },
+        cta = cta,
         targetKey = "showcase:${showcase.id}",
-        gradientColors = listOf(Color(0xFF7C2D12), Color(0xFF9A3412), Color(0xFFC2410C)),
-        ctaBgColor = Color(0xFFFBBF24),
-        ctaTextColor = Color(0xFF1E293B),
-        imageUrl = showcase.heroImageUrl.ifBlank { showcase.galleryImages.firstOrNull().orEmpty() }
+        gradientColors = listOf(Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF1E40AF)),
+        ctaBgColor = Color(0xFFF59E0B),
+        ctaTextColor = Color(0xFF0F172A),
+        imageUrl = showcase.heroImageUrl
     )
 }
 
-private val DEFAULT_WORKER_PROMOS = listOf(
-    HomePromoSlide(
-        tag = "🎡 SPIN & WIN UP TO ₹100",
-        tagBgColor = Color(0xFFF59E0B),
-        headline = "Daily Lucky Fortune Spin",
-        subheadline = "Spin daily to win real cash & DutyPe bonus coins! Guaranteed prizes every day.",
-        cta = "Play Spin & Win 🎡",
-        targetKey = "spin_and_win",
-        gradientColors = listOf(Color(0xFF7C2D12), Color(0xFFC2410C), Color(0xFFEA580C)),
-        ctaBgColor = Color(0xFFFBBF24),
-        ctaTextColor = Color(0xFF1E293B)
-    ),
-    HomePromoSlide(
-        tag = "⚡ ZERO COMMISSION",
-        tagBgColor = Color(0xFFF59E0B),
-        headline = "Direct Hiring • 100% Earnings",
-        subheadline = "DutyPe takes 0% cut from your daily earnings. You keep 100% of what you earn directly from employers.",
-        cta = "Explore Jobs",
-        targetKey = "jobs",
-        gradientColors = listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)),
-        ctaBgColor = Color(0xFF00B159),
-        ctaTextColor = Color.White
-    ),
-    HomePromoSlide(
-        tag = "🛡️ DUTYPE VERIFIED",
-        tagBgColor = Color(0xFF10B981),
-        headline = "Get Hired 3x Faster Today",
-        subheadline = "Complete your profile & trade skills to get top recommendations and direct calls.",
-        cta = "Complete Profile",
-        targetKey = "profile",
-        gradientColors = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF065F46)),
-        ctaBgColor = Color(0xFFFBBF24),
-        ctaTextColor = Color(0xFF1E293B)
-    ),
-    HomePromoSlide(
-        tag = "🎁 REFERRAL BONUS",
-        tagBgColor = Color(0xFFF59E0B),
-        headline = "Earn ₹100 per Referral",
-        subheadline = "Invite fellow electricians, plumbers, cooks or drivers. Withdraw instant cash straight to your UPI.",
-        cta = "Invite & Earn",
-        targetKey = "refer_earn",
-        gradientColors = listOf(Color(0xFF78350F), Color(0xFF92400E), Color(0xFFB45309)),
-        ctaBgColor = Color.White,
-        ctaTextColor = Color(0xFF78350F)
-    ),
-    HomePromoSlide(
-        tag = "🛠️ EARN WITH SERVICES",
-        tagBgColor = Color(0xFF0284C7),
-        headline = "Earn More as Services Partner",
-        subheadline = "Offer AC repair, electrical, plumbing, carpentry or cleaning services to households in your area.",
-        cta = "Join Partner",
-        targetKey = "partner",
-        gradientColors = listOf(Color(0xFF0C4A6E), Color(0xFF0369A1), Color(0xFF0284C7)),
-        ctaBgColor = Color(0xFFFBBF24),
-        ctaTextColor = Color(0xFF0F172A)
-    )
-)
-
-private val DEFAULT_EMPLOYER_PROMOS = listOf(
-    HomePromoSlide(
-        tag = "⚡ HIRE IN MINUTES",
-        tagBgColor = Color(0xFFFBBF24),
-        headline = "Post a Job & Get Instant Calls",
-        subheadline = "Connect with verified, reliable workers near your shop, factory, or home in minutes.",
-        cta = "Post a Job",
-        targetKey = "post_job",
-        gradientColors = listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)),
-        ctaBgColor = Color(0xFFFBBF24),
-        ctaTextColor = Color(0xFF1E293B)
-    ),
-    HomePromoSlide(
-        tag = "🚨 NEED WORKERS TODAY?",
-        tagBgColor = Color(0xFFEF4444),
-        headline = "Urgent Need? Instant Matches",
-        subheadline = "Broadcast an urgent need. Available workers get notified on their phones instantly.",
-        cta = "Post Urgent Need",
-        targetKey = "urgent_need",
-        gradientColors = listOf(Color(0xFF881337), Color(0xFF9F1239), Color(0xFFBE123C)),
-        ctaBgColor = Color.White,
-        ctaTextColor = Color(0xFF881337)
-    ),
-    HomePromoSlide(
-        tag = "🎉 REFERRAL CASHBACK",
-        tagBgColor = Color(0xFFFCD34D),
-        headline = "Earn ₹100 Cashback Every Time",
-        subheadline = "Refer fellow business owners, contractors or shopkeepers to DutyPe and earn instant wallet balance.",
-        cta = "Refer & Earn",
-        targetKey = "refer_earn",
-        gradientColors = listOf(Color(0xFF312E81), Color(0xFF3730A3), Color(0xFF4338CA)),
-        ctaBgColor = Color(0xFFFBBF24),
-        ctaTextColor = Color(0xFF1E293B)
-    )
-)
-
 /**
  * Promotional Banner Carousel used across Worker and Employer Home Screens.
- * Automatically cycles through promotional slides with dot indicators.
+ * Automatically cycles through promotional slides configured via the web app.
+ * Only displays actual live announcements / showcases published in Firestore.
+ * When empty (no active announcements or all deleted/paused), returns without rendering.
  */
 @Composable
 fun PromotionalBannerCarousel(
@@ -213,14 +128,8 @@ fun PromotionalBannerCarousel(
     modifier: Modifier = Modifier,
     customSlides: List<HomePromoSlide> = emptyList()
 ) {
-    val slides = remember(isWorker, customSlides) {
-        val baseSlides = if (isWorker) DEFAULT_WORKER_PROMOS else DEFAULT_EMPLOYER_PROMOS
-        if (customSlides.isNotEmpty()) {
-            val combined = customSlides + baseSlides
-            combined.distinctBy { it.targetKey.ifBlank { it.headline } }
-        } else {
-            baseSlides
-        }
+    val slides = remember(customSlides) {
+        customSlides.distinctBy { it.targetKey.ifBlank { it.headline } }
     }
 
     if (slides.isEmpty()) return

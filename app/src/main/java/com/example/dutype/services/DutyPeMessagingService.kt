@@ -81,12 +81,6 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 return
             }
 
-            // DutyPe Services job offer for a partner: ring and open the offer screen.
-            if (data["type"] == com.example.dutype.homeservices.ServiceOffers.TYPE) {
-                if (isUserLoggedInSafely()) com.example.dutype.homeservices.ServiceOffers.showOffer(this, data)
-                return
-            }
-
             // Get title and body
             val title = notification?.title ?: data["title"] ?: return
             val body = notification?.body ?: data["body"] ?: return

@@ -14,10 +14,9 @@ import * as admin from "firebase-admin";
 import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import { ai, cleanDraft, missingFields, refundAi, useAi, LOCKED, FORM, FREE_AI_TRIAL } from "./ai-hiring";
-import { Applications, CATEGORY_KEYS, EmployerProfiles, Idempotency, InstantRequests, Jobs, ServiceBookings } from "./schema";
+import { Applications, CATEGORY_KEYS, EmployerProfiles, Idempotency, InstantRequests, Jobs } from "./schema";
 import { referralPostsLeft } from "./lib/referral-posts";
 import { urgentPayProblem, vacancyPayProblem } from "./lib/pay-rules";
-import { loadConfig as loadServicesConfig } from "./services";
 import { AZURE_COSMOS_SECRET, AZURE_OPENAI_SECRET, CosmosContainers, cosmosAdd } from "./lib/azure";
 
 const db = admin.firestore();
@@ -48,13 +47,6 @@ export interface Facts {
     /** Workers who responded to this urgent post (accepted / applied / rejected ...). */
     workers: Array<{ workerId: string; name: string; status: string }>;
   }>;
-  /** DutyPe Services home-service bookings (AC, cleaning, electrician, plumber, appliance). */
-  homeServices: {
-    bookings: Array<{ id: string; service: string; status: string; total: number; partner: string; when: string }>;
-    /** What can be booked: id, name, price (₹). */
-    catalog: Array<{ id: string; name: string; category: string; price: number }>;
-    city: string;
-  };
   stats: { openJobs: number; appliedToday: number; waiting: number; hired: number; hiredNames: string[] };
 }
 
@@ -65,15 +57,12 @@ export async function employerFacts(uid: string): Promise<Facts> {
   const S = EmployerProfiles.Subscription;
   const nowMs = Date.now();
   const day = new Date(nowMs + IST_OFFSET_MS).toISOString().slice(0, 10);
-  const [profile, jobsSnap, appsSnap, urgentSnap, quota, bookingsSnap, servicesConfig] = await Promise.all([
+  const [profile, jobsSnap, appsSnap, urgentSnap, quota] = await Promise.all([
     db.collection(EmployerProfiles.COLLECTION).doc(uid).get(),
     db.collection(Jobs.COLLECTION).where(Jobs.EMPLOYER_ID, "==", uid).orderBy(Jobs.CREATED_AT, "desc").limit(20).get(),
     db.collection(Applications.COLLECTION).where(Applications.EMPLOYER_ID, "==", uid).orderBy(Applications.CREATED_AT, "desc").limit(100).get(),
     db.collection(InstantRequests.COLLECTION).where(InstantRequests.EMPLOYER_ID, "==", uid).orderBy(InstantRequests.CREATED_AT, "desc").limit(10).get(),
     db.collection(Idempotency.COLLECTION).doc(`postQuota_${uid}_${day}`).get(),
-    db.collection(ServiceBookings.COLLECTION).where(ServiceBookings.CUSTOMER_ID, "==", uid)
-      .orderBy(ServiceBookings.CREATED_AT, "desc").limit(5).get().catch(() => null),
-    loadServicesConfig().catch(() => null),
   ]);
   const now = Date.now();
   const todayStart = Math.floor((now + IST_OFFSET_MS) / DAY_MS) * DAY_MS - IST_OFFSET_MS;
@@ -136,19 +125,6 @@ export async function employerFacts(uid: string): Promise<Facts> {
         })),
       };
     })),
-    homeServices: {
-      bookings: (bookingsSnap?.docs || []).map((d) => ({
-        id: d.id,
-        service: String(d.get(ServiceBookings.SERVICE_NAME) || ""),
-        status: String(d.get(ServiceBookings.STATUS) || ""),
-        total: Number(d.get(ServiceBookings.TOTAL) || 0),
-        partner: String(d.get(ServiceBookings.PARTNER_NAME) || ""),
-        when: new Date(ms(d.get(ServiceBookings.CREATED_AT)) + IST_OFFSET_MS).toISOString().slice(0, 16).replace("T", " "),
-      })),
-      catalog: (servicesConfig?.services || []).filter((x) => x.active !== false)
-        .map((x) => ({ id: x.id, name: x.name, category: x.category, price: x.price })),
-      city: servicesConfig?.city || "Khammam",
-    },
     stats: {
       openJobs: jobsSnap.docs.filter((d) => d.get(Jobs.STATUS) === "open").length,
       appliedToday: applicants.filter((a) => a.appliedToday).length,
@@ -178,14 +154,6 @@ export function quickAnswer(message: string, f: Facts, l: Lang): string | null {
         `Plan credits: ${p.jobCredits} job, ${p.urgentCredits} urgent.`,
       te: `ఈరోజు ఇంకా ${posts} జాబ్‌లు, ${p.freeUrgentPostsLeft} అర్జెంట్ పోస్ట్‌లు ఉచితంగా చేయవచ్చు. ప్లాన్ క్రెడిట్స్: ${p.jobCredits} జాబ్, ${p.urgentCredits} అర్జెంట్.`,
       hi: `आज आप ${posts} और जॉब और ${p.freeUrgentPostsLeft} अर्जेंट पोस्ट मुफ़्त कर सकते हैं। प्लान क्रेडिट: ${p.jobCredits} जॉब, ${p.urgentCredits} अर्जेंट।`,
-    }[l];
-  }
-  if (/service|booking|ac |plumber|electrician|cleaning|సర్వీస్|బుకింగ్|सर्विस|बुकिंग/.test(m) && f.homeServices.bookings.length) {
-    const b = f.homeServices.bookings[0];
-    return {
-      en: `Your latest home service: ${b.service}, status ${b.status.toLowerCase().replace(/_/g, " ")}${b.partner ? `, partner ${b.partner}` : ""}.`,
-      te: `మీ తాజా ఇంటి సేవ: ${b.service}, స్థితి ${b.status.toLowerCase().replace(/_/g, " ")}${b.partner ? `, పార్ట్నర్ ${b.partner}` : ""}.`,
-      hi: `आपकी आख़िरी घरेलू सेवा: ${b.service}, स्थिति ${b.status.toLowerCase().replace(/_/g, " ")}${b.partner ? `, पार्टनर ${b.partner}` : ""}.`,
     }[l];
   }
   if (/appl|apply|దరఖాస్తు|అప్లై|आवेदन|अप्लाई|how many|ఎంత మంది|कितने/.test(m)) {
@@ -259,14 +227,6 @@ export function validateAction(raw: unknown, f: Facts): AiAction | null {
     return w.status === "accepted" && reason ?
       { type, args: { requestId: u.id, workerId: w.workerId, reason }, summary: `Remove ${w.name} from ${u.title}: ${reason}` } : null;
   }
-  case "book_service": {
-    const svc = f.homeServices.catalog.find((x) => x.id === args.serviceId);
-    return svc ? { type, args: { serviceId: svc.id }, summary: `Book ${svc.name} (₹${svc.price}) at home` } : null;
-  }
-  case "open_service_booking": {
-    const b = f.homeServices.bookings.find((x) => x.id === args.bookingId);
-    return b ? { type, args: { bookingId: b.id }, summary: `Open booking: ${b.service}` } : null;
-  }
   default:
     return null;
   }
@@ -321,7 +281,7 @@ export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enf
     return { reply: quickAnswer(message, facts, l) ?? LOCKED[access === "limit" ? "limit" : "upgrade"][l], action: null, stats: facts.stats, locked: access };
   }
 
-  const prompt = `You are "DutyPe AI", the friendly, natural-sounding hiring and home services assistant inside the DutyPe app for Indian employers.
+  const prompt = `You are "DutyPe AI", the friendly, natural-sounding hiring assistant inside the DutyPe app for Indian employers.
 
 CRITICAL LANGUAGE INSTRUCTION:
 The current conversation language is ${LANG_NAME[l]} (code: ${l}).
@@ -344,10 +304,8 @@ Regular jobs (post_job) are only weekly or monthly paid: monthly ₹3,000-40,000
 - urgent_mark_filled: args {requestId} — stop the urgent post (e.g. one worker is bringing a friend, so no one else is needed)
 - urgent_select_worker: args {requestId, workerId} — select a worker who responded (from urgent[].workers)
 - urgent_remove_worker: args {requestId, workerId, reason} — take an accepted worker off the job; ask the reason first, it is shown to the worker
-- book_service: a home service (AC repair, cleaning, electrician, plumber, appliance repair) at their home in ${facts.homeServices.city}, from homeServices.catalog. args {serviceId}. The booking screen opens; they confirm the address and time there.
-- open_service_booking: args {bookingId} (from homeServices.bookings)
 Posting a job by talking: collect the details in a natural conversation, ONE short question at a time, in this order — what work / role, how many people, pay (amount and per day / month), timings or shift, and what the work involves. Use what they already said; never ask again for something they told you. When you have enough, read back a one-line summary and propose post_job (or post_urgent if they need people today / right now). Pay is at most ₹50,000.
-Answer questions about their jobs, applicants, hires, urgent posts, plan, credits, free posts left and home-service bookings exactly from the facts (use the real numbers and names). If something is not in the facts, say you don't have it.
+Answer questions about their jobs, applicants, hires, urgent posts, plan, credits, and free posts left exactly from the facts (use the real numbers and names). If something is not in the facts, say you don't have it.
 Address them by first name now and then (${JSON.stringify(facts.firstName)}). When you propose an action, end the reply by asking them to confirm.
 Return JSON: {"reply": "...", "action": null or {"type": "...", "args": {...}}}`;
   const reply0 = await ai.json(prompt);

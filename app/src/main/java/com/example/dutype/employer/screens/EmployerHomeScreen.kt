@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import com.example.dutype.homeservices.DefaultServicesCatalog
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CalendarToday
@@ -202,8 +201,8 @@ fun EmployerHomeScreen(
     val dynamicFeatures by appConfigViewModel.dynamicFeaturesConfig.collectAsStateWithLifecycle()
     val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
     val subscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
-    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
-    val showcases by homeServicesViewModel.showcases.collectAsStateWithLifecycle()
+    val promoShowcaseViewModel: com.example.dutype.viewmodels.PromoShowcaseViewModel = hiltViewModel()
+    val showcases by promoShowcaseViewModel.showcases.collectAsStateWithLifecycle()
     val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
     val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
@@ -545,16 +544,7 @@ fun EmployerHomeScreen(
         ) {
             DashboardContent(
                 applicationViewModel = applicationViewModel,
-                homeServicesViewModel = homeServicesViewModel,
-                showcases = showcases,
-                onOpenHomeServices = {
-                    navController.navigate(com.example.dutype.navigation.Routes.SERVICES) {
-                        launchSingleTop = true
-                    }
-                },
                 referralPostsLeft = ownEmployerProfile?.referralPostsLeft ?: 0,
-                onBookService = { id -> rootNavController.navigate(com.example.dutype.navigation.Routes.servicesBookRoute(id)) },
-                onOpenServiceBooking = { id -> rootNavController.navigate(com.example.dutype.navigation.Routes.servicesBookingRoute(id)) },
                 recentJobs = recentJobs,
                 jobStats = jobStats,
                 isLoading = isLoading,
@@ -565,6 +555,7 @@ fun EmployerHomeScreen(
                 onShareJob = handleJobShare,
                 context = context,
                 announcements = announcements,
+                showcases = showcases,
                 onDismissAnnouncement = { announcementId ->
                     announcementViewModel.dismissAnnouncement(announcementId)
                 },
@@ -1130,107 +1121,6 @@ fun EmployerQuickPostSection(
 }
 
 @Composable
-fun EmployerHomeServicesSection(
-    viewModel: com.example.dutype.homeservices.HomeServicesViewModel,
-    onOpenServices: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val catalog by viewModel.catalog.collectAsStateWithLifecycle()
-    val effectiveCatalog = catalog ?: remember { com.example.dutype.homeservices.DefaultServicesCatalog.get() }
-    val categories = remember(effectiveCatalog) {
-        effectiveCatalog.categories.filter { it.id in com.example.dutype.homeservices.DefaultServicesCatalog.ACTIVE_CUSTOMER_CATEGORY_IDS }
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.home_services_in_city, "Khammam"),
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827).fg()
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(R.string.home_services_tagline),
-                    fontSize = 12.sp,
-                    color = Color(0xFF64748B).fg()
-                )
-            }
-            Text(
-                text = stringResource(R.string.see_all),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF8E8E93).fg(),
-                modifier = Modifier.clickable { onOpenServices() }
-            )
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp)
-        ) {
-            items(categories, key = { it.id }) { category ->
-                val minPrice = effectiveCatalog.services
-                    .filter { it.category.equals(category.id, ignoreCase = true) }
-                    .minOfOrNull { it.price }
-                val price = if (minPrice != null && minPrice > 0) stringResource(R.string.from_price, minPrice) else stringResource(R.string.from_price, 99)
-                Card(
-                    modifier = Modifier
-                        .width(122.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .clickable { onOpenServices() },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-                    border = BorderStroke(1.dp, Color(0xFFF1F5F9).bd()),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(82.dp)
-                                .background(Color.White.bg()),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            OptimizedImage(
-                                imageUrl = category.resolvedImageUrl,
-                                contentDescription = category.name,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                            Text(
-                                text = category.name,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF111827).fg(),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text = price,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFE85D04)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun EmployerExecutiveHeroCard(
     companyName: String = "",
     onPostJob: () -> Unit = {},
@@ -1559,6 +1449,7 @@ fun DashboardContent(
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
+    showcases: List<com.example.dutype.models.PromoShowcase> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
     employerPromoBannerUrl: String = "",
     subscription: com.example.dutype.models.EmployerSubscription = com.example.dutype.models.EmployerSubscription(),
@@ -1577,13 +1468,8 @@ fun DashboardContent(
     headerLottieUrl: String = "",
     onNotificationClick: () -> Unit = {},
     onVoiceJobClick: () -> Unit = {},
-    onOpenHomeServices: () -> Unit = {},
     referralPostsLeft: Int = 0,
-    showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
-    onBookService: (String) -> Unit = {},
-    onOpenServiceBooking: (String) -> Unit = {},
-    applicationViewModel: EmployerApplicationViewModel,
-    homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel? = null
+    applicationViewModel: EmployerApplicationViewModel
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
     val appStats by applicationViewModel.stats.collectAsState()
@@ -1687,50 +1573,31 @@ fun DashboardContent(
                 val hasActiveJobs = activeOpenJobs.isNotEmpty()
                 val employerCity = employerProfile?.address.orEmpty().trim().ifBlank { employerProfile?.area.orEmpty().trim() }
 
-                // Promotional Carousel matching Services screen style with live announcements & brand showcases
+                // Promotional Carousel with live announcements & brand showcases
                 item(key = "employer_promo_carousel") {
-                    val filteredShowcases = remember(showcases, employerCity) {
-                        showcases.filter { sc ->
-                            sc.active && (sc.scope.equals("NATIONAL", ignoreCase = true) ||
-                                    sc.district.isBlank() ||
-                                    sc.district.equals("ALL", ignoreCase = true) ||
-                                    (employerCity.isNotBlank() && (
-                                        sc.district.contains(employerCity, ignoreCase = true) ||
-                                        employerCity.contains(sc.district, ignoreCase = true) ||
-                                        sc.address.contains(employerCity, ignoreCase = true)
-                                    )) ||
-                                    employerCity.isBlank())
-                        }
-                    }
-                    val dynamicPromoSlides = remember(announcements, filteredShowcases) {
+                    val dynamicPromoSlides = remember(announcements, showcases) {
                         val announcementSlides = announcements.map { com.example.dutype.components.announcementToSlide(it) }
-                        val showcaseSlides = filteredShowcases.map { com.example.dutype.components.showcaseToSlide(it) }
+                        val showcaseSlides = showcases.map { com.example.dutype.components.showcaseToSlide(it) }
                         announcementSlides + showcaseSlides
                     }
-                    Box(modifier = Modifier.cascadeEnter(index = 0)) {
-                        com.example.dutype.components.PromotionalBannerCarousel(
-                            isWorker = false,
-                            customSlides = dynamicPromoSlides,
-                            onAction = { target ->
-                                val trimmed = target.trim()
-                                when {
-                                    trimmed.startsWith("promo_showcase/") -> navController.navigate(trimmed)
-                                    trimmed.startsWith("showcase:") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase:")))
-                                    trimmed.startsWith("showcase/") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase/")))
-                                    trimmed == "promote_business" || trimmed.contains("promote-business") || trimmed.contains("partner") -> {
-                                        DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                    if (dynamicPromoSlides.isNotEmpty()) {
+                        Box(modifier = Modifier.cascadeEnter(index = 0)) {
+                            com.example.dutype.components.PromotionalBannerCarousel(
+                                isWorker = false,
+                                customSlides = dynamicPromoSlides,
+                                onAction = { target ->
+                                    val trimmed = target.trim()
+                                    when {
+                                        trimmed.startsWith("showcase") -> DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                                        trimmed == "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
+                                        trimmed == "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
+                                        trimmed == "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
+                                        else -> DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
                                     }
-                                    trimmed == "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
-                                    trimmed == "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
-                                    trimmed == "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
-                                    trimmed.startsWith("dutype://") || trimmed.contains("://") -> {
-                                        DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
-                                    }
-                                    else -> DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
-                                }
-                            },
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
+                                },
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        }
                     }
                 }
 
